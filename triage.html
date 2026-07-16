@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tri du jour · LRDH</title>
+<style>
+  :root { --gold:#D4AF37; --ink:#1a1a1a; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f6f7f9; color:var(--ink); }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 20px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:10; }
+  .logo { width:32px; height:32px; border-radius:8px; background:var(--gold); color:#fff; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  header h1 { font-size:14px; } header p { font-size:11px; color:#9ca3af; }
+  header nav { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  header nav a, header nav button { font-size:11px; color:#6b7280; text-decoration:none; background:#f3f4f6; border:0; padding:6px 10px; border-radius:8px; cursor:pointer; white-space:nowrap; }
+  main { max-width:1240px; margin:0 auto; padding:20px 16px 60px; }
+  .bar { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:12px; margin-bottom:18px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; }
+  .bar .grp { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .chip { border:0; background:#f3f4f6; color:#4b5563; padding:7px 12px; border-radius:8px; font-size:11px; font-weight:600; cursor:pointer; }
+  .chip.on { background:var(--gold); color:#fff; }
+  .chip.dark.on { background:#171717; }
+  .cnt { font-size:11px; color:#9ca3af; }
+  .runbtn { border:0; background:#171717; color:#fff; padding:8px 14px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; }
+  .runbtn:disabled { opacity:.5; }
+  #msg { font-size:11px; color:#6b7280; }
+  .cols { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  @media (max-width:900px) { .cols { grid-template-columns:1fr; } }
+  .col { border-radius:12px; border:1px solid #f0f0f0; padding:12px; }
+  .col h2 { font-size:13px; display:flex; align-items:center; gap:6px; }
+  .col .d { font-size:11px; color:#9ca3af; margin:2px 0 10px; }
+  .art { background:#fff; border:1px solid #f0f0f0; border-radius:10px; padding:10px; margin-bottom:8px; display:flex; gap:8px; align-items:flex-start; }
+  .score { flex:0 0 auto; font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px; }
+  .art .ti { font-size:12.5px; font-weight:600; line-height:1.35; }
+  .art .meta { font-size:10.5px; color:#9ca3af; margin-top:2px; }
+  .art .meta a { color:#b45309; }
+  .art .why { font-size:11px; color:#6b7280; font-style:italic; margin-top:4px; }
+  .art .act { display:flex; gap:10px; margin-top:6px; }
+  .art .act a { font-size:10.5px; color:#b45309; font-weight:600; text-decoration:none; }
+  .art .act button { border:0; background:none; font-size:10.5px; color:#9ca3af; cursor:pointer; padding:0; }
+  .art .act button:hover { color:#4b5563; }
+  .flat { max-width:760px; margin:0 auto; }
+  .empty { font-size:11px; color:#9ca3af; text-align:center; padding:14px 0; }
+  .foot { font-size:11px; color:#9ca3af; text-align:center; margin-top:20px; }
+  #gate { position:fixed; inset:0; background:#f6f7f9; display:flex; align-items:center; justify-content:center; z-index:100; }
+  #gate .box { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:28px; width:100%; max-width:360px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+  #gate .logo { margin:0 auto 12px; }
+  #gate h2 { font-size:15px; text-align:center; margin-bottom:4px; }
+  #gate p { font-size:11px; color:#9ca3af; text-align:center; margin-bottom:16px; }
+  #gate input { width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font-size:13px; margin-bottom:10px; }
+  #gate button { width:100%; border:0; border-radius:8px; padding:10px; font-size:13px; font-weight:600; background:var(--gold); color:#fff; cursor:pointer; }
+  #gate .err { color:#dc2626; font-size:11px; text-align:center; min-height:16px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LR</div>
+  <div><h1>Tri du jour · articles scrappés LRDH</h1><p>Classés automatiquement chaque matin (Gemini) · La Revue des Hôtels</p></div>
+  <nav id="topnav" style="display:none">
+    <a href="index.html">← Hub</a>
+    <a href="triage-lrdl.html">🗞️ Journal LRDL</a>
+  </nav>
+</header>
+<div id="gate">
+  <div class="box">
+    <div class="logo">LR</div>
+    <h2>La Revue · Hub</h2>
+    <p>Accès réservé · connecte-toi</p>
+    <input type="email" id="gmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="gpass" placeholder="Mot de passe" autocomplete="current-password">
+    <button id="gbtn">Se connecter</button>
+    <div class="err" id="gerr"></div>
+  </div>
+</div>
+<main id="appmain" style="display:none">
+  <div class="bar">
+    <div class="grp">
+      <button class="chip on" id="f-today">Aujourd'hui</button>
+      <button class="chip" id="f-all">Tous les brouillons</button>
+      <span class="cnt" id="count"></span>
+      <span style="color:#e5e7eb">|</span>
+      <button class="chip dark on" id="s-imp">📊 Importance</button>
+      <button class="chip dark" id="s-date">🕒 Date</button>
+    </div>
+    <div class="grp">
+      <span id="msg"></span>
+      <button class="runbtn" id="run">✨ Trier maintenant</button>
+    </div>
+  </div>
+  <div id="board"></div>
+  <p class="foot">Tri automatique chaque matin (9h40 UTC, GitHub Actions) · « Trier maintenant » lance l'analyse des articles non triés (~1 min, la page se met à jour toute seule).</p>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
+  authDomain: 'larevue-auto-dashboard.firebaseapp.com',
+  projectId: 'larevue-auto-dashboard',
+  storageBucket: 'larevue-auto-dashboard.firebasestorage.app',
+  messagingSenderId: '1064950692754',
+  appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
+});
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const WP = 'https://larevuedeshotels.com/wp-admin/post.php?post=';
+const BUCKETS = [
+  { key:'prioritaire', label:'À retravailler & publier', emoji:'🔴', color:'#dc2626', bg:'#fef2f2', desc:'Sujets forts · reprendre au format LRDH puis publier vite' },
+  { key:'mineur', label:'Mineurs', emoji:'🟡', color:'#d97706', bg:'#fffbeb', desc:'Publiables, sans urgence' },
+  { key:'supprimer', label:'À écarter', emoji:'⚫', color:'#6b7280', bg:'#f9fafb', desc:'Hors-sujet, doublons, trop niche' },
+];
+const BK = Object.fromEntries(BUCKETS.map(b => [b.key, b]));
+
+const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toDate = v => { if (!v) return null; if (v.toDate) return v.toDate(); if (v.seconds) return new Date(v.seconds*1000);
+  const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d; };
+const fmtScrape = d => { if (!d) return '';
+  const days = Math.floor((Date.now()-d.getTime())/86400000);
+  const rel = days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : `il y a ${days} j`;
+  return `${d.toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} à ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})} · ${rel}`; };
+const srcDomain = u => { try { return new URL(u).hostname.replace(/^www\./,''); } catch { return ''; } };
+
+let articles = [], onlyToday = true, sortMode = 'imp';
+
+function rowHtml(a, flat) {
+  const t = a.triage || {};
+  const bk = BK[t.verdict] || BK.mineur;
+  const fr = (t.titre || a.summary || a.title || a.id || '').trim();
+  const headline = fr.length > 140 ? fr.slice(0,138).trimEnd()+'…' : fr;
+  const domain = srcDomain(a.sourceUrl);
+  const meta = [a.city, a.categoryDisplay || a.category].filter(Boolean).join(' · ');
+  const wpId = a.wpPostId || a.postId;
+  const scraped = toDate(a.createdAt);
+  return `<div class="art">
+    <span class="score" style="background:${bk.bg};color:${bk.color}" title="${bk.label}${typeof t.score==='number' ? ' · '+t.score+'/100' : ''}">${flat ? bk.emoji+' ' : ''}${typeof t.score==='number' ? t.score : '·'}</span>
+    <div style="min-width:0;flex:1">
+      <div class="ti">${esc(headline)}</div>
+      <div class="meta">${esc(meta)}${domain ? ` · <a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener">${esc(domain)}</a>` : ''}${a.sourceName ? ` · via ${esc(a.sourceName)}` : ''}</div>
+      ${scraped ? `<div class="meta">🕒 Scrappé le ${fmtScrape(scraped)}</div>` : ''}
+      ${t.reason ? `<div class="why">“${esc(t.reason)}”</div>` : ''}
+      <div class="act">
+        ${wpId ? `<a href="${esc(a.wpPostLink || WP+wpId+'&action=edit')}" target="_blank" rel="noopener">Éditer sur WP →</a>` : ''}
+        <button data-arch="${esc(a.id)}">Archiver</button>
+      </div>
+    </div></div>`;
+}
+
+function render() {
+  const start = new Date(); start.setHours(0,0,0,0);
+  const list = onlyToday ? articles.filter(a => { const d = toDate(a.createdAt); return d && d >= start; }) : articles;
+  const untriaged = list.filter(a => !a.triage?.verdict).length;
+  document.getElementById('count').textContent = `${list.length} article${list.length!==1?'s':''}${untriaged ? ` · ${untriaged} non trié(s)` : ''}`;
+  const board = document.getElementById('board');
+  if (sortMode === 'date') {
+    board.innerHTML = `<div class="flat"><div class="cnt" style="margin-bottom:8px">Du plus récent au plus ancien · pastille = note d'importance /100 (🔴 fort · 🟡 moyen · ⚫ à écarter)</div>`
+      + (list.length ? list.map(a => rowHtml(a, true)).join('') : '<div class="empty">Aucun brouillon</div>') + '</div>';
+  } else {
+    board.innerHTML = `<div class="cols">` + BUCKETS.map(bk => {
+      const items = list.filter(a => (a.triage?.verdict || 'mineur') === bk.key)
+        .sort((x,y) => (y.triage?.score||0) - (x.triage?.score||0));
+      return `<div class="col" style="background:${bk.bg}">
+        <h2 style="color:${bk.color}">${bk.emoji} ${bk.label} <span style="color:#9ca3af;font-weight:400">· ${items.length}</span></h2>
+        <div class="d">${bk.desc}</div>
+        ${items.length ? items.map(a => rowHtml(a)).join('') : '<div class="empty">—</div>'}
+      </div>`;
+    }).join('') + '</div>';
+  }
+  board.querySelectorAll('[data-arch]').forEach(b => b.onclick = async () => {
+    if (!confirm('Archiver ce brouillon ? (réversible dans Firestore)')) return;
+    try { await updateDoc(doc(db, 'lrdh_news_drafts_auto', b.dataset.arch), { status: 'archived' }); } catch(e) { alert('Erreur : '+e.message); }
+  });
+}
+
+// filtres
+const setChip = (onId, offId, fn) => document.getElementById(onId).onclick = () => {
+  document.getElementById(onId).classList.add('on'); document.getElementById(offId).classList.remove('on'); fn(); render();
+};
+setChip('f-today','f-all', () => onlyToday = true);
+setChip('f-all','f-today', () => onlyToday = false);
+setChip('s-imp','s-date', () => sortMode = 'imp');
+setChip('s-date','s-imp', () => sortMode = 'date');
+
+// « Trier maintenant » : déclenche le workflow triage.yml (même token que la régénération)
+document.getElementById('run').onclick = async () => {
+  const btn = document.getElementById('run'), msg = document.getElementById('msg');
+  btn.disabled = true; msg.textContent = 'Lancement…';
+  try {
+    const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
+    if (!snap.exists()) throw new Error('token de déclenchement absent');
+    const { token, repo } = snap.data();
+    const r = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/triage.yml/dispatches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    msg.textContent = r.status === 204 ? '✨ Analyse lancée · verdicts d’ici ~1 min (mise à jour auto)' : 'Erreur GitHub ('+r.status+')';
+  } catch(e) { msg.textContent = 'Erreur : ' + e.message; }
+  setTimeout(() => { btn.disabled = false; }, 30000);
+};
+
+// auth + données
+document.getElementById('gbtn').onclick = async () => {
+  const err = document.getElementById('gerr'); err.textContent = '';
+  try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+  catch { err.textContent = 'Identifiants invalides.'; }
+};
+document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
+let started = false;
+onAuthStateChanged(auth, user => {
+  document.getElementById('gate').style.display = user ? 'none' : 'flex';
+  document.getElementById('topnav').style.display = user ? 'flex' : 'none';
+  document.getElementById('appmain').style.display = user ? 'block' : 'none';
+  if (user && !started) {
+    started = true;
+    onSnapshot(query(collection(db, 'lrdh_news_drafts_auto'), where('status','==','ai_draft_auto')), snap => {
+      const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+      rows.sort((a,b) => (toDate(b.createdAt)?.getTime()||0) - (toDate(a.createdAt)?.getTime()||0));
+      articles = rows; render();
+    }, e => { document.getElementById('board').innerHTML = '<div class="empty">Erreur de chargement : '+esc(e.message)+'</div>'; });
+  }
+});
+</script>
+</body>
+</html>
