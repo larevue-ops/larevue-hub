@@ -53,13 +53,36 @@
   .btn.save { background:var(--gold); color:#fff; } .btn.ghost { background:transparent; color:#6b7280; }
   .btn.danger { background:transparent; color:#dc2626; } .btn:disabled { opacity:.5; }
   .mclose { border:0; background:none; font-size:16px; cursor:pointer; color:#9ca3af; }
+  /* écran de connexion */
+  #gate { position:fixed; inset:0; background:#f6f7f9; display:flex; align-items:center; justify-content:center; z-index:100; }
+  #gate .box { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:28px; width:100%; max-width:360px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+  #gate .logo { margin:0 auto 12px; }
+  #gate h2 { font-size:15px; text-align:center; margin-bottom:4px; }
+  #gate p { font-size:11px; color:#9ca3af; text-align:center; margin-bottom:16px; }
+  #gate input { width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font-size:13px; margin-bottom:10px; }
+  #gate button { width:100%; }
+  #gate .err { color:#dc2626; font-size:11px; text-align:center; min-height:16px; margin-top:8px; }
+  #logout { margin-left:auto; border:0; background:none; color:#9ca3af; font-size:11px; cursor:pointer; }
+  #logout:hover { color:#374151; text-decoration:underline; }
 </style>
 </head>
 <body>
 <header>
   <div class="logo">LR</div>
   <div><h1>La Revue · Hub de publication</h1><p>Programmations sociales · hébergé sur GitHub Pages</p></div>
+  <button id="logout" style="display:none">Se déconnecter</button>
 </header>
+<div id="gate">
+  <div class="box">
+    <div class="logo">LR</div>
+    <h2>La Revue · Hub</h2>
+    <p>Accès réservé · connecte-toi</p>
+    <input type="email" id="gmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="gpass" placeholder="Mot de passe" autocomplete="current-password">
+    <button class="btn save" id="gbtn">Se connecter</button>
+    <div class="err" id="gerr"></div>
+  </div>
+</div>
 <main>
   <div class="board">
     <h2>⏰ Programmations sociales <span class="next" id="next"></span></h2>
@@ -94,6 +117,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const app = initializeApp({
   apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
@@ -164,6 +188,23 @@ function render() {
   root.querySelectorAll('button.edit').forEach(b => b.onclick = () => openModal(b.dataset.q, b.dataset.id));
 }
 
+const auth = getAuth(app);
+let started = false;
+document.getElementById('gbtn').onclick = async () => {
+  const err = document.getElementById('gerr');
+  err.textContent = '';
+  try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+  catch (e) { err.textContent = 'Identifiants invalides.'; }
+};
+document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
+document.getElementById('logout').onclick = () => signOut(auth).then(() => location.reload());
+onAuthStateChanged(auth, user => {
+  document.getElementById('gate').style.display = user ? 'none' : 'flex';
+  document.getElementById('logout').style.display = user ? 'block' : 'none';
+  if (user && !started) { started = true; startListeners(); }
+});
+
+function startListeners() {
 for (const q of QUEUES) {
   onSnapshot(collection(db, q.col), snap => {
     const scheduled = [], published = [];
@@ -177,6 +218,7 @@ for (const q of QUEUES) {
     state[q.key] = { scheduled, published: published.slice(0,6) };
     render();
   });
+}
 }
 
 window.openModal = (qkey, id) => {
