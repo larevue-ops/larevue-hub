@@ -52,6 +52,15 @@
   button.btn { border:0; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; }
   .btn.save { background:var(--gold); color:#fff; } .btn.ghost { background:transparent; color:#6b7280; }
   .btn.danger { background:transparent; color:#dc2626; } .btn:disabled { opacity:.5; }
+  .badge.regen { background:#f59e0b; } .badge.rerr { background:#dc2626; }
+  .hint { font-weight:400; color:#9ca3af; }
+  .modal textarea#mcovtitle { min-height:52px; }
+  .thumbs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
+  .thumbs img.th { width:74px; height:56px; object-fit:cover; border-radius:6px; border:2px solid transparent; cursor:pointer; opacity:.85; }
+  .thumbs img.th.sel { border-color:var(--gold); opacity:1; box-shadow:0 0 0 1px var(--gold); }
+  #toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#111827; color:#fff;
+    padding:10px 16px; border-radius:10px; font-size:12px; font-weight:600; z-index:99; opacity:0; transition:opacity .3s; pointer-events:none; max-width:90vw; }
+  #toast.on { opacity:1; }
   .mclose { border:0; background:none; font-size:16px; cursor:pointer; color:#9ca3af; }
   /* écran de connexion */
   #gate { position:fixed; inset:0; background:#f6f7f9; display:flex; align-items:center; justify-content:center; z-index:100; }
@@ -139,7 +148,7 @@
       <div class="head"><span class="t">📸 Instagram · <span id="igcount">0</span> programmés</span></div>
       <div class="list" id="iglist"></div>
     </div>
-    <div class="note">Édition : caption, horaire, déprogrammation. La régénération des visuels revient avec le portage du générateur.</div>
+    <div class="note">Édition complète : caption, horaire, photo et textes de la cover (catégorie, titre, marque). Un visuel modifié est régénéré par GitHub Actions (~2 min, sinon automatiquement avant le prochain créneau).</div>
   </div>
   <div id="drafts-sec">
     <div class="filters">
@@ -152,6 +161,7 @@
   </div>
 </main>
 
+<div id="toast"></div>
 <div id="overlay">
   <div class="modal">
     <div class="mh"><span id="mtitle">✏️ Modifier le post</span><button class="mclose" onclick="closeModal()">✕</button></div>
@@ -159,6 +169,15 @@
       <img id="mimg" alt="">
       <div class="fields">
         <div id="mpost" style="font-size:12px;font-weight:600;"></div>
+        <label>Catégorie (badge sur l'image)</label>
+        <input id="mcat" placeholder="ex : HÔTELS D'EXCEPTION / DESTINATION…">
+        <label>Titre sur l'image <span class="hint">· *mots* = mis en valeur (encadré or / marqueur)</span></label>
+        <textarea id="mcovtitle"></textarea>
+        <label>Marque / bandeau <span class="hint">· ligne sous le titre</span></label>
+        <input id="mbrand">
+        <label>Photo de la cover <span class="hint">· cliquer pour changer</span></label>
+        <div class="thumbs" id="mthumbs"></div>
+        <input id="mcustomimg" placeholder="…ou coller l'URL d'une autre image">
         <label>Caption LinkedIn</label>
         <textarea id="mcaption"></textarea>
         <label>Publication programmée (heure de Paris)</label>
@@ -177,7 +196,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, onSnapshot, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const app = initializeApp({
@@ -222,6 +241,8 @@ function render() {
       cards += `<div class="card">
         ${p.linkedinImageUrl ? `<img class="cover" loading="lazy" src="${esc(p.linkedinImageUrl)}">` : `<div class="cover" style="display:flex;align-items:center;justify-content:center;background:#f3f4f6;height:208px;">${q.icon}</div>`}
         <span class="badge ${i===0?'next':''}">${i===0?'▶ ':''}${fdate(p.scheduledAt)}</span>
+        ${p.regenRequest?.pending ? '<span class="badge regen" style="top:28px">🎨 régénération…</span>'
+          : p.regenRequest?.error ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ regen échouée</span>` : ''}
         <button class="edit" data-q="${q.key}" data-id="${esc(p.id)}" title="Modifier">✏️</button>
         <div class="body">
           <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
@@ -367,30 +388,93 @@ function renderDrafts() {
 }
 document.addEventListener('input', e => { if (e.target.id === 'q') { draftQ = e.target.value; renderDrafts(); } });
 
+let toastTimer = null;
+function toast(msg, ms = 6000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms);
+}
+
+// déclenche le workflow GitHub "regen-visuals" (token fine-grained stocké côté Firestore, lisible connecté)
+async function triggerRegenWorkflow() {
+  try {
+    const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
+    if (!snap.exists()) return false;
+    const { token, repo, workflow } = snap.data();
+    const r = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    return r.status === 204;
+  } catch { return false; }
+}
+
 window.openModal = (qkey, id) => {
   const post = (state[qkey]?.scheduled || []).find(p => p.id === id);
   if (!post) return;
-  editing = { qkey, post };
+  editing = { qkey, post, pickedImage: null };
   document.getElementById('mtitle').textContent = `✏️ Modifier le post · ${QUEUES.find(x=>x.key===qkey).name}`;
   document.getElementById('mpost').textContent = de(post.title || post.id);
   document.getElementById('mimg').src = post.linkedinImageUrl || '';
+  document.getElementById('mcat').value = post.linkedinCategory || '';
+  document.getElementById('mcovtitle').value = post.linkedinTitle || '';
+  document.getElementById('mbrand').value = post.linkedinBrand || '';
+  document.getElementById('mcustomimg').value = '';
   document.getElementById('mcaption').value = post.linkedinCaption || '';
   document.getElementById('mdate').value = toLocal(post.scheduledAt);
+  // vignettes : photos candidates de l'article, l'actuelle en surbrillance
+  const current = post.selectedImage || post.linkedinSelectedImage || '';
+  const imgs = [...new Set([current, ...(post.availableImages || [])].filter(Boolean))].slice(0, 8);
+  document.getElementById('mthumbs').innerHTML = imgs.map(u =>
+    `<img class="th ${u === current ? 'sel' : ''}" loading="lazy" src="${esc(u)}" data-u="${esc(u)}">`).join('')
+    || '<span class="hint" style="font-size:11px">Aucune autre photo détectée · coller une URL ci-dessous.</span>';
+  document.querySelectorAll('#mthumbs img.th').forEach(im => im.onclick = () => {
+    document.querySelectorAll('#mthumbs img.th').forEach(x => x.classList.remove('sel'));
+    im.classList.add('sel');
+    editing.pickedImage = im.dataset.u === current ? null : im.dataset.u;
+    document.getElementById('mcustomimg').value = '';
+  });
   document.getElementById('overlay').classList.add('on');
 };
 window.closeModal = () => { editing = null; document.getElementById('overlay').classList.remove('on'); };
 window.saveEdit = async () => {
   if (!editing) return;
   const q = QUEUES.find(x => x.key === editing.qkey);
+  const post = editing.post;
   const btn = document.getElementById('msave'); btn.disabled = true;
   try {
     const dt = document.getElementById('mdate').value;
-    await updateDoc(doc(db, q.col, editing.post.id), {
+    const upd = {
       linkedinCaption: document.getElementById('mcaption').value,
       ...(dt ? { scheduledAt: new Date(dt).toISOString() } : {}),
       status: 'scheduled',
-    });
+    };
+    // ── détection des changements visuels → demande de régénération ──
+    const rr = {};
+    const cat = document.getElementById('mcat').value.trim();
+    const covTitle = document.getElementById('mcovtitle').value.trim();
+    const brand = document.getElementById('mbrand').value.trim();
+    const customUrl = document.getElementById('mcustomimg').value.trim();
+    if (cat && cat !== (post.linkedinCategory || '')) rr.category = cat;
+    if (covTitle && covTitle !== (post.linkedinTitle || '')) rr.title = covTitle;
+    if (brand && brand !== (post.linkedinBrand || '')) rr.brand = brand;
+    const newImg = customUrl || editing.pickedImage;
+    if (newImg) rr.customImage = newImg;
+    const wantsRegen = Object.keys(rr).length > 0;
+    if (wantsRegen) {
+      upd.regenRequest = { ...rr, pending: true, requestedAt: new Date().toISOString() };
+    }
+    await updateDoc(doc(db, q.col, post.id), upd);
     closeModal();
+    if (wantsRegen) {
+      const fired = await triggerRegenWorkflow();
+      toast(fired
+        ? '🎨 Régénération lancée · la nouvelle image apparaît ici d’ici ~2 min.'
+        : '🎨 Modification enregistrée · le visuel sera régénéré automatiquement avant le prochain créneau de publication.');
+    } else {
+      toast('✅ Modifications enregistrées.');
+    }
   } catch(e) { alert('Erreur : ' + e.message); }
   btn.disabled = false;
 };
