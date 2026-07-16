@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Générateur LinkedIn · LRDH</title>
+<style>
+  :root { --gold:#D4AF37; --ink:#1a1a1a; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f6f7f9; color:var(--ink); }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 20px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:10; }
+  .logo { width:32px; height:32px; border-radius:8px; background:var(--gold); color:#fff; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  header h1 { font-size:14px; } header p { font-size:11px; color:#9ca3af; }
+  header nav { margin-left:auto; display:flex; gap:8px; }
+  header nav a { font-size:11px; color:#6b7280; text-decoration:none; background:#f3f4f6; padding:6px 10px; border-radius:8px; white-space:nowrap; }
+  main { max-width:1240px; margin:0 auto; padding:20px 16px 60px; }
+  .sect { font-size:13px; font-weight:600; margin:4px 0 4px; }
+  .subnote { font-size:11px; color:#9ca3af; margin-bottom:12px; }
+  .warn { background:#fffbeb; border:1px solid #fde68a; color:#92400e; font-size:11.5px; border-radius:10px; padding:10px 12px; margin-bottom:16px; line-height:1.5; }
+  .qrow { display:flex; gap:12px; overflow-x:auto; padding-bottom:8px; margin-bottom:20px; }
+  .qcard { flex:0 0 190px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  .qcard img { width:100%; height:224px; object-fit:cover; display:block; }
+  .qcard .gen { height:224px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:#f9fafb; color:#9ca3af; font-size:11px; }
+  .spin { width:22px; height:22px; border:3px solid #e5e7eb; border-top-color:var(--gold); border-radius:50%; animation:r 1s linear infinite; }
+  @keyframes r { to { transform:rotate(360deg); } }
+  .qcard .b { padding:9px; }
+  .qcard .ti { font-size:11px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .qcard .cap { font-size:10px; color:#6b7280; margin-top:4px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .qcard input[type=datetime-local] { width:100%; border:1px solid #e5e7eb; border-radius:7px; padding:5px 6px; font-size:10.5px; margin-top:7px; font-family:inherit; }
+  .qcard .acts { display:flex; gap:6px; margin-top:7px; }
+  .qcard .acts button { flex:1; border:0; border-radius:7px; padding:7px 0; font-size:10.5px; font-weight:700; cursor:pointer; }
+  .sched { background:#059669; color:#fff; } .drop { background:#fef2f2; color:#b91c1c; flex:0 0 32px !important; }
+  .empty { font-size:11px; color:#9ca3af; padding:10px 0; }
+  .bar { display:flex; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .bar input[type=search] { flex:1; min-width:200px; border:1px solid #e5e7eb; border-radius:9px; padding:9px 12px; font-size:12px; background:#fff; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; }
+  .art { background:#fff; border:1px solid #f0f0f0; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; position:relative; }
+  .art img { width:100%; height:140px; object-fit:cover; }
+  .st { position:absolute; top:8px; left:8px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:99px; color:#fff; }
+  .art .b { padding:10px; flex:1; display:flex; flex-direction:column; gap:6px; }
+  .art .ti { font-size:12px; font-weight:600; line-height:1.35; }
+  .art .dm { font-size:10px; color:#9ca3af; }
+  .art .dm a { color:#b45309; }
+  .art button.go { border:0; border-radius:8px; padding:8px 0; font-size:11px; font-weight:700; cursor:pointer; background:var(--gold); color:#fff; margin-top:auto; }
+  .art button.go:disabled { opacity:.45; cursor:default; }
+  #toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#111827; color:#fff;
+    padding:10px 16px; border-radius:10px; font-size:12px; font-weight:600; z-index:99; opacity:0; transition:opacity .3s; pointer-events:none; max-width:90vw; }
+  #toast.on { opacity:1; }
+  #gate { position:fixed; inset:0; background:#f6f7f9; display:flex; align-items:center; justify-content:center; z-index:100; }
+  #gate .box { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:28px; width:100%; max-width:360px; box-shadow:0 10px 30px rgba(0,0,0,.06); }
+  #gate .logo { margin:0 auto 12px; }
+  #gate h2 { font-size:15px; text-align:center; margin-bottom:4px; }
+  #gate p { font-size:11px; color:#9ca3af; text-align:center; margin-bottom:16px; }
+  #gate input { width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font-size:13px; margin-bottom:10px; }
+  #gate button { width:100%; border:0; border-radius:8px; padding:10px; font-size:13px; font-weight:600; background:var(--gold); color:#fff; cursor:pointer; }
+  #gate .err { color:#dc2626; font-size:11px; text-align:center; min-height:16px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LR</div>
+  <div><h1>Générateur LinkedIn · La Revue des Hôtels</h1><p>Choisis un article publié → cover + caption générées → programme le créneau</p></div>
+  <nav id="topnav" style="display:none">
+    <a href="index.html">← Hub</a>
+    <a href="triage.html">✨ Tri LRDH</a>
+  </nav>
+</header>
+<div id="gate">
+  <div class="box">
+    <div class="logo">LR</div>
+    <h2>La Revue · Hub</h2>
+    <p>Accès réservé · connecte-toi</p>
+    <input type="email" id="gmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="gpass" placeholder="Mot de passe" autocomplete="current-password">
+    <button id="gbtn">Se connecter</button>
+    <div class="err" id="gerr"></div>
+  </div>
+</div>
+<div id="toast"></div>
+<main id="appmain" style="display:none">
+  <div class="warn">⚠️ Le compte LinkedIn connecté pour la file LRDH est actuellement le profil <b>« La Revue du Luxe »</b> (pas un compte LRDH dédié). Les posts programmés ici partiront sur ce profil tant que la reconnexion LRDH n'est pas faite.</div>
+
+  <div class="sect">🖼️ Posts générés · à programmer</div>
+  <div class="subnote">La génération prend ~1 minute (cover + caption, GitHub Actions) · la carte se met à jour toute seule. Une fois programmé, le post se retrouve et se modifie sur la page d'accueil du hub.</div>
+  <div class="qrow" id="queue"><div class="empty">Chargement…</div></div>
+
+  <div class="sect">📰 Articles récents · larevuedeshotels.com</div>
+  <div class="subnote">Derniers articles publiés sur le site · « ✨ Générer » crée le visuel et la caption.</div>
+  <div class="bar"><input type="search" id="q" placeholder="🔍 Filtrer les articles…"></div>
+  <div class="grid" id="arts"><div class="empty">Chargement…</div></div>
+</main>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
+  authDomain: 'larevue-auto-dashboard.firebaseapp.com',
+  projectId: 'larevue-auto-dashboard',
+  storageBucket: 'larevue-auto-dashboard.firebasestorage.app',
+  messagingSenderId: '1064950692754',
+  appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
+});
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+const WP = 'https://larevuedeshotels.com';
+const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const de = s => { const t = document.createElement('textarea'); t.innerHTML = String(s||''); return t.value; };
+const stripHtml = s => de(String(s||'').replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').trim();
+const fdate = iso => iso ? new Date(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+const toLocal = d => { const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+let toastTimer = null;
+function toast(msg, ms = 6000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms);
+}
+
+async function dispatchRegen() {
+  try {
+    const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
+    if (!snap.exists()) return false;
+    const { token, repo, workflow } = snap.data();
+    const r = await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: 'main' }),
+    });
+    return r.status === 204;
+  } catch { return false; }
+}
+
+// prochain créneau libre : 4/8/12/16 UTC, en évitant les posts déjà programmés
+function nextFreeSlot() {
+  const taken = new Set();
+  for (const p of queueDocs) {
+    if (p.status === 'scheduled' && !p.publishedToLinkedin && p.scheduledAt && new Date(p.scheduledAt) >= new Date()) {
+      taken.add(String(p.scheduledAt).slice(0, 13));
+    }
+  }
+  const now = new Date();
+  const day = new Date(now); day.setUTCHours(0,0,0,0);
+  for (let i = 0; i < 90; i++) {
+    for (const h of [4, 8, 12, 16]) {
+      const s = new Date(day); s.setUTCHours(h, 0, 0, 0);
+      if (s > now && !taken.has(s.toISOString().slice(0, 13))) return s;
+    }
+    day.setUTCDate(day.getUTCDate() + 1);
+  }
+  return new Date(now.getTime() + 2 * 3600 * 1000);
+}
+
+let queueDocs = [], wpPosts = [], filter = '';
+
+function renderQueue() {
+  const root = document.getElementById('queue');
+  const pend = queueDocs.filter(p => p.regenRequest?.pending);
+  const ready = queueDocs.filter(p => !p.regenRequest?.pending && p.status === 'image_ready' && p.linkedinImageUrl);
+  const cards = [];
+  for (const p of pend) {
+    cards.push(`<div class="qcard"><div class="gen"><div class="spin"></div>Génération en cours…<br>~1 min</div>
+      <div class="b"><div class="ti">${esc(de(p.title || p.id))}</div></div></div>`);
+  }
+  for (const p of ready) {
+    cards.push(`<div class="qcard">
+      <img loading="lazy" src="${esc(p.linkedinImageUrl)}">
+      <div class="b">
+        <div class="ti">${esc(de(p.title || p.id))}</div>
+        <div class="cap">${esc((p.linkedinCaption||'').replace(/^📲[^\n]*\n?/,'').trim().slice(0,110))}</div>
+        <input type="datetime-local" data-dt="${esc(p.id)}" value="${toLocal(nextFreeSlot())}">
+        <div class="acts">
+          <button class="sched" data-sched="${esc(p.id)}">🗓️ Programmer</button>
+          <button class="drop" data-drop="${esc(p.id)}" title="Retirer">🗑️</button>
+        </div>
+      </div></div>`);
+  }
+  root.innerHTML = cards.join('') || '<div class="empty">Aucun post en attente · génère depuis un article ci-dessous.</div>';
+  root.querySelectorAll('[data-sched]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.sched;
+    const dt = root.querySelector(`[data-dt="${CSS.escape(id)}"]`)?.value;
+    if (!dt) return;
+    b.disabled = true;
+    try {
+      await updateDoc(doc(db, 'lrdh_linkedin_queue', id), { status: 'scheduled', scheduledAt: new Date(dt).toISOString() });
+      toast(`🗓️ Programmé · ${fdate(new Date(dt).toISOString())} · modifiable depuis l'accueil du hub`);
+    } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
+  });
+  root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
+    if (!confirm('Retirer ce post généré ?')) return;
+    try { await updateDoc(doc(db, 'lrdh_linkedin_queue', b.dataset.drop), { status: 'archived_stale' }); } catch(e) { alert('Erreur : ' + e.message); }
+  });
+}
+
+function stBadge(q) {
+  if (!q) return '';
+  if (q.regenRequest?.pending) return '<span class="st" style="background:#f59e0b">⏳ génération…</span>';
+  if (q.publishedToLinkedin) return '<span class="st" style="background:#059669">✓ publié</span>';
+  if (q.status === 'scheduled') return '<span class="st" style="background:#2563eb">🗓️ programmé</span>';
+  if (q.status === 'image_ready' && q.linkedinImageUrl) return '<span class="st" style="background:#7c3aed">🖼️ prêt</span>';
+  return '';
+}
+
+function renderArts() {
+  const root = document.getElementById('arts');
+  const byId = Object.fromEntries(queueDocs.map(p => [String(p.postId || p.id), p]));
+  let list = wpPosts;
+  if (filter) { const f = filter.toLowerCase(); list = list.filter(a => a._title.toLowerCase().includes(f)); }
+  root.innerHTML = list.map(a => {
+    const q = byId[String(a.id)];
+    const busy = q && (q.regenRequest?.pending || q.publishedToLinkedin || q.status === 'scheduled' || (q.status === 'image_ready' && q.linkedinImageUrl));
+    return `<div class="art">
+      ${a._img ? `<img loading="lazy" src="${esc(a._img)}">` : ''}
+      ${stBadge(q)}
+      <div class="b">
+        <div class="ti">${esc(a._title)}</div>
+        <div class="dm">${new Date(a.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · <a href="${esc(a.link)}" target="_blank" rel="noopener">voir l'article ↗</a></div>
+        <button class="go" data-gen="${a.id}" ${busy ? 'disabled' : ''}>${q?.status === 'scheduled' ? 'Déjà programmé' : q?.publishedToLinkedin ? 'Déjà publié' : q?.regenRequest?.pending ? 'Génération…' : q?.linkedinImageUrl && q?.status === 'image_ready' ? 'Prêt (ci-dessus)' : '✨ Générer le post'}</button>
+      </div></div>`;
+  }).join('') || '<div class="empty">Aucun article.</div>';
+  root.querySelectorAll('[data-gen]').forEach(b => b.onclick = async () => {
+    const a = wpPosts.find(x => String(x.id) === b.dataset.gen);
+    if (!a) return;
+    b.disabled = true; b.textContent = 'Lancement…';
+    try {
+      await setDoc(doc(db, 'lrdh_linkedin_queue', String(a.id)), {
+        postId: String(a.id),
+        title: a._title,
+        excerpt: a._excerpt,
+        wpUrl: a.link,
+        imageTop: a._img || '',
+        publishedToLinkedin: false,
+        createdVia: 'hub',
+        regenRequest: { pending: true, requestedAt: new Date().toISOString() },
+      }, { merge: true });
+      const fired = await dispatchRegen();
+      toast(fired ? '✨ Génération lancée · le post apparaît en haut d’ici ~1 min.'
+                  : '✨ Demande enregistrée · générée au prochain passage du runner.');
+    } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
+  });
+}
+
+async function loadWp() {
+  try {
+    const r = await fetch(`${WP}/wp-json/wp/v2/posts?per_page=50&_embed=wp:featuredmedia&_fields=id,date,link,title,excerpt,_links,_embedded`);
+    const posts = await r.json();
+    // Polylang ignore ?lang= en REST → on écarte les traductions /en/ et /es/ côté client
+    wpPosts = posts.filter(p => !/\/(en|es)\//.test(p.link || '')).map(p => ({
+      ...p,
+      _title: stripHtml(p.title?.rendered || ''),
+      _excerpt: stripHtml(p.excerpt?.rendered || '').slice(0, 300),
+      _img: p._embedded?.['wp:featuredmedia']?.[0]?.source_url || '',
+    }));
+    renderArts();
+  } catch(e) {
+    document.getElementById('arts').innerHTML = '<div class="empty">Erreur de chargement WP : ' + esc(e.message) + '</div>';
+  }
+}
+
+document.getElementById('q').addEventListener('input', e => { filter = e.target.value; renderArts(); });
+
+document.getElementById('gbtn').onclick = async () => {
+  const err = document.getElementById('gerr'); err.textContent = '';
+  try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+  catch { err.textContent = 'Identifiants invalides.'; }
+};
+document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
+let started = false;
+onAuthStateChanged(auth, user => {
+  document.getElementById('gate').style.display = user ? 'none' : 'flex';
+  document.getElementById('topnav').style.display = user ? 'flex' : 'none';
+  document.getElementById('appmain').style.display = user ? 'block' : 'none';
+  if (user && !started) {
+    started = true;
+    onSnapshot(collection(db, 'lrdh_linkedin_queue'), snap => {
+      const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+      rows.sort((a,b) => String(b.regenRequest?.requestedAt || b.generatedAt || '').localeCompare(String(a.regenRequest?.requestedAt || a.generatedAt || '')));
+      queueDocs = rows; renderQueue(); renderArts();
+    }, e => { document.getElementById('queue').innerHTML = '<div class="empty">Erreur : ' + esc(e.message) + '</div>'; });
+    loadWp();
+  }
+});
+</script>
+</body>
+</html>
