@@ -62,15 +62,62 @@
   #gate input { width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font-size:13px; margin-bottom:10px; }
   #gate button { width:100%; }
   #gate .err { color:#dc2626; font-size:11px; text-align:center; min-height:16px; margin-top:8px; }
-  #logout { margin-left:auto; border:0; background:none; color:#9ca3af; font-size:11px; cursor:pointer; }
+  #logout { border:0; background:none; color:#9ca3af; font-size:11px; cursor:pointer; }
   #logout:hover { color:#374151; text-decoration:underline; }
+  /* nav header */
+  nav { margin-left:auto; display:flex; gap:4px; align-items:center; flex-wrap:wrap; }
+  nav a { display:flex; gap:5px; align-items:center; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:500; color:#4b5563; text-decoration:none; }
+  nav a:hover { background:#f3f4f6; }
+  nav .divider { width:1px; height:22px; background:#e5e7eb; margin:0 4px; }
+  /* stats */
+  .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:20px; }
+  @media(min-width:640px){ .stats { grid-template-columns:repeat(3,1fr); } }
+  @media(min-width:1024px){ .stats { grid-template-columns:repeat(6,1fr); } }
+  .stat { background:#fff; border:1px solid #f0f0f0; border-radius:12px; padding:14px; display:flex; justify-content:space-between; align-items:center; }
+  .stat .v { font-size:22px; font-weight:700; }
+  .stat .l { font-size:11px; color:#6b7280; margin-top:2px; }
+  .stat .i { font-size:22px; opacity:.6; }
+  /* instagram compact */
+  .strip.insta { background:#fdf2f888; border-color:#fce7f3; } .strip.insta .t { color:#be185d; }
+  .strip.insta .list { max-height:130px; overflow-y:auto; }
+  .strip.insta .line { display:flex; justify-content:space-between; font-size:11px; padding:2px 0; gap:10px; }
+  .strip.insta .line span:first-child { color:#374151; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .strip.insta .line span:last-child { color:#9ca3af; white-space:nowrap; }
+  /* drafts */
+  .filters { background:#fff; border:1px solid #f0f0f0; border-radius:14px; padding:14px; margin:20px 0; display:flex; flex-direction:column; gap:10px; }
+  @media(min-width:768px){ .filters { flex-direction:row; align-items:center; } }
+  .filters input { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:9px 12px; font-size:13px; }
+  .chips { display:flex; gap:6px; overflow-x:auto; }
+  .chip { border:0; background:#f3f4f6; color:#4b5563; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:500; cursor:pointer; white-space:nowrap; }
+  .chip.on { background:#fef3c7; color:#b45309; }
+  .drafts { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px; }
+  .draft { background:#fff; border:1px solid #f0f0f0; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }
+  .draft img { width:100%; height:140px; object-fit:cover; }
+  .draft .db { padding:10px; flex:1; display:flex; flex-direction:column; gap:6px; }
+  .draft .dt { font-size:12px; font-weight:600; line-height:1.35; }
+  .draft .dm { font-size:10px; color:#9ca3af; }
+  .draft .dx { font-size:11px; color:#6b7280; line-height:1.45; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .draft .da { display:flex; gap:6px; margin-top:auto; padding-top:8px; }
+  .draft .da button { flex:1; border:0; border-radius:7px; padding:7px 0; font-size:11px; font-weight:600; cursor:pointer; }
+  .draft .arch { background:#fef2f2; color:#b91c1c; }
+  .draft .rest { background:#ecfdf5; color:#047857; }
+  .sect-title { font-size:13px; font-weight:600; margin:20px 0 10px; }
+  .autonote { font-size:11px; color:#9ca3af; margin-bottom:12px; }
 </style>
 </head>
 <body>
 <header>
   <div class="logo">LR</div>
-  <div><h1>La Revue · Hub de publication</h1><p>Programmations sociales · hébergé sur GitHub Pages</p></div>
-  <button id="logout" style="display:none">Se déconnecter</button>
+  <div><h1>La Revue · Hub de publication</h1><p>Publication Dashboard · GitHub Pages</p></div>
+  <nav id="topnav" style="display:none">
+    <a href="#strip-lrdl">💼 <span>LinkedIn LRDL</span></a>
+    <a href="#strip-lrdv">✈️ <span>LinkedIn LRDV</span></a>
+    <a href="#strip-lrdh">🏨 <span>LinkedIn LRDH</span></a>
+    <a href="#strip-insta">📸 <span>Instagram</span></a>
+    <a href="#drafts-sec">📰 <span>Brouillons</span></a>
+    <span class="divider"></span>
+    <button id="logout" style="display:none">Se déconnecter</button>
+  </nav>
 </header>
 <div id="gate">
   <div class="box">
@@ -83,11 +130,25 @@
     <div class="err" id="gerr"></div>
   </div>
 </div>
-<main>
+<main id="appmain" style="display:none">
+  <div class="stats" id="stats"></div>
   <div class="board">
     <h2>⏰ Programmations sociales <span class="next" id="next"></span></h2>
     <div id="strips"></div>
-    <div class="note">Édition : caption, horaire, déprogrammation. La régénération des visuels revient avec le portage du générateur (ou au réveil de Vercel).</div>
+    <div class="strip insta" id="strip-insta">
+      <div class="head"><span class="t">📸 Instagram · <span id="igcount">0</span> programmés</span></div>
+      <div class="list" id="iglist"></div>
+    </div>
+    <div class="note">Édition : caption, horaire, déprogrammation. La régénération des visuels revient avec le portage du générateur.</div>
+  </div>
+  <div id="drafts-sec">
+    <div class="filters">
+      <input id="q" type="search" placeholder="🔍 Rechercher un article, une ville…">
+      <div class="chips" id="chips"></div>
+    </div>
+    <div class="sect-title">📰 Brouillons en attente de publication</div>
+    <div class="autonote">Publication automatique : 2 passages par jour (8h30 et 16h30 Paris) via GitHub Actions · 3 articles max par passage, plus anciens d'abord.</div>
+    <div class="drafts" id="drafts"></div>
   </div>
 </main>
 
@@ -153,6 +214,7 @@ function render() {
     for (const p of st.scheduled) if (p.scheduledAt >= nowIso && (!soonest || p.scheduledAt < soonest)) soonest = p.scheduledAt;
     const div = document.createElement('div');
     div.className = `strip ${q.cls}`;
+    div.id = `strip-${q.key}`;
     const cnt = `${st.scheduled.length} programmé${st.scheduled.length>1?'s':''}` + (st.published.length ? ` · ${st.published.length} publiés récemment` : '');
     let cards = '';
     st.scheduled.forEach((p, i) => {
@@ -201,6 +263,8 @@ document.getElementById('logout').onclick = () => signOut(auth).then(() => locat
 onAuthStateChanged(auth, user => {
   document.getElementById('gate').style.display = user ? 'none' : 'flex';
   document.getElementById('logout').style.display = user ? 'block' : 'none';
+  document.getElementById('topnav').style.display = user ? 'flex' : 'none';
+  document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user && !started) { started = true; startListeners(); }
 });
 
@@ -217,9 +281,91 @@ for (const q of QUEUES) {
     published.sort((a,b) => String(b.publishedAt||b.scheduledAt||'').localeCompare(String(a.publishedAt||a.scheduledAt||'')));
     state[q.key] = { scheduled, published: published.slice(0,6) };
     render();
+    renderStats();
   });
 }
+
+// Instagram (lecture seule, comme avant)
+onSnapshot(collection(db, 'instagram_queue'), snap => {
+  const rows = [];
+  snap.forEach(d => {
+    const x = d.data();
+    if (x.status === 'scheduled' && !x.publishedToInstagram) rows.push({ id: d.id, ...x });
+  });
+  rows.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
+  igCount = rows.length;
+  document.getElementById('igcount').textContent = rows.length;
+  document.getElementById('iglist').innerHTML = rows.slice(0, 8).map(p =>
+    `<div class="line"><span>${esc(de(p.igTitle || p.title || p.id))}</span><span>${fdate(p.scheduledAt)}</span></div>`
+  ).join('') + (rows.length > 8 ? `<div class="line"><span style="color:#be185d">+${rows.length - 8} autres</span></div>` : '');
+  renderStats();
+});
+
+// Brouillons en attente
+onSnapshot(collection(db, 'news_drafts_auto'), snap => {
+  drafts = [];
+  snap.forEach(d => {
+    const x = d.data();
+    if (x.status === 'ai_draft_auto') drafts.push({ id: d.id, ...x });
+  });
+  drafts.sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  renderDrafts();
+  renderStats();
+});
 }
+
+// ─── Stats ───
+let igCount = 0, drafts = [], draftCat = 'all', draftQ = '';
+const CATS = [
+  { id:'all', label:'Tous', emoji:'📰' }, { id:'hotel', label:'Hôtels', emoji:'🏨' },
+  { id:'restaurant', label:'Restaurants', emoji:'🍽️' }, { id:'spa', label:'Spas', emoji:'🧖' },
+  { id:'luxe', label:'Luxe', emoji:'💎' }, { id:'voyages', label:'Voyages', emoji:'✈️' },
+  { id:'mode', label:'Mode', emoji:'👗' }, { id:'lifestyle', label:'Lifestyle', emoji:'✨' },
+  { id:'culture', label:'Culture', emoji:'🎭' }, { id:'automobile', label:'Auto', emoji:'🚗' },
+];
+function renderStats() {
+  const liTotal = QUEUES.reduce((n, q) => n + ((state[q.key]||{}).scheduled||[]).length, 0);
+  const cnt = id => drafts.filter(a => a.category === id).length;
+  const lif = drafts.filter(a => ['voyages','lifestyle','culture','mode'].includes(a.category)).length;
+  document.getElementById('stats').innerHTML = [
+    { v: drafts.length, l: 'En attente', i: '📰', c: '#D4AF37' },
+    { v: cnt('hotel'), l: 'Hôtels', i: '🏨', c: '#3b82f6' },
+    { v: cnt('restaurant'), l: 'Restaurants', i: '🍽️', c: '#f97316' },
+    { v: lif, l: 'Lifestyle & Co', i: '✨', c: '#8b5cf6' },
+    { v: liTotal, l: 'LinkedIn prog.', i: '💼', c: '#0A66C2' },
+    { v: igCount, l: 'Instagram prog.', i: '📸', c: '#dc2743' },
+  ].map(s => `<div class="stat"><div><div class="v" style="color:${s.c}">${s.v}</div><div class="l">${s.l}</div></div><span class="i">${s.i}</span></div>`).join('');
+}
+
+// ─── Brouillons ───
+function renderDrafts() {
+  document.getElementById('chips').innerHTML = CATS.map(c =>
+    `<button class="chip ${draftCat===c.id?'on':''}" data-c="${c.id}">${c.emoji} ${c.label}</button>`).join('');
+  document.querySelectorAll('.chip').forEach(b => b.onclick = () => { draftCat = b.dataset.c; renderDrafts(); });
+  let list = drafts;
+  if (draftCat !== 'all') list = list.filter(a => a.category === draftCat);
+  if (draftQ) { const q = draftQ.toLowerCase(); list = list.filter(a => (a.title||'').toLowerCase().includes(q) || (a.city||'').toLowerCase().includes(q)); }
+  document.getElementById('drafts').innerHTML = list.map(a => {
+    const img = (a.images||[])[0]?.url || (a.images||[])[0] || '';
+    const cat = CATS.find(c => c.id === a.category);
+    return `<div class="draft">
+      ${img ? `<img loading="lazy" src="${esc(img)}">` : ''}
+      <div class="db">
+        <div class="dm">${cat ? cat.emoji + ' ' + cat.label : esc(a.categoryDisplay || a.category || '')}${a.city ? ' · ' + esc(a.city) : ''} · ${(a.createdAt||'').slice(0,10)}</div>
+        <div class="dt">${esc(de(a.title||''))}</div>
+        <div class="dx">${esc((a.summary||'').replace(/<[^>]+>/g,'').slice(0,180))}</div>
+        <div class="da">
+          ${a.sourceUrl ? `<a class="chip" style="text-align:center;text-decoration:none;flex:1" target="_blank" href="${esc(a.sourceUrl)}">Source ↗</a>` : ''}
+          <button class="arch" data-id="${esc(a.id)}">📦 Archiver</button>
+        </div>
+      </div></div>`;
+  }).join('') || '<div class="empty">Aucun brouillon en attente.</div>';
+  document.querySelectorAll('.draft .arch').forEach(b => b.onclick = async () => {
+    if (!confirm('Archiver ce brouillon ? (réversible dans Firestore)')) return;
+    await updateDoc(doc(db, 'news_drafts_auto', b.dataset.id), { status: 'archived' });
+  });
+}
+document.addEventListener('input', e => { if (e.target.id === 'q') { draftQ = e.target.value; renderDrafts(); } });
 
 window.openModal = (qkey, id) => {
   const post = (state[qkey]?.scheduled || []).find(p => p.id === id);
