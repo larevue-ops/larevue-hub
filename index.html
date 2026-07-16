@@ -53,6 +53,13 @@
   .btn.save { background:var(--gold); color:#fff; } .btn.ghost { background:transparent; color:#6b7280; }
   .btn.danger { background:transparent; color:#dc2626; } .btn:disabled { opacity:.5; }
   .badge.regen { background:#f59e0b; } .badge.rerr { background:#dc2626; }
+  .badge.rdy { background:#7c3aed; }
+  .cover.ph { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background:linear-gradient(160deg,#f8f6f0,#efece3); height:208px; font-size:26px; }
+  .cover.ph span { font-size:9px; letter-spacing:2px; color:#b8a86c; font-weight:700; }
+  .spin { width:20px; height:20px; border:3px solid #e5e7eb; border-top-color:var(--gold); border-radius:50%; animation:rot 1s linear infinite; }
+  @keyframes rot { to { transform:rotate(360deg); } }
+  .mhint { font-size:10.5px; color:#9ca3af; margin-top:4px; }
   .hint { font-weight:400; color:#9ca3af; }
   .modal textarea#mcovtitle { min-height:52px; }
   .thumbs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; }
@@ -185,6 +192,7 @@
         <textarea id="mcaption"></textarea>
         <label>Publication programmée (heure de Paris)</label>
         <input type="datetime-local" id="mdate">
+        <div class="mhint" id="mdatehint"></div>
       </div>
     </div>
     <div class="mf">
@@ -199,7 +207,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, onSnapshot, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, query, where, limit, onSnapshot, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const app = initializeApp({
@@ -217,8 +225,11 @@ const QUEUES = [
   { key:'lrdv', cls:'lrdv', icon:'✈️', name:'LinkedIn LRDV', col:'lrdv_linkedin_queue' },
   { key:'lrdh', cls:'lrdh', icon:'🏨', name:'LinkedIn LRDH', col:'lrdh_linkedin_queue' },
 ];
-const state = {}; // key -> {scheduled, published}
+const state = {}; // key -> {scheduled, ready, published}
 let editing = null;
+// #edit=lrdh:12737 → ouvre la modale de ce post à l'arrivée (lien depuis la page Générer)
+const hm = location.hash.match(/^#edit=([a-z]+):(.+)$/);
+let pendingHashEdit = hm ? [hm[1], decodeURIComponent(hm[2])] : null;
 
 const de = s => String(s||'').replace(/&#8211;|&ndash;/g,'–').replace(/&#8217;|&rsquo;/g,'\u2019').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
 const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -232,17 +243,22 @@ function render() {
   let soonest = null;
   const nowIso = new Date().toISOString();
   for (const q of QUEUES) {
-    const st = state[q.key] || { scheduled:[], published:[] };
+    const st = state[q.key] || { scheduled:[], ready:[], published:[] };
     for (const p of st.scheduled) if (p.scheduledAt >= nowIso && (!soonest || p.scheduledAt < soonest)) soonest = p.scheduledAt;
     const div = document.createElement('div');
     div.className = `strip ${q.cls}`;
     div.id = `strip-${q.key}`;
-    const cnt = `${st.scheduled.length} programmé${st.scheduled.length>1?'s':''}` + (st.published.length ? ` · ${st.published.length} publiés récemment` : '');
+    const parts = [`${st.scheduled.length} programmé${st.scheduled.length>1?'s':''}`];
+    if (st.ready.length) parts.push(`${st.ready.length} prêt${st.ready.length>1?'s':''} à programmer`);
+    if (st.published.length) parts.push(`${st.published.length} publiés récemment`);
+    const cover = p => p.linkedinImageUrl
+      ? `<img class="cover" loading="lazy" src="${esc(p.linkedinImageUrl)}">`
+      : `<div class="cover ph">${q.icon}<span>LA REVUE</span></div>`;
     let cards = '';
     st.scheduled.forEach((p, i) => {
       const art = p.wpUrl || p.articleUrl;
       cards += `<div class="card">
-        ${p.linkedinImageUrl ? `<img class="cover" loading="lazy" src="${esc(p.linkedinImageUrl)}">` : `<div class="cover" style="display:flex;align-items:center;justify-content:center;background:#f3f4f6;height:208px;">${q.icon}</div>`}
+        ${cover(p)}
         <span class="badge ${i===0?'next':''}">${i===0?'▶ ':''}${fdate(p.scheduledAt)}</span>
         ${p.regenRequest?.pending ? '<span class="badge regen" style="top:28px">🎨 régénération…</span>'
           : p.regenRequest?.error ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ regen échouée</span>` : ''}
@@ -253,25 +269,49 @@ function render() {
           ${art ? `<a class="lnk" target="_blank" href="${esc(art)}">📄 Voir l'article →</a>` : ''}
         </div></div>`;
     });
-    if (st.scheduled.length && st.published.length) cards += '<div class="sep"></div>';
+    if (st.scheduled.length && st.ready.length) cards += '<div class="sep"></div>';
+    st.ready.forEach(p => {
+      const art = p.wpUrl || p.articleUrl;
+      const generating = p.regenRequest?.pending;
+      cards += `<div class="card">
+        ${generating && !p.linkedinImageUrl ? `<div class="cover ph"><span class="spin"></span><span>génération…</span></div>` : cover(p)}
+        <span class="badge rdy">${generating ? '🎨 génération…' : '🖼️ PRÊT · à programmer'}</span>
+        ${p.regenRequest?.error ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ échec</span>` : ''}
+        ${!generating ? `<button class="edit" data-q="${q.key}" data-id="${esc(p.id)}" title="Modifier / programmer">✏️</button>` : ''}
+        <div class="body">
+          <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
+          <div class="cap">${esc((p.linkedinCaption||'').replace(/^📲[^\n]*\n?/,'').trim().slice(0,150))}</div>
+          ${art ? `<a class="lnk" target="_blank" href="${esc(art)}">📄 Voir l'article →</a>` : ''}
+        </div></div>`;
+    });
+    if ((st.scheduled.length || st.ready.length) && st.published.length) cards += '<div class="sep"></div>';
     st.published.forEach(p => {
       const art = p.wpUrl || p.articleUrl;
       cards += `<div class="card">
-        <a target="_blank" href="${esc(p.linkedinPostUrl||'#')}">${p.linkedinImageUrl ? `<img class="cover" loading="lazy" src="${esc(p.linkedinImageUrl)}">` : ''}</a>
+        ${p.linkedinPostUrl ? `<a target="_blank" href="${esc(p.linkedinPostUrl)}">${cover(p)}</a>` : cover(p)}
         <span class="badge pub">✓ PUBLIÉ</span>
         <div class="body">
           <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
           ${p.publishedAt ? `<div class="cap">${fdate(p.publishedAt)}</div>` : ''}
-          <a class="lnk li" target="_blank" href="${esc(p.linkedinPostUrl||'#')}">Voir sur LinkedIn →</a>
+          ${p.linkedinPostUrl ? `<a class="lnk li" target="_blank" href="${esc(p.linkedinPostUrl)}">Voir sur LinkedIn →</a>` : ''}
           ${art ? `<a class="lnk" target="_blank" href="${esc(art)}">📄 Voir l'article →</a>` : ''}
         </div></div>`;
     });
-    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} · ${cnt}</span></div>` +
-      (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé${q.key==='lrdh'?' · reconnexion du profil LRDH requise':''}.</div>`);
+    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} · ${parts.join(' · ')}</span></div>` +
+      (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé.</div>`);
     root.appendChild(div);
   }
   document.getElementById('next').textContent = soonest ? `Prochaine : ${fdate(soonest)}` : '';
   root.querySelectorAll('button.edit').forEach(b => b.onclick = () => openModal(b.dataset.q, b.dataset.id));
+  // ouverture directe depuis une autre page : index.html#edit=lrdh:12737
+  if (pendingHashEdit) {
+    const [qk, id] = pendingHashEdit;
+    const st2 = state[qk];
+    if (st2 && [...st2.scheduled, ...st2.ready].some(p => p.id === id)) {
+      pendingHashEdit = null;
+      openModal(qk, id);
+    }
+  }
 }
 
 const auth = getAuth(app);
@@ -295,26 +335,28 @@ onAuthStateChanged(auth, user => {
 function startListeners() {
 for (const q of QUEUES) {
   onSnapshot(collection(db, q.col), snap => {
-    const scheduled = [], published = [];
+    const scheduled = [], ready = [], published = [];
     snap.forEach(d => {
       const x = { id: d.id, ...d.data() };
-      if (x.status === 'scheduled' && !x.publishedToLinkedin) scheduled.push(x);
       if (x.publishedToLinkedin) published.push(x);
+      else if (x.status === 'scheduled') scheduled.push(x);
+      else if (x.regenRequest?.pending || (x.status === 'image_ready' && x.linkedinImageUrl)) ready.push(x);
     });
     scheduled.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
+    ready.sort((a,b) => String(b.regenRequest?.requestedAt||b.generatedAt||'').localeCompare(String(a.regenRequest?.requestedAt||a.generatedAt||'')));
     published.sort((a,b) => String(b.publishedAt||b.scheduledAt||'').localeCompare(String(a.publishedAt||a.scheduledAt||'')));
-    state[q.key] = { scheduled, published: published.slice(0,6) };
+    state[q.key] = { scheduled, ready: ready.slice(0,10), published: published.slice(0,6) };
     render();
     renderStats();
   });
 }
 
-// Instagram (lecture seule, comme avant)
-onSnapshot(collection(db, 'instagram_queue'), snap => {
+// Instagram (lecture seule) · requête filtrée : ne lit plus toute l'archive (quota Firestore)
+onSnapshot(query(collection(db, 'instagram_queue'), where('status','==','scheduled'), limit(120)), snap => {
   const rows = [];
   snap.forEach(d => {
     const x = d.data();
-    if (x.status === 'scheduled' && !x.publishedToInstagram) rows.push({ id: d.id, ...x });
+    if (!x.publishedToInstagram) rows.push({ id: d.id, ...x });
   });
   rows.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
   igCount = rows.length;
@@ -325,12 +367,11 @@ onSnapshot(collection(db, 'instagram_queue'), snap => {
   renderStats();
 });
 
-// Brouillons en attente
-onSnapshot(collection(db, 'news_drafts_auto'), snap => {
+// Brouillons en attente · requête filtrée (ne lit plus publiés/archivés · quota Firestore)
+onSnapshot(query(collection(db, 'news_drafts_auto'), where('status','==','ai_draft_auto'), limit(150)), snap => {
   drafts = [];
   snap.forEach(d => {
-    const x = d.data();
-    if (x.status === 'ai_draft_auto') drafts.push({ id: d.id, ...x });
+    drafts.push({ id: d.id, ...d.data() });
   });
   drafts.sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
   renderDrafts();
@@ -414,10 +455,16 @@ async function triggerRegenWorkflow() {
 }
 
 window.openModal = (qkey, id) => {
-  const post = (state[qkey]?.scheduled || []).find(p => p.id === id);
+  const st = state[qkey] || {};
+  const post = [...(st.scheduled || []), ...(st.ready || [])].find(p => p.id === id);
   if (!post) return;
-  editing = { qkey, post, pickedImage: null };
-  document.getElementById('mtitle').textContent = `✏️ Modifier le post · ${QUEUES.find(x=>x.key===qkey).name}`;
+  const isReady = post.status !== 'scheduled';
+  editing = { qkey, post, pickedImage: null, isReady };
+  const danger = document.querySelector('.btn.danger');
+  danger.textContent = isReady ? '🗑️ Retirer' : '⏸ Déprogrammer';
+  document.getElementById('mdatehint').textContent = isReady
+    ? 'Choisis un créneau pour programmer la publication (vide = reste en attente).' : '';
+  document.getElementById('mtitle').textContent = `✏️ ${isReady ? 'Programmer / modifier' : 'Modifier le post'} · ${QUEUES.find(x=>x.key===qkey).name}`;
   document.getElementById('mpost').textContent = de(post.title || post.id);
   document.getElementById('mimg').src = post.linkedinImageUrl || '';
   document.getElementById('mcat').value = post.linkedinCategory || '';
@@ -448,10 +495,10 @@ window.saveEdit = async () => {
   const btn = document.getElementById('msave'); btn.disabled = true;
   try {
     const dt = document.getElementById('mdate').value;
+    // avec une date → programmé ; sans date, un post « prêt » reste en attente
     const upd = {
       linkedinCaption: document.getElementById('mcaption').value,
-      ...(dt ? { scheduledAt: new Date(dt).toISOString() } : {}),
-      status: 'scheduled',
+      ...(dt ? { scheduledAt: new Date(dt).toISOString(), status: 'scheduled' } : {}),
     };
     // ── détection des changements visuels → demande de régénération ──
     const rr = {};
@@ -484,7 +531,9 @@ window.saveEdit = async () => {
 window.unschedule = async () => {
   if (!editing) return;
   const q = QUEUES.find(x => x.key === editing.qkey);
-  try { await updateDoc(doc(db, q.col, editing.post.id), { status: 'image_ready' }); closeModal(); }
+  const target = editing.isReady ? 'archived_stale' : 'image_ready';
+  if (editing.isReady && !confirm('Retirer ce post généré ?')) return;
+  try { await updateDoc(doc(db, q.col, editing.post.id), { status: target }); closeModal(); }
   catch(e) { alert('Erreur : ' + e.message); }
 };
 document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });

@@ -178,7 +178,7 @@ onAuthStateChanged(auth, user => {
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user && !started) {
     started = true;
-    onSnapshot(query(collection(db, 'news_drafts_auto'), orderBy('createdAt','desc'), limit(500)), snap => {
+    onSnapshot(query(collection(db, 'news_drafts_auto'), orderBy('createdAt','desc'), limit(250)), snap => {
       const r = []; snap.forEach(d => r.push({ id: d.id, ...d.data() }));
       rows = r; render();
     }, e => { document.getElementById('days').innerHTML = '<div class="empty">Erreur de chargement : '+esc(e.message)+'</div>'; });
