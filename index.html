@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>La Revue · Hub de publication</title>
+<style>
+  :root { --gold:#D4AF37; --ink:#1a1a1a; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#f6f7f9; color:var(--ink); }
+  header { background:#fff; border-bottom:1px solid #e5e7eb; padding:12px 20px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:10; }
+  .logo { width:32px; height:32px; border-radius:8px; background:var(--gold); color:#fff; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; }
+  header h1 { font-size:14px; } header p { font-size:11px; color:#9ca3af; }
+  main { max-width:1240px; margin:0 auto; padding:20px 16px 60px; }
+  .board { background:#fff; border:1px solid #f0f0f0; border-radius:14px; padding:16px; }
+  .board > h2 { font-size:14px; margin-bottom:12px; }
+  .board .next { float:right; font-size:12px; color:#9ca3af; font-weight:400; }
+  .strip { border-radius:10px; padding:12px; margin-bottom:12px; border:1px solid; }
+  .strip.lrdl { background:#eff6ff88; border-color:#dbeafe; } .strip.lrdl .t { color:#1d4ed8; }
+  .strip.lrdv { background:#f0fdfa88; border-color:#ccfbf1; } .strip.lrdv .t { color:#0f766e; }
+  .strip.lrdh { background:#fffbeb88; border-color:#fef3c7; } .strip.lrdh .t { color:#b45309; }
+  .strip .head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .strip .t { font-size:12px; font-weight:600; }
+  .row { display:flex; gap:12px; overflow-x:auto; padding-bottom:6px; }
+  .card { flex:0 0 176px; background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); position:relative; }
+  .card img.cover { width:100%; height:208px; object-fit:cover; display:block; }
+  .badge { position:absolute; top:6px; left:6px; padding:2px 6px; border-radius:5px; font-size:10px; font-weight:700; color:#fff; background:rgba(0,0,0,.7); }
+  .badge.next { background:#10b981; } .badge.pub { background:#059669; }
+  .edit { position:absolute; top:6px; right:6px; width:24px; height:24px; border:0; border-radius:5px; background:rgba(255,255,255,.92); cursor:pointer; font-size:12px; box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  .card .body { padding:8px; }
+  .card .ti { font-size:11px; font-weight:600; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-bottom:4px; }
+  .card .cap { font-size:10px; color:#6b7280; line-height:1.4; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .card a.lnk { display:block; font-size:10px; margin-top:4px; color:#9ca3af; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card a.lnk:hover { color:#374151; text-decoration:underline; }
+  .card a.li { color:#047857; font-weight:600; }
+  .sep { flex:0 0 1px; background:#d1d5db; margin:0 4px; }
+  .empty { font-size:11px; color:#9ca3af; padding:6px 0; }
+  .note { margin-top:14px; font-size:11px; color:#9ca3af; }
+  /* modale */
+  #overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  #overlay.on { display:flex; }
+  .modal { background:#fff; border-radius:14px; width:100%; max-width:680px; max-height:90vh; overflow-y:auto; }
+  .modal .mh { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #f3f4f6; font-size:13px; font-weight:600; }
+  .modal .mb { padding:16px; display:flex; gap:14px; flex-wrap:wrap; }
+  .modal img { width:200px; border-radius:10px; border:1px solid #e5e7eb; align-self:flex-start; }
+  .modal .fields { flex:1; min-width:260px; }
+  .modal label { display:block; font-size:11px; color:#6b7280; margin:10px 0 4px; }
+  .modal textarea, .modal input { width:100%; border:1px solid #e5e7eb; border-radius:8px; padding:8px; font-size:12px; font-family:inherit; }
+  .modal textarea { min-height:200px; line-height:1.5; }
+  .modal .mf { display:flex; justify-content:space-between; padding:12px 16px; border-top:1px solid #f3f4f6; }
+  button.btn { border:0; border-radius:8px; padding:8px 14px; font-size:12px; font-weight:600; cursor:pointer; }
+  .btn.save { background:var(--gold); color:#fff; } .btn.ghost { background:transparent; color:#6b7280; }
+  .btn.danger { background:transparent; color:#dc2626; } .btn:disabled { opacity:.5; }
+  .mclose { border:0; background:none; font-size:16px; cursor:pointer; color:#9ca3af; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LR</div>
+  <div><h1>La Revue · Hub de publication</h1><p>Programmations sociales · hébergé sur GitHub Pages</p></div>
+</header>
+<main>
+  <div class="board">
+    <h2>⏰ Programmations sociales <span class="next" id="next"></span></h2>
+    <div id="strips"></div>
+    <div class="note">Édition : caption, horaire, déprogrammation. La régénération des visuels revient avec le portage du générateur (ou au réveil de Vercel).</div>
+  </div>
+</main>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="mh"><span id="mtitle">✏️ Modifier le post</span><button class="mclose" onclick="closeModal()">✕</button></div>
+    <div class="mb">
+      <img id="mimg" alt="">
+      <div class="fields">
+        <div id="mpost" style="font-size:12px;font-weight:600;"></div>
+        <label>Caption LinkedIn</label>
+        <textarea id="mcaption"></textarea>
+        <label>Publication programmée (heure de Paris)</label>
+        <input type="datetime-local" id="mdate">
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn danger" onclick="unschedule()">⏸ Déprogrammer</button>
+      <div>
+        <button class="btn ghost" onclick="closeModal()">Annuler</button>
+        <button class="btn save" id="msave" onclick="saveEdit()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
+  authDomain: 'larevue-auto-dashboard.firebaseapp.com',
+  projectId: 'larevue-auto-dashboard',
+  storageBucket: 'larevue-auto-dashboard.firebasestorage.app',
+  messagingSenderId: '1064950692754',
+  appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
+});
+const db = getFirestore(app);
+
+const QUEUES = [
+  { key:'lrdl', cls:'lrdl', icon:'💼', name:'LinkedIn LRDL', col:'linkedin_queue' },
+  { key:'lrdv', cls:'lrdv', icon:'✈️', name:'LinkedIn LRDV', col:'lrdv_linkedin_queue' },
+  { key:'lrdh', cls:'lrdh', icon:'🏨', name:'LinkedIn LRDH', col:'lrdh_linkedin_queue' },
+];
+const state = {}; // key -> {scheduled, published}
+let editing = null;
+
+const de = s => String(s||'').replace(/&#8211;|&ndash;/g,'–').replace(/&#8217;|&rsquo;/g,'\u2019').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
+const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fdate = iso => iso ? new Date(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}) : '';
+const toLocal = iso => { if(!iso) return ''; const d=new Date(iso), p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+function render() {
+  const root = document.getElementById('strips');
+  root.innerHTML = '';
+  let soonest = null;
+  const nowIso = new Date().toISOString();
+  for (const q of QUEUES) {
+    const st = state[q.key] || { scheduled:[], published:[] };
+    for (const p of st.scheduled) if (p.scheduledAt >= nowIso && (!soonest || p.scheduledAt < soonest)) soonest = p.scheduledAt;
+    const div = document.createElement('div');
+    div.className = `strip ${q.cls}`;
+    const cnt = `${st.scheduled.length} programmé${st.scheduled.length>1?'s':''}` + (st.published.length ? ` · ${st.published.length} publiés récemment` : '');
+    let cards = '';
+    st.scheduled.forEach((p, i) => {
+      const art = p.wpUrl || p.articleUrl;
+      cards += `<div class="card">
+        ${p.linkedinImageUrl ? `<img class="cover" loading="lazy" src="${esc(p.linkedinImageUrl)}">` : `<div class="cover" style="display:flex;align-items:center;justify-content:center;background:#f3f4f6;height:208px;">${q.icon}</div>`}
+        <span class="badge ${i===0?'next':''}">${i===0?'▶ ':''}${fdate(p.scheduledAt)}</span>
+        <button class="edit" data-q="${q.key}" data-id="${esc(p.id)}" title="Modifier">✏️</button>
+        <div class="body">
+          <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
+          <div class="cap">${esc((p.linkedinCaption||'').replace(/^📲[^\n]*\n?/,'').trim().slice(0,150))}</div>
+          ${art ? `<a class="lnk" target="_blank" href="${esc(art)}">📄 Voir l'article →</a>` : ''}
+        </div></div>`;
+    });
+    if (st.scheduled.length && st.published.length) cards += '<div class="sep"></div>';
+    st.published.forEach(p => {
+      const art = p.wpUrl || p.articleUrl;
+      cards += `<div class="card">
+        <a target="_blank" href="${esc(p.linkedinPostUrl||'#')}">${p.linkedinImageUrl ? `<img class="cover" loading="lazy" src="${esc(p.linkedinImageUrl)}">` : ''}</a>
+        <span class="badge pub">✓ PUBLIÉ</span>
+        <div class="body">
+          <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
+          ${p.publishedAt ? `<div class="cap">${fdate(p.publishedAt)}</div>` : ''}
+          <a class="lnk li" target="_blank" href="${esc(p.linkedinPostUrl||'#')}">Voir sur LinkedIn →</a>
+          ${art ? `<a class="lnk" target="_blank" href="${esc(art)}">📄 Voir l'article →</a>` : ''}
+        </div></div>`;
+    });
+    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} · ${cnt}</span></div>` +
+      (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé${q.key==='lrdh'?' · reconnexion du profil LRDH requise':''}.</div>`);
+    root.appendChild(div);
+  }
+  document.getElementById('next').textContent = soonest ? `Prochaine : ${fdate(soonest)}` : '';
+  root.querySelectorAll('button.edit').forEach(b => b.onclick = () => openModal(b.dataset.q, b.dataset.id));
+}
+
+for (const q of QUEUES) {
+  onSnapshot(collection(db, q.col), snap => {
+    const scheduled = [], published = [];
+    snap.forEach(d => {
+      const x = { id: d.id, ...d.data() };
+      if (x.status === 'scheduled' && !x.publishedToLinkedin) scheduled.push(x);
+      if (x.publishedToLinkedin) published.push(x);
+    });
+    scheduled.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
+    published.sort((a,b) => String(b.publishedAt||b.scheduledAt||'').localeCompare(String(a.publishedAt||a.scheduledAt||'')));
+    state[q.key] = { scheduled, published: published.slice(0,6) };
+    render();
+  });
+}
+
+window.openModal = (qkey, id) => {
+  const post = (state[qkey]?.scheduled || []).find(p => p.id === id);
+  if (!post) return;
+  editing = { qkey, post };
+  document.getElementById('mtitle').textContent = `✏️ Modifier le post · ${QUEUES.find(x=>x.key===qkey).name}`;
+  document.getElementById('mpost').textContent = de(post.title || post.id);
+  document.getElementById('mimg').src = post.linkedinImageUrl || '';
+  document.getElementById('mcaption').value = post.linkedinCaption || '';
+  document.getElementById('mdate').value = toLocal(post.scheduledAt);
+  document.getElementById('overlay').classList.add('on');
+};
+window.closeModal = () => { editing = null; document.getElementById('overlay').classList.remove('on'); };
+window.saveEdit = async () => {
+  if (!editing) return;
+  const q = QUEUES.find(x => x.key === editing.qkey);
+  const btn = document.getElementById('msave'); btn.disabled = true;
+  try {
+    const dt = document.getElementById('mdate').value;
+    await updateDoc(doc(db, q.col, editing.post.id), {
+      linkedinCaption: document.getElementById('mcaption').value,
+      ...(dt ? { scheduledAt: new Date(dt).toISOString() } : {}),
+      status: 'scheduled',
+    });
+    closeModal();
+  } catch(e) { alert('Erreur : ' + e.message); }
+  btn.disabled = false;
+};
+window.unschedule = async () => {
+  if (!editing) return;
+  const q = QUEUES.find(x => x.key === editing.qkey);
+  try { await updateDoc(doc(db, q.col, editing.post.id), { status: 'image_ready' }); closeModal(); }
+  catch(e) { alert('Erreur : ' + e.message); }
+};
+document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
+</script>
+</body>
+</html>
