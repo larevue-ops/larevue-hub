@@ -274,9 +274,15 @@ async function searchWp(term) {
   if (!term) { searchResults = null; note.style.display = 'none'; renderArts(); return; }
   const seq = ++searchSeq;
   note.style.display = 'block'; note.textContent = 'Recherche…';
-  // URL larevuedeshotels.com collée, ou slug tapé → recherche exacte par slug
-  const urlM = term.match(/larevuedeshotels\.com\/(?:[a-z]{2}\/)?([^\/?#\s]+)/i);
-  const slug = urlM ? urlM[1] : (/^[a-z0-9]+(?:-[a-z0-9]+){2,}$/i.test(term) ? term : '');
+  // URL larevuedeshotels.com collée, ou slug tapé → recherche exacte par slug.
+  // Le slug WP = DERNIER segment du chemin (gère les permaliens à préfixe de catégorie).
+  let slug = '';
+  if (/larevuedeshotels\.com/i.test(term)) {
+    const segs = term.replace(/[?#].*$/, '').replace(/\/+$/, '').split('/').filter(Boolean);
+    slug = segs[segs.length - 1] || '';
+  } else if (/^[a-z0-9]+(?:-[a-z0-9]+){2,}$/i.test(term)) {
+    slug = term;
+  }
   const bySlug = slug ? `${WP}/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_embed=wp:featuredmedia&_fields=${WP_FIELDS}` : '';
   const byText = `${WP}/wp-json/wp/v2/posts?search=${encodeURIComponent(term)}&per_page=30&_embed=wp:featuredmedia&_fields=${WP_FIELDS}`;
   try {
