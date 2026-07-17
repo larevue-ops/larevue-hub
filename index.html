@@ -187,6 +187,10 @@
         <textarea id="mcovtitle"></textarea>
         <label>Marque / bandeau <span class="hint">· ligne sous le titre</span></label>
         <input id="mbrand">
+        <div id="mlocrow" style="display:none">
+          <label>Localisation <span class="hint">· après la marque dans le bandeau haut (ex : Le Morne, Maurice)</span></label>
+          <input id="mloc" placeholder="Ville, Pays">
+        </div>
         <label>Photo de la cover <span class="hint">· cliquer pour changer</span></label>
         <div class="thumbs" id="mthumbs"></div>
         <input id="mcustomimg" placeholder="…ou coller l'URL d'une autre image">
@@ -337,7 +341,7 @@ onAuthStateChanged(auth, user => {
 // ── mode secours : cache local (localStorage) + bandeau si Firestore est bloqué (quota) ──
 const pick = (x, keys) => { const o = { id: x.id }; for (const k of keys) if (x[k] !== undefined) o[k] = x[k]; return o; };
 const QFIELDS = ['postId','title','status','scheduledAt','publishedAt','publishedToLinkedin','linkedinPostUrl',
-  'linkedinImageUrl','linkedinCaption','linkedinTitle','linkedinBrand','linkedinCategory','selectedImage',
+  'linkedinImageUrl','linkedinCaption','linkedinTitle','linkedinBrand','linkedinCategory','linkedinLocation','selectedImage',
   'linkedinSelectedImage','imageTop','imageBottom','wpUrl','articleUrl','generatedAt','regenRequest'];
 const trimQueue = x => ({ ...pick(x, QFIELDS), availableImages: (x.availableImages||[]).slice(0,8) });
 const trimDraft = x => ({ ...pick(x, ['title','category','categoryDisplay','city','createdAt','sourceUrl','status']),
@@ -483,6 +487,9 @@ window.openModal = (qkey, id) => {
   document.getElementById('mcat').value = post.linkedinCategory || '';
   document.getElementById('mcovtitle').value = post.linkedinTitle || '';
   document.getElementById('mbrand').value = post.linkedinBrand || '';
+  // localisation : uniquement sur le gabarit LRDH (bandeau « marque · lieu »)
+  document.getElementById('mlocrow').style.display = qkey === 'lrdh' ? 'block' : 'none';
+  document.getElementById('mloc').value = post.linkedinLocation || '';
   document.getElementById('mcustomimg').value = '';
   document.getElementById('mcaption').value = post.linkedinCaption || '';
   document.getElementById('mdate').value = toLocal(post.scheduledAt);
@@ -522,6 +529,10 @@ window.saveEdit = async () => {
     if (cat && cat !== (post.linkedinCategory || '')) rr.category = cat;
     if (covTitle && covTitle !== (post.linkedinTitle || '')) rr.title = covTitle;
     if (brand && brand !== (post.linkedinBrand || '')) rr.brand = brand;
+    if (editing.qkey === 'lrdh') {
+      const loc = document.getElementById('mloc').value.trim();
+      if (loc !== (post.linkedinLocation || '')) rr.location = loc;
+    }
     const newImg = customUrl || editing.pickedImage;
     if (newImg) rr.customImage = newImg;
     const wantsRegen = Object.keys(rr).length > 0;

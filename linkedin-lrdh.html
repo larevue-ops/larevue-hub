@@ -249,7 +249,7 @@ function renderArts() {
 
 async function loadWp() {
   try {
-    const r = await fetch(`${WP}/wp-json/wp/v2/posts?per_page=50&_embed=wp:featuredmedia&_fields=id,date,link,title,excerpt,_links,_embedded`);
+    const r = await fetch(`${WP}/wp-json/wp/v2/posts?per_page=50&_embed=wp:featuredmedia&_fields=id,date,link,title,excerpt,_links,_embedded`, { cache: 'no-store' });
     const posts = await r.json();
     // Polylang ignore ?lang= en REST → on écarte les traductions /en/ et /es/ côté client
     wpPosts = posts.filter(p => !/\/(en|es)\//.test(p.link || '')).map(p => ({
@@ -265,6 +265,9 @@ async function loadWp() {
 }
 
 document.getElementById('q').addEventListener('input', e => { filter = e.target.value; renderArts(); });
+// la liste d'articles se rafraîchit quand on revient sur l'onglet (sinon un onglet resté
+// ouvert ne voit jamais les articles publiés entre-temps)
+document.addEventListener('visibilitychange', () => { if (!document.hidden && started) loadWp(); });
 
 document.getElementById('gbtn').onclick = async () => {
   const err = document.getElementById('gerr'); err.textContent = '';
