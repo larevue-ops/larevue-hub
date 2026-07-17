@@ -108,6 +108,9 @@
   .btn:disabled { opacity:.5; cursor:default; }
   .badge.regen { background:#f59e0b; } .badge.rerr { background:var(--danger); }
   .badge.rdy { background:#7c3aed; }
+  .badge.rwait { background:#0369a1; }
+  .rebtn { position:absolute; right:7px; width:26px; height:26px; border:0; border-radius:7px; background:rgba(255,255,255,.94); color:#0369a1; cursor:pointer; font-size:13px; font-weight:800; box-shadow:0 2px 6px rgba(0,0,0,.22); transition:transform .15s; }
+  .rebtn:hover { transform:scale(1.1); }
   .cover.ph { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
     background:linear-gradient(155deg, color-mix(in srgb, var(--gold) 12%, var(--surface)), var(--surface-2)); height:210px; font-size:26px; }
   .cover.ph span { font-size:9px; letter-spacing:2.5px; color:var(--gold-deep); font-weight:700; }
@@ -332,8 +335,10 @@ function render() {
       cards += `<div class="card">
         ${cover(p)}
         <span class="badge ${i===0?'next':''}">${i===0?'▶ ':''}${fdate(p.scheduledAt)}</span>
-        ${p.regenRequest?.pending ? '<span class="badge regen" style="top:28px">🎨 régénération…</span>'
-          : p.regenRequest?.error ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ regen échouée</span>` : ''}
+        ${(() => { const s = regenState(p);
+          return s === 'active' ? '<span class="badge regen" style="top:28px">🎨 régénération…</span>'
+            : s === 'stale' ? `<span class="badge rwait" style="top:28px" title="Régénération en attente depuis ${esc(fdate(p.regenRequest.requestedAt))} · rattrapée automatiquement au prochain créneau. Cliquez ↻ pour relancer.">⏳ régé en attente</span><button class="rebtn" style="top:28px" data-re-q="${q.key}" data-re-id="${esc(p.id)}" title="Relancer la régénération">↻</button>`
+            : s === 'error' ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ regen échouée</span>` : ''; })()}
         <button class="edit" data-q="${q.key}" data-id="${esc(p.id)}" title="Modifier">✏️</button>
         <div class="body">
           <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
@@ -344,12 +349,14 @@ function render() {
     if (st.scheduled.length && st.ready.length) cards += '<div class="sep"></div>';
     st.ready.forEach(p => {
       const art = p.wpUrl || p.articleUrl;
-      const generating = p.regenRequest?.pending;
+      const s = regenState(p);
+      const showSpin = s === 'active' && !p.linkedinImageUrl;   // spinner live seulement si régé récente ET pas encore d'image
       cards += `<div class="card">
-        ${generating && !p.linkedinImageUrl ? `<div class="cover ph"><span class="spin"></span><span>génération…</span></div>` : cover(p)}
-        <span class="badge rdy">${generating ? '🎨 génération…' : '🖼️ PRÊT · à programmer'}</span>
-        ${p.regenRequest?.error ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ échec</span>` : ''}
-        ${!generating ? `<button class="edit" data-q="${q.key}" data-id="${esc(p.id)}" title="Modifier / programmer">✏️</button>` : ''}
+        ${showSpin ? `<div class="cover ph"><span class="spin"></span><span>génération…</span></div>` : cover(p)}
+        <span class="badge rdy">${s === 'active' ? '🎨 génération…' : s === 'stale' ? '⏳ régé en attente' : '🖼️ PRÊT · à programmer'}</span>
+        ${s === 'stale' ? `<button class="rebtn" style="top:28px" data-re-q="${q.key}" data-re-id="${esc(p.id)}" title="Relancer la régénération (en attente depuis ${esc(fdate(p.regenRequest.requestedAt))})">↻</button>` : ''}
+        ${s === 'error' ? `<span class="badge rerr" style="top:28px" title="${esc(p.regenRequest.error)}">⚠️ échec</span>` : ''}
+        ${s !== 'active' ? `<button class="edit" data-q="${q.key}" data-id="${esc(p.id)}" title="Modifier / programmer">✏️</button>` : ''}
         <div class="body">
           <div class="ti">${esc(de(p.title)) || esc(p.id)}</div>
           <div class="cap">${esc((p.linkedinCaption||'').replace(/^📲[^\n]*\n?/,'').trim().slice(0,150))}</div>
@@ -378,6 +385,7 @@ function render() {
   }
   document.getElementById('next').textContent = soonest ? `Prochaine : ${fdate(soonest)}` : '';
   root.querySelectorAll('button.edit').forEach(b => b.onclick = () => openModal(b.dataset.q, b.dataset.id));
+  root.querySelectorAll('button.rebtn').forEach(b => b.onclick = () => window.reRegen(b.dataset.reQ, b.dataset.reId));
   // ouverture directe depuis une autre page : index.html#edit=lrdh:12737
   if (pendingHashEdit) {
     const [qk, id] = pendingHashEdit;
@@ -539,6 +547,32 @@ async function triggerRegenWorkflow() {
     return r.status === 204;
   } catch { return false; }
 }
+
+// Au-delà de ce délai, une régénération « pending » est considérée COINCÉE (quota Firestore
+// épuisé le soir, créneau pas encore passé, dispatch raté…) → l'UI bascule d'un spinner
+// « génération… » infini vers un état « en attente » explicite + bouton Relancer.
+const STALE_REGEN_MS = 20 * 60 * 1000;
+function regenState(p) {
+  const rr = p && p.regenRequest;
+  if (!rr) return 'none';
+  if (rr.error) return 'error';
+  if (!rr.pending) return 'none';
+  const t = Date.parse(rr.requestedAt || '');
+  return (t && (Date.now() - t) > STALE_REGEN_MS) ? 'stale' : 'active';
+}
+// Relance manuelle : rafraîchit `requestedAt` (repart le compteur) sans écraser les autres
+// champs de regenRequest, puis re-dispatch le workflow. Tolérant au quota (write ≠ read).
+window.reRegen = async (qkey, id) => {
+  const q = QUEUES.find(x => x.key === qkey);
+  if (!q) return;
+  try {
+    await updateDoc(doc(db, q.col, id), { 'regenRequest.pending': true, 'regenRequest.requestedAt': new Date().toISOString() });
+  } catch (e) { /* Firestore peut être en quota : on tente quand même le dispatch */ }
+  const fired = await triggerRegenWorkflow();
+  toast(fired
+    ? '↻ Régénération relancée · la nouvelle image apparaît d’ici ~2 min.'
+    : '↻ Demande enregistrée · appliquée automatiquement au prochain créneau (quota/token).');
+};
 
 window.openModal = (qkey, id) => {
   const st = state[qkey] || {};
