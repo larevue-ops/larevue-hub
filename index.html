@@ -303,7 +303,10 @@ function render() {
           ${art ? `<a class="lnk" target="_blank" href="${esc(art)}">📄 Voir l'article →</a>` : ''}
         </div></div>`;
     });
-    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} · ${parts.join(' · ')}</span></div>` +
+    const genCta = q.key === 'lrdh'
+      ? `<a href="linkedin-lrdh.html" style="font-size:11px;font-weight:700;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;padding:5px 10px;border-radius:8px;text-decoration:none;white-space:nowrap">✨ Générer un post depuis un article</a>`
+      : '';
+    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} · ${parts.join(' · ')}</span>${genCta}</div>` +
       (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé.</div>`);
     root.appendChild(div);
   }

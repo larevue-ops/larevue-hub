@@ -86,9 +86,10 @@
   <div class="subnote">La génération prend ~1 minute (cover + caption, GitHub Actions) · la carte se met à jour toute seule. Une fois programmé, le post se retrouve et se modifie sur la page d'accueil du hub.</div>
   <div class="qrow" id="queue"><div class="empty">Chargement…</div></div>
 
-  <div class="sect">📰 Articles récents · larevuedeshotels.com</div>
-  <div class="subnote">Derniers articles publiés sur le site · « ✨ Générer » crée le visuel et la caption.</div>
-  <div class="bar"><input type="search" id="q" placeholder="🔍 Filtrer les articles…"></div>
+  <div class="sect">📰 Articles · larevuedeshotels.com</div>
+  <div class="subnote">Cherche n'importe quel article (titre, mot-clé, ou colle l'URL) · « ✨ Générer » crée le visuel et la caption. Sans recherche : les derniers publiés.</div>
+  <div class="bar"><input type="search" id="q" placeholder="🔍 Rechercher un article LRDH (titre, mot-clé, ou colle l'URL de l'article)…"></div>
+  <div class="subnote" id="searchnote" style="display:none"></div>
   <div class="grid" id="arts"><div class="empty">Chargement…</div></div>
 </main>
 
@@ -157,7 +158,14 @@ function nextFreeSlot() {
   return new Date(now.getTime() + 2 * 3600 * 1000);
 }
 
-let queueDocs = [], wpPosts = [], filter = '';
+let queueDocs = [], wpPosts = [], searchResults = null, searchSeq = 0;
+const WP_FIELDS = 'id,date,link,title,excerpt,_links,_embedded';
+const mapPost = p => ({
+  ...p,
+  _title: stripHtml(p.title?.rendered || ''),
+  _excerpt: stripHtml(p.excerpt?.rendered || '').slice(0, 300),
+  _img: p._embedded?.['wp:featuredmedia']?.[0]?.source_url || '',
+});
 
 function renderQueue() {
   const root = document.getElementById('queue');
@@ -211,8 +219,7 @@ function stBadge(q) {
 function renderArts() {
   const root = document.getElementById('arts');
   const byId = Object.fromEntries(queueDocs.map(p => [String(p.postId || p.id), p]));
-  let list = wpPosts;
-  if (filter) { const f = filter.toLowerCase(); list = list.filter(a => a._title.toLowerCase().includes(f)); }
+  const list = searchResults !== null ? searchResults : wpPosts;
   root.innerHTML = list.map(a => {
     const q = byId[String(a.id)];
     const busy = q && (q.regenRequest?.pending || q.publishedToLinkedin || q.status === 'scheduled' || (q.status === 'image_ready' && q.linkedinImageUrl));
@@ -224,9 +231,9 @@ function renderArts() {
         <div class="dm">${new Date(a.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · <a href="${esc(a.link)}" target="_blank" rel="noopener">voir l'article ↗</a></div>
         <button class="go" data-gen="${a.id}" ${busy ? 'disabled' : ''}>${q?.status === 'scheduled' ? 'Déjà programmé' : q?.publishedToLinkedin ? 'Déjà publié' : q?.regenRequest?.pending ? 'Génération…' : q?.linkedinImageUrl && q?.status === 'image_ready' ? 'Prêt (ci-dessus)' : '✨ Générer le post'}</button>
       </div></div>`;
-  }).join('') || '<div class="empty">Aucun article.</div>';
+  }).join('') || `<div class="empty">${searchResults !== null ? 'Aucun article trouvé · essaie un autre mot-clé ou colle l’URL de l’article.' : 'Aucun article.'}</div>`;
   root.querySelectorAll('[data-gen]').forEach(b => b.onclick = async () => {
-    const a = wpPosts.find(x => String(x.id) === b.dataset.gen);
+    const a = [...(searchResults || []), ...wpPosts].find(x => String(x.id) === b.dataset.gen);
     if (!a) return;
     b.disabled = true; b.textContent = 'Lancement…';
     try {
@@ -249,22 +256,50 @@ function renderArts() {
 
 async function loadWp() {
   try {
-    const r = await fetch(`${WP}/wp-json/wp/v2/posts?per_page=50&_embed=wp:featuredmedia&_fields=id,date,link,title,excerpt,_links,_embedded`, { cache: 'no-store' });
+    const r = await fetch(`${WP}/wp-json/wp/v2/posts?per_page=50&_embed=wp:featuredmedia&_fields=${WP_FIELDS}`, { cache: 'no-store' });
     const posts = await r.json();
     // Polylang ignore ?lang= en REST → on écarte les traductions /en/ et /es/ côté client
-    wpPosts = posts.filter(p => !/\/(en|es)\//.test(p.link || '')).map(p => ({
-      ...p,
-      _title: stripHtml(p.title?.rendered || ''),
-      _excerpt: stripHtml(p.excerpt?.rendered || '').slice(0, 300),
-      _img: p._embedded?.['wp:featuredmedia']?.[0]?.source_url || '',
-    }));
+    wpPosts = posts.filter(p => !/\/(en|es)\//.test(p.link || '')).map(mapPost);
     renderArts();
   } catch(e) {
     document.getElementById('arts').innerHTML = '<div class="empty">Erreur de chargement WP : ' + esc(e.message) + '</div>';
   }
 }
 
-document.getElementById('q').addEventListener('input', e => { filter = e.target.value; renderArts(); });
+// Recherche côté serveur WP : par URL collée / slug (match exact), sinon plein-texte.
+// Permet de générer un post pour N'IMPORTE quel article, pas seulement les 50 derniers.
+async function searchWp(term) {
+  term = String(term || '').trim();
+  const note = document.getElementById('searchnote');
+  if (!term) { searchResults = null; note.style.display = 'none'; renderArts(); return; }
+  const seq = ++searchSeq;
+  note.style.display = 'block'; note.textContent = 'Recherche…';
+  // URL larevuedeshotels.com collée, ou slug tapé → recherche exacte par slug
+  const urlM = term.match(/larevuedeshotels\.com\/(?:[a-z]{2}\/)?([^\/?#\s]+)/i);
+  const slug = urlM ? urlM[1] : (/^[a-z0-9]+(?:-[a-z0-9]+){2,}$/i.test(term) ? term : '');
+  const bySlug = slug ? `${WP}/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_embed=wp:featuredmedia&_fields=${WP_FIELDS}` : '';
+  const byText = `${WP}/wp-json/wp/v2/posts?search=${encodeURIComponent(term)}&per_page=30&_embed=wp:featuredmedia&_fields=${WP_FIELDS}`;
+  try {
+    let posts = [];
+    if (bySlug) { const r = await fetch(bySlug, { cache: 'no-store' }); posts = await r.json(); }
+    if (!Array.isArray(posts) || posts.length === 0) { const r = await fetch(byText, { cache: 'no-store' }); posts = await r.json(); }
+    if (!Array.isArray(posts)) posts = [];
+    if (seq !== searchSeq) return;   // une frappe plus récente a relancé la recherche
+    searchResults = posts.filter(p => !/\/(en|es)\//.test(p.link || '')).map(mapPost);
+    note.textContent = `${searchResults.length} résultat${searchResults.length > 1 ? 's' : ''} pour « ${term} »`;
+    renderArts();
+  } catch(e) {
+    if (seq !== searchSeq) return;
+    note.textContent = 'Erreur de recherche : ' + esc(e.message);
+  }
+}
+
+let searchTimer = null;
+document.getElementById('q').addEventListener('input', e => {
+  const v = e.target.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => searchWp(v), 350);
+});
 // la liste d'articles se rafraîchit quand on revient sur l'onglet (sinon un onglet resté
 // ouvert ne voit jamais les articles publiés entre-temps)
 document.addEventListener('visibilitychange', () => { if (!document.hidden && started) loadWp(); });
