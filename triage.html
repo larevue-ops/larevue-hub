@@ -55,7 +55,7 @@
 <body>
 <header>
   <div class="logo">LR</div>
-  <div><h1>Tri du jour · articles scrappés LRDH</h1><p>Classés automatiquement chaque matin (Gemini) · La Revue des Hôtels</p></div>
+  <div><h1>Tri du jour · articles scrappés</h1><p>Classés automatiquement chaque matin (Gemini) · les 4 médias</p></div>
   <nav id="topnav" style="display:none">
     <a href="index.html">← Hub</a>
     <a href="triage-lrdl.html">🗞️ Journal LRDL</a>
@@ -73,6 +73,9 @@
   </div>
 </div>
 <main id="appmain" style="display:none">
+  <div class="bar" style="justify-content:flex-start">
+    <div class="grp" id="sites"></div>
+  </div>
   <div class="bar">
     <div class="grp">
       <button class="chip on" id="f-today">Aujourd'hui</button>
@@ -88,7 +91,7 @@
     </div>
   </div>
   <div id="board"></div>
-  <p class="foot">Tri automatique chaque matin (9h40 UTC, GitHub Actions) · « Trier maintenant » lance l'analyse des articles non triés (~1 min, la page se met à jour toute seule).</p>
+  <p class="foot">Tri automatique chaque matin (GitHub Actions) sur les 4 médias · « Trier maintenant » lance l'analyse des articles non triés de tous les sites (~1-2 min, la page se met à jour toute seule).</p>
 </main>
 
 <script type="module">
@@ -107,7 +110,15 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const WP = 'https://larevuedeshotels.com/wp-admin/post.php?post=';
+const SITES = [
+  { key: 'lrdh', col: 'lrdh_news_drafts_auto', name: '🏨 LRDH', wp: 'https://larevuedeshotels.com/wp-admin/post.php?post=' },
+  { key: 'lrdl', col: 'news_drafts_auto', name: '💎 LRDL' },
+  { key: 'lrdr', col: 'lrdr_news_drafts_auto', name: '🍽️ LRDR' },
+  { key: 'lrdv', col: 'lrdv_news_drafts_auto', name: '✈️ LRDV' },
+];
+let site = SITES[0];
+let unsubSite = null;
+const cacheBySite = {};
 const BUCKETS = [
   { key:'prioritaire', label:'À retravailler & publier', emoji:'🔴', color:'#dc2626', bg:'#fef2f2', desc:'Sujets forts · reprendre au format LRDH puis publier vite' },
   { key:'mineur', label:'Mineurs', emoji:'🟡', color:'#d97706', bg:'#fffbeb', desc:'Publiables, sans urgence' },
@@ -143,7 +154,8 @@ function rowHtml(a, flat) {
       ${scraped ? `<div class="meta">🕒 Scrappé le ${fmtScrape(scraped)}</div>` : ''}
       ${t.reason ? `<div class="why">“${esc(t.reason)}”</div>` : ''}
       <div class="act">
-        ${wpId ? `<a href="${esc(a.wpPostLink || WP+wpId+'&action=edit')}" target="_blank" rel="noopener">Éditer sur WP →</a>` : ''}
+        ${wpId && site.wp ? `<a href="${esc(a.wpPostLink || site.wp+wpId+'&action=edit')}" target="_blank" rel="noopener">Éditer sur WP →</a>` : ''}
+        ${a.wordpressUrl ? `<a href="${esc(a.wordpressUrl)}" target="_blank" rel="noopener">Voir l'article publié →</a>` : ''}
         <button data-arch="${esc(a.id)}">Archiver</button>
       </div>
     </div></div>`;
@@ -171,8 +183,31 @@ function render() {
   }
   board.querySelectorAll('[data-arch]').forEach(b => b.onclick = async () => {
     if (!confirm('Archiver ce brouillon ? (réversible dans Firestore)')) return;
-    try { await updateDoc(doc(db, 'lrdh_news_drafts_auto', b.dataset.arch), { status: 'archived' }); } catch(e) { alert('Erreur : '+e.message); }
+    try { await updateDoc(doc(db, site.col, b.dataset.arch), { status: 'archived' }); } catch(e) { alert('Erreur : '+e.message); }
   });
+}
+
+function renderSites() {
+  document.getElementById('sites').innerHTML = SITES.map(s =>
+    `<button class="chip ${s.key === site.key ? 'on' : ''}" data-site="${s.key}" style="font-size:12px">${s.name}</button>`).join('');
+  document.querySelectorAll('#sites .chip').forEach(b => b.onclick = () => switchSite(SITES.find(s => s.key === b.dataset.site)));
+}
+function subscribeSite() {
+  if (unsubSite) unsubSite();
+  const target = site;
+  unsubSite = onSnapshot(query(collection(db, target.col), where('status','==','ai_draft_auto')), snap => {
+    const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+    rows.sort((a,b) => (toDate(b.createdAt)?.getTime()||0) - (toDate(a.createdAt)?.getTime()||0));
+    cacheBySite[target.key] = rows;
+    if (site.key === target.key) { articles = rows; render(); }
+  }, e => { document.getElementById('board').innerHTML = '<div class="empty">Erreur de chargement : '+esc(e.message)+'</div>'; });
+}
+function switchSite(s) {
+  site = s;
+  renderSites();
+  articles = cacheBySite[s.key] || [];
+  render();
+  subscribeSite();
 }
 
 // filtres
@@ -216,11 +251,8 @@ onAuthStateChanged(auth, user => {
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user && !started) {
     started = true;
-    onSnapshot(query(collection(db, 'lrdh_news_drafts_auto'), where('status','==','ai_draft_auto')), snap => {
-      const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-      rows.sort((a,b) => (toDate(b.createdAt)?.getTime()||0) - (toDate(a.createdAt)?.getTime()||0));
-      articles = rows; render();
-    }, e => { document.getElementById('board').innerHTML = '<div class="empty">Erreur de chargement : '+esc(e.message)+'</div>'; });
+    renderSites();
+    switchSite(site);
   }
 });
 </script>
