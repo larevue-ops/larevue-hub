@@ -44,7 +44,8 @@
   html { scroll-behavior:smooth; }
   body { font-family:var(--sans); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; letter-spacing:-0.01em; }
   a { color:inherit; }
-  ::selection { background:var(--gold-soft); }
+  ::selection { background:color-mix(in srgb, var(--gold) 40%, transparent); }
+  @media (prefers-color-scheme: dark) { ::selection { background:color-mix(in srgb, var(--gold) 55%, transparent); } }
   :focus-visible { outline:2px solid var(--gold); outline-offset:2px; border-radius:4px; }
   /* header */
   header { background:color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter:saturate(1.4) blur(12px); -webkit-backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--border); padding:11px 20px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:40; }
