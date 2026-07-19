@@ -174,7 +174,9 @@ function renderQueue() {
   const cards = [];
   for (const p of pend) {
     cards.push(`<div class="qcard"><div class="gen"><div class="spin"></div>Génération en cours…<br>~1 min</div>
-      <div class="b"><div class="ti">${esc(de(p.title || p.id))}</div></div></div>`);
+      <div class="b"><div class="ti">${esc(de(p.title || p.id))}</div>
+        <div class="acts"><button class="cancelgen" data-cancel="${esc(p.id)}" title="Arrêter la génération" style="background:#fee2e2;color:#b91c1c">✖ Annuler</button></div>
+      </div></div>`);
   }
   for (const p of ready) {
     cards.push(`<div class="qcard">
@@ -204,6 +206,16 @@ function renderQueue() {
   root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
     if (!confirm('Retirer ce post généré ?')) return;
     try { await updateDoc(doc(db, 'lrdh_linkedin_queue', b.dataset.drop), { status: 'archived_stale' }); } catch(e) { alert('Erreur : ' + e.message); }
+  });
+  // Arrêter une génération coincée (ex. worker bloqué par le quota Firestore). L'écriture
+  // passe même quand les LECTURES sont épuisées (quota séparé) → débloque toujours la carte.
+  root.querySelectorAll('[data-cancel]').forEach(b => b.onclick = async () => {
+    if (!confirm('Arrêter la génération de ce post ?')) return;
+    b.disabled = true;
+    try {
+      await updateDoc(doc(db, 'lrdh_linkedin_queue', b.dataset.cancel), { 'regenRequest.pending': false, 'regenRequest.cancelledAt': new Date().toISOString(), 'regenRequest.cancelledBy': 'hub' });
+      toast('✖ Génération annulée.');
+    } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
   });
 }
 
@@ -284,7 +296,13 @@ async function searchWp(term) {
     slug = term;
   }
   const bySlug = slug ? `${WP}/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}&_embed=wp:featuredmedia&_fields=${WP_FIELDS}` : '';
-  const byText = `${WP}/wp-json/wp/v2/posts?search=${encodeURIComponent(term)}&per_page=30&_embed=wp:featuredmedia&_fields=${WP_FIELDS}`;
+  // Repli plein-texte : si un slug/URL a été fourni mais que la recherche exacte échoue
+  // (post_name ≠ dernier segment de l'URL via Permalink Manager), on cherche sur les MOTS du
+  // slug (tirets → espaces, on retire le bruit « avis/test/hôtel… ») au lieu de l'URL brute.
+  const words = slug
+    ? slug.replace(/-/g, ' ').replace(/\b(avis|test|notre|complet|complets?|guide|photos?|prix|hotel|h[oô]tel)\b/gi, ' ').replace(/\s+/g, ' ').trim()
+    : term;
+  const byText = `${WP}/wp-json/wp/v2/posts?search=${encodeURIComponent(words)}&per_page=30&_embed=wp:featuredmedia&_fields=${WP_FIELDS}`;
   try {
     let posts = [];
     if (bySlug) { const r = await fetch(bySlug, { cache: 'no-store' }); posts = await r.json(); }
