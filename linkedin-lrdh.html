@@ -255,7 +255,7 @@ function renderArts() {
             <input class="tf-note" placeholder="Note · ex 9,7/10" value="${esc(autoNote)}" style="${iSt}">
             <input class="tf-brand" placeholder="Nom de l'hôtel" value="${esc(autoBrand)}" style="${iSt}">
             <input class="tf-loc" placeholder="Localisation · ex En Sologne, près de Chambord" style="${iSt};grid-column:1/-1">
-            <input class="tf-title" placeholder="Citation du bas · *mots* = surlignés en or" style="${iSt};grid-column:1/-1">
+            <input class="tf-title" placeholder="Citation du bas · *mots* = surlignés · _mots_ = soulignés" style="${iSt};grid-column:1/-1">
           </div>
         </div>
         <button class="go" data-gen="${a.id}" ${busy ? 'disabled' : ''}>${q?.status === 'scheduled' ? 'Déjà programmé' : q?.publishedToLinkedin ? 'Déjà publié' : q?.regenRequest?.pending ? 'Génération…' : q?.linkedinImageUrl && q?.status === 'image_ready' ? 'Prêt (ci-dessus)' : '✨ Générer le post'}</button>
