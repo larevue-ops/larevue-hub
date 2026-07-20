@@ -232,21 +232,54 @@ function renderArts() {
   const root = document.getElementById('arts');
   const byId = Object.fromEntries(queueDocs.map(p => [String(p.postId || p.id), p]));
   const list = searchResults !== null ? searchResults : wpPosts;
+  const iSt = 'width:100%;border:1px solid #e5e7eb;border-radius:7px;padding:6px 8px;font-size:11px;background:#fff;box-sizing:border-box';
   root.innerHTML = list.map(a => {
     const q = byId[String(a.id)];
     const busy = q && (q.regenRequest?.pending || q.publishedToLinkedin || q.status === 'scheduled' || (q.status === 'image_ready' && q.linkedinImageUrl));
+    // pré-remplissage « On a testé » depuis le titre de l'article
+    const mNote = (a._title.match(/(\d{1,2}[.,]\d)\s*\/\s*10/) || a._title.match(/\((\d{1,2}[.,]\d)\)/) || [])[1] || '';
+    const autoNote = mNote ? mNote.replace('.', ',') + '/10' : '';
+    const autoBrand = a._title.split(/\s*[:(]/)[0].split(',')[0].trim();
     return `<div class="art">
       ${a._img ? `<img loading="lazy" src="${esc(a._img)}">` : ''}
       ${stBadge(q)}
       <div class="b">
         <div class="ti">${esc(a._title)}</div>
         <div class="dm">${new Date(a.date).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})} · <a href="${esc(a.link)}" target="_blank" rel="noopener">voir l'article ↗</a></div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin:8px 0">
+          <select class="stylesel" data-sel="${esc(a.id)}" style="${iSt}">
+            <option value="news">Style : Actu (par défaut)</option>
+            <option value="test">Style : 🏅 On a testé · test d'hôtel</option>
+          </select>
+          <div class="testf" data-tf="${esc(a.id)}" style="display:none;grid-template-columns:1fr 1fr;gap:6px">
+            <input class="tf-note" placeholder="Note · ex 9,7/10" value="${esc(autoNote)}" style="${iSt}">
+            <input class="tf-brand" placeholder="Nom de l'hôtel" value="${esc(autoBrand)}" style="${iSt}">
+            <input class="tf-loc" placeholder="Localisation · ex En Sologne, près de Chambord" style="${iSt};grid-column:1/-1">
+            <input class="tf-title" placeholder="Citation du bas · *mots* = surlignés en or" style="${iSt};grid-column:1/-1">
+          </div>
+        </div>
         <button class="go" data-gen="${a.id}" ${busy ? 'disabled' : ''}>${q?.status === 'scheduled' ? 'Déjà programmé' : q?.publishedToLinkedin ? 'Déjà publié' : q?.regenRequest?.pending ? 'Génération…' : q?.linkedinImageUrl && q?.status === 'image_ready' ? 'Prêt (ci-dessus)' : '✨ Générer le post'}</button>
       </div></div>`;
   }).join('') || `<div class="empty">${searchResults !== null ? 'Aucun article trouvé · essaie un autre mot-clé ou colle l’URL de l’article.' : 'Aucun article.'}</div>`;
+  // afficher les champs « test » quand le style est choisi
+  root.querySelectorAll('.stylesel').forEach(sel => sel.onchange = () => {
+    const tf = root.querySelector(`.testf[data-tf="${CSS.escape(sel.dataset.sel)}"]`);
+    if (tf) tf.style.display = sel.value === 'test' ? 'grid' : 'none';
+  });
   root.querySelectorAll('[data-gen]').forEach(b => b.onclick = async () => {
     const a = [...(searchResults || []), ...wpPosts].find(x => String(x.id) === b.dataset.gen);
     if (!a) return;
+    const sel = root.querySelector(`.stylesel[data-sel="${CSS.escape(b.dataset.gen)}"]`);
+    const style = sel ? sel.value : 'news';
+    const regen = { pending: true, requestedAt: new Date().toISOString() };
+    if (style === 'test') {
+      const tf = root.querySelector(`.testf[data-tf="${CSS.escape(b.dataset.gen)}"]`);
+      const g = c => (tf?.querySelector(c)?.value || '').trim();
+      const note = g('.tf-note'), brand = g('.tf-brand'), loc = g('.tf-loc'), title = g('.tf-title');
+      if (!note || !brand) { alert('Pour « On a testé », renseigne au moins la note et le nom de l’hôtel.'); return; }
+      regen.style = 'test'; regen.note = note; regen.brand = brand; regen.location = loc;
+      if (title) regen.title = title;
+    }
     b.disabled = true; b.textContent = 'Lancement…';
     try {
       await setDoc(doc(db, 'lrdh_linkedin_queue', String(a.id)), {
@@ -257,7 +290,7 @@ function renderArts() {
         imageTop: a._img || '',
         publishedToLinkedin: false,
         createdVia: 'hub',
-        regenRequest: { pending: true, requestedAt: new Date().toISOString() },
+        regenRequest: regen,
       }, { merge: true });
       const fired = await dispatchRegen();
       toast(fired ? '✨ Génération lancée · le post apparaît en haut d’ici ~1 min.'
