@@ -259,6 +259,18 @@
       <img id="mimg" alt="">
       <div class="fields">
         <div id="mpost" style="font-size:12px;font-weight:600;"></div>
+        <div id="mstylerow" style="display:none">
+          <label>Style de la cover</label>
+          <select id="mstyle">
+            <option value="news">Actu · éditorial (par défaut)</option>
+            <option value="test">On a testé · test d'hôtel</option>
+          </select>
+          <div id="mstylehint" class="hint" style="display:none;font-size:11px;margin:2px 0 4px">Mode test : « Titre » = citation du bas · « Marque » = nom de l'hôtel · « Localisation » = ex. « En Sologne, près de Chambord ».</div>
+        </div>
+        <div id="mnoterow" style="display:none">
+          <label>Note finale <span class="hint">· sur le sceau et au centre (ex : 9,7/10)</span></label>
+          <input id="mnote" placeholder="9,7/10">
+        </div>
         <label>Catégorie (badge sur l'image)</label>
         <input id="mcat" placeholder="ex : HÔTELS D'EXCEPTION / DESTINATION…">
         <label>Titre sur l'image <span class="hint">· *mots* = mis en valeur (encadré or / marqueur)</span></label>
@@ -617,6 +629,18 @@ window.openModal = (qkey, id) => {
   document.getElementById('mloc').value = post.linkedinLocation || '';
   document.getElementById('mcustomimg').value = '';
   document.getElementById('mcaption').value = post.linkedinCaption || '';
+  // style de cover (LRDH uniquement) : Actu vs « On a testé »
+  const isLrdhStyle = qkey === 'lrdh';
+  document.getElementById('mstylerow').style.display = isLrdhStyle ? 'block' : 'none';
+  document.getElementById('mstyle').value = post.linkedinStyle || 'news';
+  document.getElementById('mnote').value = post.linkedinNote || '';
+  const syncStyleUI = () => {
+    const isTest = isLrdhStyle && document.getElementById('mstyle').value === 'test';
+    document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
+    document.getElementById('mstylehint').style.display = isTest ? 'block' : 'none';
+  };
+  document.getElementById('mstyle').onchange = syncStyleUI;
+  syncStyleUI();
   document.getElementById('mdate').value = toLocal(post.scheduledAt);
   // vignettes : photos candidates de l'article, l'actuelle en surbrillance
   const current = post.selectedImage || post.linkedinSelectedImage || '';
@@ -683,6 +707,10 @@ window.saveEdit = async () => {
     if (covTitle && covTitle !== (post.linkedinTitle || '')) rr.title = covTitle;
     if (brand && brand !== (post.linkedinBrand || '')) rr.brand = brand;
     if (editing.qkey === 'lrdh') {
+      const style = document.getElementById('mstyle').value;
+      const note = document.getElementById('mnote').value.trim();
+      if (style !== (post.linkedinStyle || 'news')) rr.style = style;
+      if (style === 'test' && note !== (post.linkedinNote || '')) rr.note = note;
       const loc = document.getElementById('mloc').value.trim();
       if (loc !== (post.linkedinLocation || '')) rr.location = loc;
       const cropY = +document.getElementById('mcropy').value;
