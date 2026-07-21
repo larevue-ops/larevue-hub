@@ -267,6 +267,10 @@
           </select>
           <div id="mstylehint" class="hint" style="display:none;font-size:11px;margin:2px 0 4px">Mode test : « Titre » = citation du bas · « Marque » = nom de l'hôtel · « Localisation » = ex. « En Sologne, près de Chambord ».</div>
         </div>
+        <div id="minsetrow">
+          <label>Image ronde incrustée <span class="hint">· URL d'une photo (option, bord rouge)</span></label>
+          <input id="minset" placeholder="https://… (vide = aucune)">
+        </div>
         <div id="mnoterow" style="display:none">
           <label>Note finale <span class="hint">· sur le sceau et au centre (ex : 9,7/10)</span></label>
           <input id="mnote" placeholder="9,7/10">
@@ -634,6 +638,7 @@ window.openModal = (qkey, id) => {
   document.getElementById('mstylerow').style.display = isLrdhStyle ? 'block' : 'none';
   document.getElementById('mstyle').value = post.linkedinStyle || 'news';
   document.getElementById('mnote').value = post.linkedinNote || '';
+  document.getElementById('minset').value = post.linkedinInsetImage || '';
   const syncStyleUI = () => {
     const isTest = isLrdhStyle && document.getElementById('mstyle').value === 'test';
     document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
@@ -711,6 +716,7 @@ window.saveEdit = async () => {
       const note = document.getElementById('mnote').value.trim();
       if (style !== (post.linkedinStyle || 'news')) rr.style = style;
       if (style === 'test' && note !== (post.linkedinNote || '')) rr.note = note;
+  const _ins=document.getElementById('minset').value.trim(); if(_ins) rr.insetImage=_ins;
       const loc = document.getElementById('mloc').value.trim();
       if (loc !== (post.linkedinLocation || '')) rr.location = loc;
       const cropY = +document.getElementById('mcropy').value;
