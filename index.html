@@ -270,6 +270,8 @@
         <div id="minsetrow">
           <label>Image ronde incrustée <span class="hint">· URL d'une photo (option, bord rouge)</span></label>
           <input id="minset" placeholder="https://… (vide = aucune)">
+          <label>Légende de la photo ronde <span class="hint">· texte + flèche vers le rond (option)</span></label>
+          <input id="minsetlabel" placeholder="ex : La piscine face aux dunes (vide = aucune)">
         </div>
         <div id="mnoterow" style="display:none">
           <label>Note finale <span class="hint">· sur le sceau et au centre (ex : 9,7/10)</span></label>
@@ -639,6 +641,7 @@ window.openModal = (qkey, id) => {
   document.getElementById('mstyle').value = post.linkedinStyle || 'news';
   document.getElementById('mnote').value = post.linkedinNote || '';
   document.getElementById('minset').value = post.linkedinInsetImage || '';
+  document.getElementById('minsetlabel').value = post.linkedinInsetLabel || '';
   const syncStyleUI = () => {
     const isTest = isLrdhStyle && document.getElementById('mstyle').value === 'test';
     document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
@@ -717,6 +720,7 @@ window.saveEdit = async () => {
       if (style !== (post.linkedinStyle || 'news')) rr.style = style;
       if (style === 'test' && note !== (post.linkedinNote || '')) rr.note = note;
   const _ins=document.getElementById('minset').value.trim(); if(_ins) rr.insetImage=_ins;
+  const _insl=document.getElementById('minsetlabel').value.trim(); if(_insl) rr.insetLabel=_insl;
       const loc = document.getElementById('mloc').value.trim();
       if (loc !== (post.linkedinLocation || '')) rr.location = loc;
       const cropY = +document.getElementById('mcropy').value;
