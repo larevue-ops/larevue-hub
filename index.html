@@ -295,6 +295,8 @@
           <div class="crop">
             <div class="cropbox"><img id="mcropimg" alt="" draggable="false"></div>
             <div class="cropctl">
+              <div class="crange"><span>Position horizontale · <b id="mcropxval">50</b></span>
+                <input type="range" id="mcropx" min="0" max="100" value="50"></div>
               <div class="crange"><span>Position verticale · <b id="mcropyval">50</b></span>
                 <input type="range" id="mcropy" min="0" max="100" value="50"></div>
               <div class="crange"><span>Zoom · <b id="mcropzval">100</b>%</span>
@@ -669,26 +671,28 @@ window.openModal = (qkey, id) => {
   if (qkey === 'lrdh') {
     const rc = post.linkedinImageCrop1;
     const base = (rc && typeof rc === 'object')
-      ? { y: Number(rc.y ?? 50), zoom: Number(rc.zoom ?? 100) }
-      : { y: 50, zoom: 100 };
+      ? { x: Number(rc.x ?? 50), y: Number(rc.y ?? 50), zoom: Number(rc.zoom ?? 100) }
+      : { x: 50, y: 50, zoom: 100 };
     editing.baseCrop = base;
+    const cx = document.getElementById('mcropx');
     const cy = document.getElementById('mcropy'), cz = document.getElementById('mcropz');
+    const cxv = document.getElementById('mcropxval');
     const cyv = document.getElementById('mcropyval'), czv = document.getElementById('mcropzval');
     const cimg = document.getElementById('mcropimg');
-    cy.value = base.y; cz.value = base.zoom;
+    cx.value = base.x; cy.value = base.y; cz.value = base.zoom;
     const effImg = () => editing.pickedImage || document.getElementById('mcustomimg').value.trim() || current;
     const applyCrop = () => {
-      const y = +cy.value, z = +cz.value;
-      cyv.textContent = y; czv.textContent = z;
-      cimg.style.objectPosition = `50% ${y}%`;
-      cimg.style.transformOrigin = `50% ${y}%`;
+      const x = +cx.value, y = +cy.value, z = +cz.value;
+      cxv.textContent = x; cyv.textContent = y; czv.textContent = z;
+      cimg.style.objectPosition = `${x}% ${y}%`;
+      cimg.style.transformOrigin = `${x}% ${y}%`;
       cimg.style.transform = `scale(${z / 100})`;
     };
     editing.refreshCropImg = () => { const u = effImg(); if (u) cimg.src = u; };
     editing.refreshCropImg(); applyCrop();
-    cy.oninput = applyCrop; cz.oninput = applyCrop;
+    cx.oninput = applyCrop; cy.oninput = applyCrop; cz.oninput = applyCrop;
     document.getElementById('mcustomimg').oninput = editing.refreshCropImg;
-    document.getElementById('mcropreset').onclick = () => { cy.value = 50; cz.value = 100; applyCrop(); };
+    document.getElementById('mcropreset').onclick = () => { cx.value = 50; cy.value = 50; cz.value = 100; applyCrop(); };
   }
   document.getElementById('overlay').classList.add('on');
 };
@@ -723,10 +727,11 @@ window.saveEdit = async () => {
   const _insl=document.getElementById('minsetlabel').value.trim(); if(_insl) rr.insetLabel=_insl;
       const loc = document.getElementById('mloc').value.trim();
       if (loc !== (post.linkedinLocation || '')) rr.location = loc;
+      const cropX = +document.getElementById('mcropx').value;
       const cropY = +document.getElementById('mcropy').value;
       const cropZ = +document.getElementById('mcropz').value;
-      const bc = editing.baseCrop || { y: 50, zoom: 100 };
-      if (cropY !== bc.y || cropZ !== bc.zoom) rr.crop1 = { y: cropY, zoom: cropZ };
+      const bc = editing.baseCrop || { x: 50, y: 50, zoom: 100 };
+      if (cropX !== (bc.x ?? 50) || cropY !== bc.y || cropZ !== bc.zoom) rr.crop1 = { x: cropX, y: cropY, zoom: cropZ };
     }
     const newImg = customUrl || editing.pickedImage;
     if (newImg) rr.customImage = newImg;
