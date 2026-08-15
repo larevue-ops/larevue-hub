@@ -299,12 +299,18 @@ function renderArts() {
   });
 }
 
+// Polylang ignore ?lang= en REST : on écarte les traductions côté client. Le
+// test porte sur le PREMIER segment du chemin (/en/, /es/, /de/, /pt/…) plutôt
+// que sur une liste figée, sinon chaque nouvelle langue ressort dans le hub.
+function estTraduction(lien) {
+  return /^https?:\/\/[^/]+\/[a-z]{2}\//i.test(String(lien || ''));
+}
+
 async function loadWp() {
   try {
     const r = await fetch(`${WP}/wp-json/wp/v2/posts?per_page=50&_embed=wp:featuredmedia&_fields=${WP_FIELDS}`, { cache: 'no-store' });
     const posts = await r.json();
-    // Polylang ignore ?lang= en REST → on écarte les traductions /en/, /es/ et /de/ côté client
-    wpPosts = posts.filter(p => !/\/(en|es|de)\//.test(p.link || '')).map(mapPost);
+    wpPosts = posts.filter(p => !estTraduction(p.link)).map(mapPost);
     renderArts();
   } catch(e) {
     document.getElementById('arts').innerHTML = '<div class="empty">Erreur de chargement WP : ' + esc(e.message) + '</div>';
@@ -342,7 +348,7 @@ async function searchWp(term) {
     if (!Array.isArray(posts) || posts.length === 0) { const r = await fetch(byText, { cache: 'no-store' }); posts = await r.json(); }
     if (!Array.isArray(posts)) posts = [];
     if (seq !== searchSeq) return;   // une frappe plus récente a relancé la recherche
-    searchResults = posts.filter(p => !/\/(en|es|de)\//.test(p.link || '')).map(mapPost);
+    searchResults = posts.filter(p => !estTraduction(p.link)).map(mapPost);
     note.textContent = `${searchResults.length} résultat${searchResults.length > 1 ? 's' : ''} pour « ${term} »`;
     renderArts();
   } catch(e) {
