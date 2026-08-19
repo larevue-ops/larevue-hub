@@ -168,7 +168,25 @@
   .stat .i { font-size:22px; opacity:.55; }
   /* instagram compact */
   .strip.insta { background:color-mix(in srgb, var(--insta) 6%, var(--surface)); border-color:color-mix(in srgb, var(--insta) 22%, var(--border)); } .strip.insta .t { color:var(--insta); }
-  .strip.insta .list { max-height:132px; overflow-y:auto; scrollbar-width:thin; }
+  .strip.insta .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); gap:10px; }
+  .igcard { cursor:pointer; border-radius:10px; overflow:hidden; background:var(--surface); border:1px solid var(--border); transition:transform .15s, box-shadow .15s; }
+  .igcard:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,.13); }
+  .igcard img { width:100%; aspect-ratio:4/5; object-fit:cover; display:block; }
+  .igph { width:100%; aspect-ratio:4/5; display:grid; place-items:center; color:var(--muted); background:var(--border); }
+  .igmeta { padding:7px 8px 8px; display:flex; flex-direction:column; gap:3px; }
+  .igt { font-size:11px; line-height:1.35; font-weight:600; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .igd { font-size:10px; color:var(--muted); }
+  /* Visionneuse : on fait defiler les slides comme sur Instagram. */
+  #igview { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.88); padding:22px; overflow-y:auto; }
+  #igview.on { display:block; }
+  #igview .wrap { max-width:1180px; margin:0 auto; }
+  #igview .top { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; color:#fff; margin-bottom:14px; }
+  #igview .ttl { font-size:15px; font-weight:600; line-height:1.4; }
+  #igview .sub { font-size:12px; opacity:.72; margin-top:4px; }
+  #igview .close { background:#fff; color:#111; border:0; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0; }
+  #igview .slides { display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory; }
+  #igview .slides img { flex:0 0 auto; width:min(300px,68vw); aspect-ratio:4/5; object-fit:cover; border-radius:12px; scroll-snap-align:center; }
+  #igview .cap { color:#e9e9e9; font-size:12.5px; line-height:1.65; white-space:pre-wrap; margin-top:14px; background:rgba(255,255,255,.06); border-radius:10px; padding:13px 15px; }
   .strip.insta .line { display:flex; justify-content:space-between; font-size:11px; padding:3px 0; gap:10px; border-bottom:1px solid color-mix(in srgb, var(--insta) 10%, transparent); }
   .strip.insta .line:last-child { border-bottom:0; }
   .strip.insta .line span:first-child { color:var(--ink); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
@@ -241,6 +259,12 @@
     </div>
     <div class="note">Édition complète : caption, horaire, photo et textes de la cover (catégorie, titre, marque). Un visuel modifié est régénéré par GitHub Actions (~2 min, sinon automatiquement avant le prochain créneau).</div>
   </div>
+  <div id="igview"><div class="wrap">
+    <div class="top"><div><div class="ttl" id="igvt"></div><div class="sub" id="igvs"></div></div>
+    <button class="close" id="igvx">Fermer</button></div>
+    <div class="slides" id="igvsl"></div>
+    <div class="cap" id="igvc"></div>
+  </div></div>
   <div id="drafts-sec">
     <div class="filters">
       <input id="q" type="search" placeholder="🔍 Rechercher un article, une ville…">
@@ -466,7 +490,10 @@ const QFIELDS = ['postId','title','status','scheduledAt','publishedAt','publishe
 const trimQueue = x => ({ ...pick(x, QFIELDS), availableImages: (x.availableImages||[]).slice(0,8) });
 const trimDraft = x => ({ ...pick(x, ['title','category','categoryDisplay','city','createdAt','sourceUrl','status']),
   summary: String(x.summary||'').slice(0,220), images: (x.images||[]).slice(0,1) });
-const trimIg = x => pick(x, ['igTitle','title','scheduledAt','status','publishedToInstagram']);
+const trimIg = x => ({ ...pick(x, ['igTitle','title','scheduledAt','status','publishedToInstagram','igCaption','wpUrl']),
+  // On garde les vignettes pour les voir AVANT publication · plafonne a 5
+  // pour ne pas faire deborder le cache localStorage.
+  slides: Array.isArray(x.slides) ? x.slides.slice(0, 5) : [] });
 function showDbWarn() { const w = document.getElementById('dbwarn'); if (w) w.style.display = 'block'; }
 function cachedListen(qref, key, trim, apply) {
   try { const c = JSON.parse(localStorage.getItem('hub:'+key) || 'null'); if (c) apply(c); } catch {}
@@ -501,9 +528,16 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
   rows.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
   igCount = rows.length;
   document.getElementById('igcount').textContent = rows.length;
-  document.getElementById('iglist').innerHTML = rows.slice(0, 8).map(p =>
-    `<div class="line"><span>${esc(de(p.igTitle || p.title || p.id))}</span><span>${fdate(p.scheduledAt)}</span></div>`
-  ).join('') + (rows.length > 8 ? `<div class="line"><span style="color:#be185d">+${rows.length - 8} autres</span></div>` : '');
+  igRows = rows;
+  document.getElementById('iglist').innerHTML = rows.slice(0, 12).map((p, i) => {
+    const cover = (p.slides && p.slides[0]) || '';
+    const n = (p.slides || []).length;
+    return `<div class="igcard" data-ig="${i}" title="Voir le carrousel">
+      ${cover ? `<img src="${esc(cover)}" alt="" loading="lazy">` : '<div class="igph">?</div>'}
+      <div class="igmeta"><span class="igt">${esc(de(p.igTitle || p.title || p.id))}</span>
+      <span class="igd">${fdate(p.scheduledAt)}${n ? ` · ${n} slides` : ''}</span></div>
+    </div>`;
+  }).join('') + (rows.length > 12 ? `<div class="line"><span style="color:#be185d">+${rows.length - 12} autres</span></div>` : '');
   renderStats();
 });
 
@@ -516,8 +550,30 @@ cachedListen(query(collection(db, 'news_drafts_auto'), where('status','==','ai_d
 });
 }
 
+// ─── Visionneuse des carrousels Instagram ───
+// Le but : voir ce qui va sortir AVANT que ça sorte, slides et légende comprises.
+function ouvrirIg(i) {
+  const p = igRows[i];
+  if (!p) return;
+  document.getElementById('igvt').textContent = de(p.igTitle || p.title || p.id);
+  const n = (p.slides || []).length;
+  document.getElementById('igvs').textContent =
+    `${fdate(p.scheduledAt)}${n ? ` · ${n} slides` : ''}${p.wpUrl ? ' · ' + String(p.wpUrl).replace(/^https?:\/\//, '').slice(0, 60) : ''}`;
+  document.getElementById('igvsl').innerHTML = (p.slides || []).map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('');
+  document.getElementById('igvc').textContent = de(p.igCaption || '');
+  document.getElementById('igview').classList.add('on');
+}
+function fermerIg() { document.getElementById('igview').classList.remove('on'); }
+document.getElementById('iglist').addEventListener('click', e => {
+  const c = e.target.closest('[data-ig]');
+  if (c) ouvrirIg(Number(c.dataset.ig));
+});
+document.getElementById('igvx').addEventListener('click', fermerIg);
+document.getElementById('igview').addEventListener('click', e => { if (e.target.id === 'igview') fermerIg(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerIg(); });
+
 // ─── Stats ───
-let igCount = 0, drafts = [], draftCat = 'all', draftQ = '';
+let igCount = 0, igRows = [], drafts = [], draftCat = 'all', draftQ = '';
 const CATS = [
   { id:'all', label:'Tous', emoji:'📰' }, { id:'hotel', label:'Hôtels', emoji:'🏨' },
   { id:'restaurant', label:'Restaurants', emoji:'🍽️' }, { id:'spa', label:'Spas', emoji:'🧖' },
