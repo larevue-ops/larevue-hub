@@ -186,6 +186,23 @@
   #igview .close { background:#fff; color:#111; border:0; border-radius:999px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0; }
   #igview .slides { display:flex; gap:12px; overflow-x:auto; padding-bottom:12px; scroll-snap-type:x mandatory; }
   #igview .slides img { flex:0 0 auto; width:min(300px,68vw); aspect-ratio:4/5; object-fit:cover; border-radius:12px; scroll-snap-align:center; }
+  #igview .ed { margin-top:16px; background:rgba(255,255,255,.06); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px; }
+  #igview .ed label { display:flex; flex-direction:column; gap:5px; font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:#b9b9b9; }
+  #igview .ed input, #igview .ed textarea { background:#151515; color:#f2f2f2; border:1px solid #3a3a3a; border-radius:8px; padding:9px 11px; font:inherit; font-size:13px; line-height:1.5; resize:vertical; }
+  #igview .ed .deux { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:720px) { #igview .ed .deux { grid-template-columns:1fr; } }
+  #igview .imgs { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:8px; }
+  #igview .imgs .slot { border:1px solid #3a3a3a; border-radius:9px; overflow:hidden; background:#111; }
+  #igview .imgs .slot > b { display:block; font-size:10px; color:#c9a961; padding:5px 7px 3px; letter-spacing:.06em; }
+  #igview .imgs .slot .ch { display:flex; gap:4px; overflow-x:auto; padding:0 5px 6px; }
+  #igview .imgs .slot .ch img { width:42px; height:53px; object-fit:cover; border-radius:5px; cursor:pointer; opacity:.45; border:2px solid transparent; }
+  #igview .imgs .slot .ch img.sel { opacity:1; border-color:#c9a961; }
+  #igview .acts { display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+  #igview .btn { border:1px solid #4a4a4a; background:#1d1d1d; color:#eee; border-radius:999px; padding:9px 17px; font-size:13px; font-weight:600; cursor:pointer; }
+  #igview .btn.ok { background:#c9a961; border-color:#c9a961; color:#111; }
+  #igview .btn.danger { border-color:#7a2b2b; color:#ff9a9a; }
+  #igview .btn:disabled { opacity:.5; cursor:default; }
+  #igview .etat { font-size:12px; color:#c9c9c9; }
   #igview .cap { color:#e9e9e9; font-size:12.5px; line-height:1.65; white-space:pre-wrap; margin-top:14px; background:rgba(255,255,255,.06); border-radius:10px; padding:13px 15px; }
   .strip.insta .line { display:flex; justify-content:space-between; font-size:11px; padding:3px 0; gap:10px; border-bottom:1px solid color-mix(in srgb, var(--insta) 10%, transparent); }
   .strip.insta .line:last-child { border-bottom:0; }
@@ -263,7 +280,27 @@
     <div class="top"><div><div class="ttl" id="igvt"></div><div class="sub" id="igvs"></div></div>
     <button class="close" id="igvx">Fermer</button></div>
     <div class="slides" id="igvsl"></div>
-    <div class="cap" id="igvc"></div>
+    <div class="ed">
+      <label>Horaire de publication<input type="datetime-local" id="ige-date"></label>
+      <label>Catégorie (badge de couverture)<input type="text" id="ige-cat" maxlength="24"></label>
+      <label>Titre de couverture · 3 phrases maximum<textarea id="ige-titre" rows="3"></textarea></label>
+      <div class="deux">
+        <label>Le fait<textarea id="ige-f1" rows="2"></textarea></label>
+        <label>Ce que ça change<textarea id="ige-f2" rows="2"></textarea></label>
+      </div>
+      <div class="deux">
+        <label>Paragraphe 1<textarea id="ige-p1" rows="3"></textarea></label>
+        <label>Paragraphe 2<textarea id="ige-p2" rows="3"></textarea></label>
+      </div>
+      <label>Légende Instagram<textarea id="ige-cap" rows="6"></textarea></label>
+      <div class="imgs" id="ige-imgs"></div>
+      <div class="acts">
+        <button class="btn ok" id="ige-regen">↻ Enregistrer et régénérer</button>
+        <button class="btn" id="ige-save">Enregistrer sans régénérer</button>
+        <button class="btn danger" id="ige-drop">Retirer de la file</button>
+        <span class="etat" id="ige-etat"></span>
+      </div>
+    </div>
   </div></div>
   <div id="drafts-sec">
     <div class="filters">
@@ -493,7 +530,10 @@ const trimDraft = x => ({ ...pick(x, ['title','category','categoryDisplay','city
 const trimIg = x => ({ ...pick(x, ['igTitle','title','scheduledAt','status','publishedToInstagram','igCaption','wpUrl']),
   // On garde les vignettes pour les voir AVANT publication · plafonne a 5
   // pour ne pas faire deborder le cache localStorage.
-  slides: Array.isArray(x.slides) ? x.slides.slice(0, 5) : [] });
+  slides: Array.isArray(x.slides) ? x.slides.slice(0, 5) : [],
+  selectedImages: x.selectedImages || {},
+  availableImages: Array.isArray(x.availableImages) ? x.availableImages.slice(0, 14) : [],
+  ...pick(x, ['igCategory','igTitle','igFact1','igFact2','igPara1','igPara2','nbSlides']) });
 function showDbWarn() { const w = document.getElementById('dbwarn'); if (w) w.style.display = 'block'; }
 function cachedListen(qref, key, trim, apply) {
   try { const c = JSON.parse(localStorage.getItem('hub:'+key) || 'null'); if (c) apply(c); } catch {}
@@ -550,27 +590,136 @@ cachedListen(query(collection(db, 'news_drafts_auto'), where('status','==','ai_d
 });
 }
 
-// ─── Visionneuse des carrousels Instagram ───
-// Le but : voir ce qui va sortir AVANT que ça sorte, slides et légende comprises.
+// ─── Éditeur des carrousels Instagram ───
+// Voir AVANT publication ne suffit pas : il faut pouvoir corriger sur place et
+// relancer le rendu, sans passer par une session d'agent.
+let igEnCours = null;      // le carrousel ouvert
+let igChoix = {};          // slot -> URL retenue
+
+const igEl = (id) => document.getElementById(id);
+function igEtat(msg, ko = false) { const e = igEl('ige-etat'); e.textContent = msg || ''; e.style.color = ko ? '#ff9a9a' : '#c9c9c9'; }
+
+// <input type="datetime-local"> attend une heure LOCALE sans fuseau.
+function versLocal(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (isNaN(d)) return '';
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function ouvrirIg(i) {
   const p = igRows[i];
   if (!p) return;
-  document.getElementById('igvt').textContent = de(p.igTitle || p.title || p.id);
+  igEnCours = p;
+  igChoix = { ...(p.selectedImages || {}) };
+  igEl('igvt').textContent = de(p.igTitle || p.title || p.id);
   const n = (p.slides || []).length;
-  document.getElementById('igvs').textContent =
-    `${fdate(p.scheduledAt)}${n ? ` · ${n} slides` : ''}${p.wpUrl ? ' · ' + String(p.wpUrl).replace(/^https?:\/\//, '').slice(0, 60) : ''}`;
-  document.getElementById('igvsl').innerHTML = (p.slides || []).map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('');
-  document.getElementById('igvc').textContent = de(p.igCaption || '');
-  document.getElementById('igview').classList.add('on');
+  igEl('igvs').textContent = `${fdate(p.scheduledAt)}${n ? ` · ${n} slides` : ''}${p.wpUrl ? ' · ' + String(p.wpUrl).replace(/^https?:\/\//, '').slice(0, 58) : ''}`;
+  igEl('igvsl').innerHTML = (p.slides || []).map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('');
+  igEl('ige-date').value = versLocal(p.scheduledAt);
+  igEl('ige-cat').value = de(p.igCategory || '');
+  igEl('ige-titre').value = de(p.igTitle || '');
+  igEl('ige-f1').value = de(p.igFact1 || '');
+  igEl('ige-f2').value = de(p.igFact2 || '');
+  igEl('ige-p1').value = de(p.igPara1 || '');
+  igEl('ige-p2').value = de(p.igPara2 || '');
+  igEl('ige-cap').value = de(p.igCaption || '');
+  rendreChoixImages();
+  igEtat('');
+  igEl('igview').classList.add('on');
 }
-function fermerIg() { document.getElementById('igview').classList.remove('on'); }
-document.getElementById('iglist').addEventListener('click', e => {
+
+// Une vignette par emplacement, choisie parmi les visuels deja collectes pour
+// cet article : pas besoin d'aller chercher une URL a la main.
+function rendreChoixImages() {
+  const dispo = (igEnCours?.availableImages || []).filter(Boolean);
+  const slots = ['s1', 's2', 's3', 's4', 's5', 's6'];
+  igEl('ige-imgs').innerHTML = !dispo.length ? '<div style="color:#9a9a9a;font-size:12px">Aucun visuel de rechange enregistré pour cet article.</div>'
+    : slots.map(k => `<div class="slot"><b>${k.toUpperCase()}</b><div class="ch">${
+        dispo.map(u => `<img src="${esc(u)}" data-slot="${k}" data-url="${esc(u)}" class="${igChoix[k] === u ? 'sel' : ''}" loading="lazy">`).join('')
+      }</div></div>`).join('');
+}
+igEl('ige-imgs').addEventListener('click', e => {
+  const t = e.target.closest('img[data-slot]');
+  if (!t) return;
+  igChoix[t.dataset.slot] = t.dataset.url;
+  rendreChoixImages();
+});
+
+function champsEdites() {
+  return {
+    scheduledAt: igEl('ige-date').value ? new Date(igEl('ige-date').value).toISOString() : igEnCours.scheduledAt,
+    customText: {
+      category: igEl('ige-cat').value.trim(),
+      title: igEl('ige-titre').value.trim(),
+      fact1: igEl('ige-f1').value.trim(),
+      fact2: igEl('ige-f2').value.trim(),
+      para1: igEl('ige-p1').value.trim(),
+      para2: igEl('ige-p2').value.trim(),
+      caption: igEl('ige-cap').value,
+    },
+    customImages: igChoix,
+  };
+}
+
+// Enregistrer sans relancer le rendu : utile pour un simple ajustement de
+// legende ou d'horaire, qui n'a pas besoin de refabriquer les images.
+igEl('ige-save').addEventListener('click', async () => {
+  if (!igEnCours) return;
+  const { scheduledAt, customText, customImages } = champsEdites();
+  igEtat('Enregistrement…');
+  try {
+    await updateDoc(doc(db, 'instagram_queue', igEnCours.id), {
+      scheduledAt, igCaption: customText.caption, igCategory: customText.category,
+      igTitle: customText.title, igFact1: customText.fact1, igFact2: customText.fact2,
+      igPara1: customText.para1, igPara2: customText.para2, selectedImages: customImages,
+    });
+    igEtat('Enregistré. Les visuels ne changent qu\'après régénération.');
+  } catch (e) { igEtat('Échec : ' + e.message, true); }
+});
+
+// Regenerer : le rendu des slides est refait cote serveur avec les corrections.
+igEl('ige-regen').addEventListener('click', async () => {
+  if (!igEnCours) return;
+  const b = igEl('ige-regen'); b.disabled = true;
+  const { scheduledAt, customText, customImages } = champsEdites();
+  igEtat('Régénération en cours… (jusqu\'à 2 minutes)');
+  try {
+    const r = await fetch('https://larevue-publication-dashboard.vercel.app/api/generate-instagram-carousel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        postId: String(igEnCours.id), title: customText.title || igEnCours.igTitle || '',
+        excerpt: '', wpUrl: igEnCours.wpUrl || '',
+        imageTop: customImages.s1 || (igEnCours.availableImages || [])[0] || (igEnCours.slides || [])[0],
+        forceRegenerate: true, reuseExistingText: true, customText, customImages, scheduledAt,
+      }),
+    });
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    igEtat(`✅ ${j.nbSlides || '?'} slides régénérées.`);
+    if (Array.isArray(j.slides)) igEl('igvsl').innerHTML = j.slides.map(u => `<img src="${esc(u)}" alt="">`).join('');
+  } catch (e) { igEtat('Échec : ' + e.message, true); }
+  b.disabled = false;
+});
+
+// Retirer de la file : le carrousel reste en base, il ne partira simplement pas.
+igEl('ige-drop').addEventListener('click', async () => {
+  if (!igEnCours || !confirm('Retirer ce carrousel de la file de publication ?')) return;
+  igEtat('Retrait…');
+  try {
+    await updateDoc(doc(db, 'instagram_queue', igEnCours.id), { status: 'ready' });
+    igEtat('Retiré de la file.');
+  } catch (e) { igEtat('Échec : ' + e.message, true); }
+});
+
+function fermerIg() { igEl('igview').classList.remove('on'); igEnCours = null; }
+igEl('iglist').addEventListener('click', e => {
   const c = e.target.closest('[data-ig]');
   if (c) ouvrirIg(Number(c.dataset.ig));
 });
-document.getElementById('igvx').addEventListener('click', fermerIg);
-document.getElementById('igview').addEventListener('click', e => { if (e.target.id === 'igview') fermerIg(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') fermerIg(); });
+igEl('igvx').addEventListener('click', fermerIg);
+igEl('igview').addEventListener('click', e => { if (e.target.id === 'igview') fermerIg(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !igEl('igview').querySelector(':focus')) fermerIg(); });
 
 // ─── Stats ───
 let igCount = 0, igRows = [], drafts = [], draftCat = 'all', draftQ = '';
