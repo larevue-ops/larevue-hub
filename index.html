@@ -275,6 +275,48 @@
       <div class="list" id="iglist"></div>
     </div>
     <div class="note">Édition complète : caption, horaire, photo et textes de la cover (catégorie, titre, marque). Un visuel modifié est régénéré par GitHub Actions (~2 min, sinon automatiquement avant le prochain créneau).</div>
+
+    <!-- Journal des agents autonomes. Un agent qui travaille sans laisser de
+         trace est un agent qu'on ne peut ni verifier ni corriger. -->
+    <div class="strip agents" id="strip-agents" style="margin-top:18px">
+      <div class="head"><span class="t">🤖 Agents · <span id="agcount">0</span> passages</span></div>
+      <div class="list" id="aglist"></div>
+    </div>
+    <div class="note">Hermes prépare les carrousels Instagram de La Revue du Luxe · Argos surveille les images de larevue.app. Aucun des deux ne publie : ils préparent, programment et rendent compte ici.</div>
+
+    <style>
+      #aglist .ag{border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;margin:0 0 10px;background:rgba(255,255,255,.03)}
+      #aglist .ag b{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#e0bd6a}
+      #aglist .ag .q{font-size:11px;opacity:.6;margin-left:8px}
+      #aglist .ag p{margin:7px 0 0;font-size:13.5px;line-height:1.5}
+      #aglist .ag ul{margin:7px 0 0;padding-left:18px;font-size:12.5px;opacity:.85}
+      #aglist .ag .al{color:#ffb4a2}
+      #aglist .vide{opacity:.6;font-size:13px;padding:10px 2px}
+    </style>
+    <script>
+    (function(){
+      var API='https://larevue-publication-dashboard.vercel.app/api/agent-journal?limit=12';
+      var liste=document.getElementById('aglist'), compte=document.getElementById('agcount');
+      if(!liste) return;
+      var echapper=function(t){var d=document.createElement('div');d.textContent=String(t==null?'':t);return d.innerHTML;};
+      var puces=function(titre,arr,cls){
+        if(!arr||!arr.length) return '';
+        return '<ul class="'+(cls||'')+'"><li><i>'+titre+'</i> : '+arr.map(echapper).join(' · ')+'</li></ul>';
+      };
+      fetch(API).then(function(r){return r.json();}).then(function(j){
+        var e=(j&&j.entrees)||[];
+        compte.textContent=e.length;
+        if(!e.length){ liste.innerHTML='<div class="vide">Aucun passage enregistré pour le moment.</div>'; return; }
+        liste.innerHTML=e.map(function(x){
+          var quand=String(x.horodatage||'').replace('T',' ').slice(0,16);
+          return '<div class="ag"><b>'+echapper(x.agent)+'</b><span class="q">'+echapper(quand)+' UTC</span>'
+            +'<p>'+echapper(x.resume)+'</p>'
+            +puces('examiné',x.examine)+puces('modifié',x.modifie)+puces('programmé',x.programme)
+            +puces('alerte',x.alertes,'al')+'</div>';
+        }).join('');
+      }).catch(function(err){ liste.innerHTML='<div class="vide">Journal indisponible ('+echapper(err.message)+').</div>'; });
+    })();
+    </script>
   </div>
   <div id="igview"><div class="wrap">
     <div class="top"><div><div class="ttl" id="igvt"></div><div class="sub" id="igvs"></div></div>
