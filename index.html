@@ -280,71 +280,79 @@
     <!-- Journal des agents autonomes. Un agent qui travaille sans laisser de
          trace est un agent qu'on ne peut ni verifier ni corriger. -->
     <div class="strip agents" id="strip-agents" style="margin-top:18px">
-      <div class="head"><span class="t">🤖 Agents · <span id="agcount">0</span> passages</span><span id="agfiltre"></span></div>
-      <div class="list" id="aglist"></div>
+      <div class="head"><span class="t">🤖 La rédaction automatique · <span id="agcount">6</span> agents</span>
+        <span id="agmaj" style="margin-left:auto;font-size:11.5px;opacity:.6"></span></div>
+      <div id="agcartes"></div>
     </div>
-    <div class="note">Un agent de qualité par média · <b>Athéna</b> La Revue des Hôtels · <b>Apollon</b> La Revue du Luxe · <b>Hestia</b> La Revue des Restaurants · <b>Ulysse</b> La Revue des Voyages · <b>Argos</b> larevue.app. <b>Hermès</b> prépare les carrousels Instagram de La Revue du Luxe. Aucun ne publie ni ne modifie un article : ils constatent, signalent et rendent compte ici.</div>
+    <div class="note">Un agent par média, chacun sur sa machine ou dans son profil isolé, chacun verrouillé sur son périmètre. Aucun ne détient d'identifiant : ils lisent, constatent, signalent, et illustrent via une porte qui vérifie tout de son côté.</div>
 
     <style>
-      #aglist .ag{border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;margin:0 0 10px;background:rgba(255,255,255,.03)}
-      #aglist .ag b{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#e0bd6a}
-      #aglist .ag .q{font-size:11px;opacity:.6;margin-left:8px}
-      #aglist .ag p{margin:7px 0 0;font-size:13.5px;line-height:1.5}
-      #aglist .ag ul{margin:7px 0 0;padding-left:18px;font-size:12.5px;opacity:.85}
-      #aglist .ag .al{color:#ffb4a2}
-      #aglist .vide{opacity:.6;font-size:13px;padding:10px 2px}
-      #aglist .ag .md{font-size:11px;opacity:.55;margin-left:8px}
-      #agfiltre{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-      #agfiltre button{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);color:#e8e4dc;
-        border-radius:999px;padding:4px 11px;font:inherit;font-size:11px;letter-spacing:1.1px;
-        text-transform:uppercase;cursor:pointer}
-      #agfiltre button.on{background:#e0bd6a;border-color:#e0bd6a;color:#191712;font-weight:700}
+      #agcartes{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:12px}
+      .agc{border:1px solid rgba(255,255,255,.13);border-radius:12px;padding:15px 16px;background:rgba(255,255,255,.035);display:flex;flex-direction:column}
+      .agc__t{display:flex;align-items:center;gap:9px;margin-bottom:3px}
+      .agc__pt{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+      .agc__pt.ok{background:#6fcf97;box-shadow:0 0 8px rgba(111,207,151,.65)}
+      .agc__pt.vieux{background:#e0bd6a}
+      .agc__pt.rien{background:#6a6a6a}
+      .agc__n{font-size:13.5px;letter-spacing:1.1px;text-transform:uppercase;color:#e0bd6a;font-weight:700}
+      .agc__m{font-size:12px;opacity:.72;margin:0 0 9px}
+      .agc__meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+      .agc__meta span{font-size:10.5px;letter-spacing:.5px;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.14);opacity:.8}
+      .agc__role{font-size:12px;opacity:.62;line-height:1.45;margin:0 0 11px}
+      .agc__cr{border-top:1px solid rgba(255,255,255,.1);padding-top:10px;margin-top:auto}
+      .agc__q{font-size:10.5px;opacity:.55;letter-spacing:.4px}
+      .agc__r{font-size:12.8px;line-height:1.5;margin:5px 0 0;opacity:.92}
+      .agc__chif{display:flex;gap:12px;margin-top:8px;font-size:11px;opacity:.72}
+      .agc__al{margin-top:8px;font-size:12px;color:#ffb4a2;line-height:1.45}
+      .agc__vide{font-size:12px;opacity:.5;font-style:italic}
     </style>
     <script>
     (function(){
-      var API='https://larevue-publication-dashboard.vercel.app/api/agent-journal?limit=60';
-      var liste=document.getElementById('aglist'), compte=document.getElementById('agcount');
-      if(!liste) return;
-      var echapper=function(t){var d=document.createElement('div');d.textContent=String(t==null?'':t);return d.innerHTML;};
-      var puces=function(titre,arr,cls){
-        if(!arr||!arr.length) return '';
-        return '<ul class="'+(cls||'')+'"><li><i>'+titre+'</i> : '+arr.map(echapper).join(' · ')+'</li></ul>';
-      };
-      // Six agents dans un seul flux devient illisible au bout de deux jours.
-      // Un filtre par agent, et le nom du media a cote du nom de l'agent.
-      var barre=document.getElementById('agfiltre'), tout=[], medias={}, actif='';
-      var dessiner=function(){
-        var e=actif?tout.filter(function(x){return x.agent===actif;}):tout;
-        compte.textContent=e.length;
-        if(!e.length){ liste.innerHTML='<div class="vide">Aucun passage enregistré'+(actif?' pour cet agent':'')+'.</div>'; return; }
-        liste.innerHTML=e.map(function(x){
-          var quand=String(x.horodatage||'').replace('T',' ').slice(0,16);
-          var md=x.media||medias[x.agent]||'';
-          return '<div class="ag"><b>'+echapper(x.agent)+'</b>'
-            +(md?'<span class="md">'+echapper(md)+'</span>':'')
-            +'<span class="q">'+echapper(quand)+' UTC</span>'
-            +'<p>'+echapper(x.resume)+'</p>'
-            +puces('examiné',x.examine)+puces('modifié',x.modifie)+puces('programmé',x.programme)
-            +puces('alerte',x.alertes,'al')+'</div>';
-        }).join('');
-        if(barre) Array.prototype.forEach.call(barre.children,function(b){
-          b.className=(b.getAttribute('data-a')===actif)?'on':'';
-        });
-      };
+      var API='https://larevue-publication-dashboard.vercel.app/api/agent-journal?limit=80';
+      var hote=document.getElementById('agcartes'), compte=document.getElementById('agcount'), maj=document.getElementById('agmaj');
+      if(!hote) return;
+      var esc=function(t){var d=document.createElement('div');d.textContent=String(t==null?'':t);return d.innerHTML;};
+
+      // Les passages d'avant le 22/08 sont signés « hermes » : on les rattache
+      // à InstaLRDLAgent pour ne pas perdre son historique au renommage.
+      var ALIAS={hermes:'instalrdlagent',argos:'lrappagent',lraagent:'lrappagent',
+                 athena:'lrdhagent',apollon:'lrdlagent',hestia:'lrdragent',ulysse:'lrdvagent'};
+
       fetch(API).then(function(r){return r.json();}).then(function(j){
-        tout=(j&&j.entrees)||[]; medias=(j&&j.medias)||{};
-        if(barre){
-          var noms=(j&&j.agents)||[];
-          barre.innerHTML='<button data-a="">tous</button>'+noms.map(function(n){
-            return '<button data-a="'+echapper(n)+'">'+echapper(n)+'</button>';
-          }).join('');
-          barre.addEventListener('click',function(ev){
-            var b=ev.target.closest('button'); if(!b) return;
-            actif=b.getAttribute('data-a')||''; dessiner();
-          });
-        }
-        dessiner();
-      }).catch(function(err){ liste.innerHTML='<div class="vide">Journal indisponible ('+echapper(err.message)+').</div>'; });
+        if(j&&j.erreur) throw new Error(j.erreur);
+        var fiches=(j&&j.fiches)||{}, noms=(j&&j.agents)||Object.keys(fiches);
+        var parAgent={};
+        ((j&&j.entrees)||[]).forEach(function(e){
+          var a=ALIAS[e.agent]||e.agent;
+          (parAgent[a]=parAgent[a]||[]).push(e);
+        });
+        compte.textContent=noms.length;
+        var recent=null;
+        hote.innerHTML=noms.map(function(n){
+          var f=fiches[n]||{}, h=(parAgent[n]||[])[0];
+          var quand=h?String(h.horodatage||''):'';
+          if(quand&&(!recent||quand>recent)) recent=quand;
+          var age=quand?(Date.now()-new Date(quand).getTime())/36e5:null;
+          var cls=age===null?'rien':(age<30?'ok':'vieux');
+          var chif=h?['examiné '+((h.examine||[]).length),'modifié '+((h.modifie||[]).length),'programmé '+((h.programme||[]).length)]
+            .map(function(x){return '<span>'+esc(x)+'</span>';}).join(''):'';
+          var al=(h&&(h.alertes||[]).length)?'<div class="agc__al">⚠ '+(h.alertes||[]).map(esc).join('<br>⚠ ')+'</div>':'';
+          return '<div class="agc">'
+            +'<div class="agc__t"><span class="agc__pt '+cls+'"></span><span class="agc__n">'+esc(f.nom||n)+'</span></div>'
+            +'<div class="agc__m">'+esc(f.media||'')+'</div>'
+            +'<div class="agc__meta"><span>🖥 '+esc(f.hote||'—')+'</span><span>⏰ '+esc(f.cron||'—')+'</span></div>'
+            +'<div class="agc__role">'+esc(f.role||'')+'</div>'
+            +'<div class="agc__cr">'
+              +(h?('<div class="agc__q">'+esc(quand.replace('T',' ').slice(0,16))+' UTC</div>'
+                   +'<p class="agc__r">'+esc(h.resume)+'</p>'
+                   +'<div class="agc__chif">'+chif+'</div>'+al)
+                 :'<div class="agc__vide">Aucun passage enregistré pour le moment.</div>')
+            +'</div></div>';
+        }).join('');
+        if(maj&&recent) maj.textContent='dernier passage '+recent.replace('T',' ').slice(0,16)+' UTC';
+      }).catch(function(err){
+        hote.innerHTML='<div class="agc"><div class="agc__vide">Journal indisponible ('+esc(err.message)+').</div></div>';
+      });
     })();
     </script>
   </div>
