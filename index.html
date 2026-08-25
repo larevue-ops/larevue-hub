@@ -244,6 +244,7 @@
     <a href="#strip-lrdv">✈️ <span>LinkedIn LRDV</span></a>
     <a href="#strip-lrdh">🏨 <span>LinkedIn LRDH</span></a>
     <a href="#strip-insta">📸 <span>Instagram</span></a>
+    <a href="#strip-insta-lrdh">🏨 <span>Insta LRDH</span></a>
     <a href="#drafts-sec">📰 <span>Brouillons</span></a>
     <a href="triage.html">✨ <span>Tri du jour</span></a>
     <a href="triage-lrdl.html">🗞️ <span>Journal LRDL</span></a>
@@ -275,6 +276,13 @@
         <a href="./instagram-lrdl.html" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a;text-decoration:none">Page dédiée · dialoguer avec Hermes →</a></div>
       <div class="list" id="iglist"></div>
     </div>
+    <div class="strip instalrdh" id="strip-insta-lrdh">
+      <div class="head"><span class="t">🏨 Instagram LRDH · <span id="iglhcount">0</span> carrousels</span>
+        <span id="iglhsrc" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
+      <div class="list" id="iglhlist"></div>
+    </div>
+    <div class="note">Style « exqz » : photo plein cadre, credit discret, titre serif centre. Les carrousels reprennent la selection LinkedIn ·
+      ils restent en <b>prets</b> jusqu'a ce que vous les programmiez, rien ne part seul sur le compte.</div>
     <div class="note">Édition complète : caption, horaire, photo et textes de la cover (catégorie, titre, marque). Un visuel modifié est régénéré par GitHub Actions (~2 min, sinon automatiquement avant le prochain créneau).</div>
 
     <!-- Journal des agents autonomes. Un agent qui travaille sans laisser de
@@ -660,6 +668,18 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
   }).join('') + (rows.length > 12 ? `<div class="line"><span style="color:#be185d">+${rows.length - 12} autres</span></div>` : '');
   renderStats();
 });
+
+// Instagram LRDH · la file `lrdh_instagram_queue` est alimentee par le workflow
+// instagram-lrdh.yml. Le rendu vit dans un script autonome en bas de page (il
+// doit s'afficher meme quand Firestore ne repond pas) ; on ne fait ici que lui
+// pousser les donnees vivantes.
+try {
+  cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
+    const vivants = rows.filter(x => !x.publishedToInstagram);
+    vivants.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    if (vivants.length && window.rendreIgLrdh) window.rendreIgLrdh(vivants, false);
+  });
+} catch (e) { console.warn('Instagram LRDH : file illisible, rendus de reference conserves', e); }
 
 // Brouillons en attente · requête filtrée (ne lit plus publiés/archivés · quota Firestore)
 cachedListen(query(collection(db, 'news_drafts_auto'), where('status','==','ai_draft_auto'), limit(150)), 'drafts', trimDraft, rows => {
@@ -1066,5 +1086,81 @@ try {
   if (strips) new MutationObserver(attach).observe(strips, { childList: true });
 } catch (e) { /* enhancement non critique */ }
 </script>
+
+<style>
+  #strip-insta-lrdh .igcard { position:relative; }
+  #strip-insta-lrdh .igcard .ign { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.62); color:#fff;
+    font-size:10px; font-weight:700; letter-spacing:.6px; padding:2px 6px; border-radius:20px; }
+  #iglhview { position:fixed; inset:0; z-index:9000; background:rgba(8,8,10,.94); display:none; align-items:center; justify-content:center; padding:24px; }
+  #iglhview.on { display:flex; }
+  #iglhview .box { max-width:min(1180px,96vw); width:100%; }
+  #iglhview .hd { display:flex; align-items:baseline; gap:12px; color:#eee; margin-bottom:12px; font-size:14px; }
+  #iglhview .hd b { font-size:16px; }
+  #iglhview .hd .x { margin-left:auto; cursor:pointer; font-size:22px; color:#bbb; line-height:1; }
+  #iglhview .sl { display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; scroll-snap-type:x mandatory; }
+  #iglhview .sl img { flex:0 0 auto; width:min(300px,64vw); aspect-ratio:4/5; object-fit:cover; border-radius:12px; scroll-snap-align:center; }
+  #iglhview .cap { color:#b9b9b9; font-size:12.5px; margin-top:10px; white-space:pre-wrap; }
+</style>
+<script>
+// Rendu du bloc Instagram LRDH · volontairement HORS du module Firebase : le
+// tableau de bord ne monte ses bandes qu'une fois Firestore joignable, et un
+// bloc vide ne dit rien a personne. On affiche donc d'abord les rendus de
+// reference livres avec la page, que la file remplace des qu'elle repond.
+(function () {
+  const ESC = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const DE  = s => String(s||'').replace(/&#8217;|&rsquo;/g,'\u2019').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
+  const FD  = iso => iso ? new Date(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}) : '';
+  const SEED = [
+    { t:"La Bourgogne rouvre deux ch\u00e2teaux-h\u00f4tels", id:'bourgogne', n:5,
+      u:'https://larevuedeshotels.com/hotels-chateau-la-commaraine-sources-de-vougeot-bourgogne',
+      c:"Le Ch\u00e2teau La Commaraine devient la premi\u00e8re adresse cinq \u00e9toiles install\u00e9e dans les vignes de Pommard, et l'ancien Ch\u00e2teau de Gilly rouvre sous le nom des Sources de Vougeot.\n\n\ud83d\udcf2 L'article complet sur larevuedeshotels.com" },
+    { t:"Trois parcs \u00e0 th\u00e8me arrivent dans le Val-d'Oise", id:'valdoise', n:5,
+      u:'https://larevuedeshotels.com/parcs-a-theme-cergy-pontoise-hotellerie-val-d-oise',
+      c:"Six milliards d'euros, jusqu'\u00e0 22 000 emplois directs, et 870 chambres seulement autour du site.\n\n\u26a0\ufe0f Slide 1 : vue d'artiste g\u00e9n\u00e9r\u00e9e par intelligence artificielle.\n\n\ud83d\udcf2 L'article complet sur larevuedeshotels.com" },
+    { t:"Dubai Holding rach\u00e8te le Jumeirah de Majorque", id:'jumeirah', n:5,
+      u:'https://larevuedeshotels.com/l-hotel-jumeirah-port-soller-symbolise-la-fievre-des-investissements',
+      c:"577 millions d'euros investis dans l'h\u00f4tellerie des Bal\u00e9ares au premier semestre 2026.\n\n\ud83d\udcf2 L'article complet sur larevuedeshotels.com" },
+  ].map(x => ({ title:x.t, wpUrl:x.u, caption:x.c, status:'seed',
+    slides: Array.from({length:x.n}, (_,i) => './assets/ig-lrdh/' + x.id + '-' + (i+1) + '.jpg') }));
+
+  let rows = [];
+  function rendre(list, seed) {
+    rows = list;
+    document.getElementById('iglhcount').textContent = list.length;
+    document.getElementById('iglhsrc').textContent = seed ? 'rendus de r\u00e9f\u00e9rence' : 'file Firestore';
+    document.getElementById('iglhlist').innerHTML = list.slice(0, 12).map((p, i) => {
+      const cover = (p.slides && p.slides[0]) || '';
+      const n = (p.slides || []).length;
+      return '<div class="igcard" data-iglh="' + i + '" title="Voir le carrousel">'
+        + (cover ? '<img src="' + ESC(cover) + '" alt="" loading="lazy">' : '<div class="igph">?</div>')
+        + (n ? '<span class="ign">' + n + '</span>' : '')
+        + '<div class="igmeta"><span class="igt">' + ESC(DE(p.coverTitle || p.title || p.id)) + '</span>'
+        + '<span class="igd">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'rendu de r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
+    }).join('');
+  }
+  window.rendreIgLrdh = rendre;
+
+  function demarrer() {
+    if (!document.getElementById('iglhlist')) return;
+    rendre(SEED, true);
+    document.getElementById('iglhlist').addEventListener('click', e => {
+      const c = e.target.closest('[data-iglh]'); if (!c) return;
+      const p = rows[+c.dataset.iglh]; if (!p) return;
+      document.getElementById('iglhvt').textContent = DE(p.coverTitle || p.title || '');
+      document.getElementById('iglhvs').textContent = (p.slides||[]).length + ' slides'
+        + (p.wpUrl ? ' \u00b7 ' + String(p.wpUrl).replace(/^https?:\/\//,'').slice(0,60) : '');
+      document.getElementById('iglhvsl').innerHTML = (p.slides||[]).map(u => '<img src="' + ESC(u) + '" alt="" loading="lazy">').join('');
+      document.getElementById('iglhvc').textContent = p.caption || '';
+      document.getElementById('iglhview').classList.add('on');
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('iglhview').classList.remove('on'); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer); else demarrer();
+})();
+</script>
+<div id="iglhview"><div class="box">
+  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
+  <div class="sl" id="iglhvsl"></div><div class="cap" id="iglhvc"></div>
+</div></div>
 </body>
 </html>
