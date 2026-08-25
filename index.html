@@ -1125,13 +1125,13 @@ try {
   const DE  = s => String(s||'').replace(/&#8217;|&rsquo;/g,'\u2019').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
   const FD  = iso => iso ? new Date(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}) : '';
   const SEED = [
-    { t:"La Bourgogne rouvre deux ch\u00e2teaux-h\u00f4tels", id:'bourgogne', n:5,
+    { t:"Deux ch\u00e2teaux de Bourgogne rouvrent en h\u00f4tels, voici ce qu'il y a dedans", id:'bourgogne', n:5,
       u:'https://larevuedeshotels.com/hotels-chateau-la-commaraine-sources-de-vougeot-bourgogne',
       c:"Le Ch\u00e2teau La Commaraine devient la premi\u00e8re adresse cinq \u00e9toiles install\u00e9e dans les vignes de Pommard, et l'ancien Ch\u00e2teau de Gilly rouvre sous le nom des Sources de Vougeot.\n\n\ud83d\udcf2 L'article complet sur larevuedeshotels.com" },
-    { t:"Trois parcs \u00e0 th\u00e8me arrivent dans le Val-d'Oise", id:'valdoise', n:5,
+    { t:"Voici \u00e0 quoi pourraient ressembler les trois parcs de Cergy-Pontoise", id:'valdoise', n:6,
       u:'https://larevuedeshotels.com/parcs-a-theme-cergy-pontoise-hotellerie-val-d-oise',
       c:"Six milliards d'euros, jusqu'\u00e0 22 000 emplois directs, et 870 chambres seulement autour du site.\n\n\u26a0\ufe0f Slide 1 : vue d'artiste g\u00e9n\u00e9r\u00e9e par intelligence artificielle.\n\n\ud83d\udcf2 L'article complet sur larevuedeshotels.com" },
-    { t:"Dubai Holding rach\u00e8te le Jumeirah de Majorque", id:'jumeirah', n:5,
+    { t:"Ce que Dubai Holding vient de racheter sur la c\u00f4te nord de Majorque", id:'jumeirah', n:5,
       u:'https://larevuedeshotels.com/l-hotel-jumeirah-port-soller-symbolise-la-fievre-des-investissements',
       c:"577 millions d'euros investis dans l'h\u00f4tellerie des Bal\u00e9ares au premier semestre 2026.\n\n\ud83d\udcf2 L'article complet sur larevuedeshotels.com" },
   ].map(x => ({ title:x.t, wpUrl:x.u, caption:x.c, status:'seed',
