@@ -675,7 +675,14 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
 // pousser les donnees vivantes.
 try {
   cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
-    const vivants = rows.filter(x => !x.publishedToInstagram && (x.slides || []).length >= 2);
+    // Seuls les carrousels au nouveau style comptent. La file contenait cinq
+    // entrees d'un pipeline anterieur (bandeau jaune, couverture-citation,
+    // deux visuels morts) : elles restent en base, mais n'ont rien a faire
+    // dans une bande qui annonce le style « exqz ».
+    const vivants = rows.filter(x => x.style === 'exqz'
+      && !x.publishedToInstagram
+      && !['archived', 'archived_stale', 'published'].includes(x.status)
+      && (x.slides || []).length >= 2);
     vivants.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
     if (vivants.length && window.rendreIgLrdh) window.rendreIgLrdh(vivants, false);
   });
