@@ -675,7 +675,7 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
 // pousser les donnees vivantes.
 try {
   cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
-    const vivants = rows.filter(x => !x.publishedToInstagram);
+    const vivants = rows.filter(x => !x.publishedToInstagram && (x.slides || []).length >= 2);
     vivants.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
     if (vivants.length && window.rendreIgLrdh) window.rendreIgLrdh(vivants, false);
   });
@@ -1088,6 +1088,13 @@ try {
 </script>
 
 <style>
+  /* Meme gabarit que la bande Instagram LRDL : `.strip.insta .list` porte la
+     grille, et notre bande ne portait pas la classe `insta` · sans ces regles,
+     une seule carte occupait toute la largeur. On garde en revanche l'ambre
+     LRDH plutot que le rose Instagram, pour distinguer les deux files. */
+  #strip-insta-lrdh { background:color-mix(in srgb, var(--lrdh) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lrdh) 22%, var(--border)); }
+  #strip-insta-lrdh .t { color:var(--lrdh); }
+  #strip-insta-lrdh .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); gap:10px; }
   #strip-insta-lrdh .igcard { position:relative; }
   #strip-insta-lrdh .igcard .ign { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.62); color:#fff;
     font-size:10px; font-weight:700; letter-spacing:.6px; padding:2px 6px; border-radius:20px; }
