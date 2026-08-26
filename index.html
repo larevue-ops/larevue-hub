@@ -673,6 +673,13 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
 // instagram-lrdh.yml. Le rendu vit dans un script autonome en bas de page (il
 // doit s'afficher meme quand Firestore ne repond pas) ; on ne fait ici que lui
 // pousser les donnees vivantes.
+// Ecriture de l'ordre des slides · le rendu du bloc vit hors du module, il
+// n'a pas acces a `db`, on lui passe donc une porte.
+window.enregistrerOrdreIgLrdh = async (id, slides) => {
+  if (!id) throw new Error('carrousel sans identifiant (rendu de référence)');
+  await updateDoc(doc(db, 'lrdh_instagram_queue', id), { slides, slidesReordonnees: new Date().toISOString() });
+};
+
 try {
   cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
     // Seuls les carrousels au nouveau style comptent. La file contenait cinq
@@ -1114,6 +1121,21 @@ try {
   #iglhview .sl { display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; scroll-snap-type:x mandatory; }
   #iglhview .sl img { flex:0 0 auto; width:min(300px,64vw); aspect-ratio:4/5; object-fit:cover; border-radius:12px; scroll-snap-align:center; }
   #iglhview .cap { color:#b9b9b9; font-size:12.5px; margin-top:10px; white-space:pre-wrap; }
+  #iglhview .sl figure { flex:0 0 auto; margin:0; position:relative; }
+  #iglhview .sl figure.tire { opacity:.45; }
+  #iglhview .sl figure.cible img { outline:2px dashed #e0bd6a; outline-offset:3px; }
+  #iglhview .sl .num { position:absolute; top:8px; left:8px; background:rgba(0,0,0,.66); color:#fff;
+    font:700 11px/1 -apple-system,Arial,sans-serif; padding:4px 7px; border-radius:20px; }
+  #iglhview .sl .fl { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+  #iglhview .sl .fl button { width:30px; height:30px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.6); color:#fff; font-size:15px; line-height:1; cursor:pointer; }
+  #iglhview .sl .fl button:hover { background:rgba(224,189,106,.85); color:#111; }
+  #iglhview .aide { color:#8d8d8d; font-size:12px; margin:8px 0 0; }
+  #iglhview .enreg { margin-top:12px; display:flex; gap:10px; align-items:center; }
+  #iglhview .enreg button { background:#e0bd6a; color:#111; border:0; border-radius:8px; padding:8px 16px;
+    font-weight:700; cursor:pointer; font-size:13px; }
+  #iglhview .enreg button[disabled] { opacity:.4; cursor:default; }
+  #iglhview .enreg span { color:#b9b9b9; font-size:12.5px; }
 </style>
 <script>
 // Rendu du bloc Instagram LRDH · volontairement HORS du module Firebase : le
@@ -1154,6 +1176,74 @@ try {
   }
   window.rendreIgLrdh = rendre;
 
+  // ── Reordonner les slides ────────────────────────────────────────────────
+  // Le carrousel est fabrique automatiquement : la photo qui ouvre n'est pas
+  // toujours celle qui accroche le mieux. On peut donc deplacer les vignettes,
+  // au glisser-deposer ou aux fleches, et enregistrer le nouvel ordre.
+  let ouvert = null, ordre = [], tire = -1;
+
+  function rendreSlides() {
+    document.getElementById('iglhvsl').innerHTML = ordre.map((u, i) =>
+      '<figure draggable="true" data-i="' + i + '">'
+      + '<img src="' + ESC(u) + '" alt="" loading="lazy">'
+      + '<span class="num">' + (i === 0 ? 'Couverture' : i + 1) + '</span>'
+      + '<span class="fl">'
+      + (i > 0 ? '<button data-mv="' + i + '" data-sens="-1" title="Reculer">\u2039</button>' : '')
+      + (i < ordre.length - 1 ? '<button data-mv="' + i + '" data-sens="1" title="Avancer">\u203a</button>' : '')
+      + '</span></figure>').join('');
+    const chg = JSON.stringify(ordre) !== JSON.stringify(ouvert && ouvert.slides || []);
+    document.getElementById('iglhsave').disabled = !chg;
+    document.getElementById('iglhetat').textContent = chg ? 'ordre modifié' : '';
+  }
+
+  function bouger(de, vers) {
+    if (de === vers || de < 0 || vers < 0 || vers >= ordre.length) return;
+    ordre.splice(vers, 0, ordre.splice(de, 1)[0]);
+    rendreSlides();
+  }
+
+  const zone = () => document.getElementById('iglhvsl');
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#iglhvsl [data-mv]'); if (!b) return;
+    bouger(+b.dataset.mv, +b.dataset.mv + (+b.dataset.sens));
+  });
+  document.addEventListener('dragstart', (e) => {
+    const f = e.target.closest('#iglhvsl figure'); if (!f) return;
+    tire = +f.dataset.i; f.classList.add('tire'); e.dataTransfer.effectAllowed = 'move';
+  });
+  document.addEventListener('dragover', (e) => {
+    const f = e.target.closest('#iglhvsl figure'); if (!f || tire < 0) return;
+    e.preventDefault();
+    zone().querySelectorAll('figure').forEach(x => x.classList.remove('cible'));
+    f.classList.add('cible');
+  });
+  document.addEventListener('drop', (e) => {
+    const f = e.target.closest('#iglhvsl figure'); if (!f || tire < 0) return;
+    e.preventDefault(); bouger(tire, +f.dataset.i); tire = -1;
+  });
+  document.addEventListener('dragend', () => {
+    tire = -1;
+    zone().querySelectorAll('figure').forEach(x => x.classList.remove('tire', 'cible'));
+  });
+
+  // L'enregistrement passe par le module Firebase, seul detenteur de la
+  // connexion · il expose `window.enregistrerOrdreIgLrdh` une fois monte.
+  document.addEventListener('click', async (e) => {
+    if (e.target.id !== 'iglhsave') return;
+    const etat = document.getElementById('iglhetat');
+    if (!window.enregistrerOrdreIgLrdh) { etat.textContent = 'base indisponible'; return; }
+    e.target.disabled = true; etat.textContent = 'enregistrement…';
+    try {
+      await window.enregistrerOrdreIgLrdh(ouvert.id, ordre);
+      ouvert.slides = ordre.slice();
+      etat.textContent = 'ordre enregistré';
+      rendre(rows, false);
+    } catch (err) {
+      etat.textContent = 'échec : ' + String(err.message || err).slice(0, 60);
+      e.target.disabled = false;
+    }
+  });
+
   function demarrer() {
     if (!document.getElementById('iglhlist')) return;
     rendre(SEED, true);
@@ -1163,7 +1253,9 @@ try {
       document.getElementById('iglhvt').textContent = DE(p.coverTitle || p.title || '');
       document.getElementById('iglhvs').textContent = (p.slides||[]).length + ' slides'
         + (p.wpUrl ? ' \u00b7 ' + String(p.wpUrl).replace(/^https?:\/\//,'').slice(0,60) : '');
-      document.getElementById('iglhvsl').innerHTML = (p.slides||[]).map(u => '<img src="' + ESC(u) + '" alt="" loading="lazy">').join('');
+      ouvert = p;
+      ordre = (p.slides || []).slice();
+      rendreSlides();
       document.getElementById('iglhvc').textContent = p.caption || '';
       document.getElementById('iglhview').classList.add('on');
     });
@@ -1174,7 +1266,7 @@ try {
 </script>
 <div id="iglhview"><div class="box">
   <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
-  <div class="sl" id="iglhvsl"></div><div class="cap" id="iglhvc"></div>
+  <div class="sl" id="iglhvsl"></div><p class="aide">Glissez une vignette sur une autre pour la déplacer, ou utilisez les flèches. La couverture est le slide 1.</p><div class="cap" id="iglhvc"></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
 </html>
