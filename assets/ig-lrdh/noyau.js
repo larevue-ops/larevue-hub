@@ -173,6 +173,20 @@ export function dessinerPhoto(ctx, { img, logo, legende, credit: cr }) {
   return { legendeRetiree: Boolean(legende) && !leg };
 }
 
+// Le carton de fin ecrit AU MILIEU de l'image, la ou aucune photo ne garantit
+// un fond sombre : sur un ciel de Cappadoce ou une facade monegasque en plein
+// soleil, l'ombre portee et le filet ne suffisent pas et l'appel a l'action
+// disparait. On pose alors un voile RADIAL, centre sur le bloc de texte et
+// fondu sur les bords. Ce n'est pas le bandeau rectangulaire qu'on s'interdit :
+// il epouse le texte et laisse la photo respirer partout ailleurs.
+function voileRadial(ctx, cx, cy, rayon, force) {
+  const g = ctx.createRadialGradient(cx, cy, rayon * 0.18, cx, cy, rayon);
+  g.addColorStop(0, `rgba(0,0,0,${force})`);
+  g.addColorStop(0.62, `rgba(0,0,0,${force * 0.55})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+
 export function dessinerChute(ctx, { img, logo, texte, credit: cr }) {
   ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
   coverDraw(ctx, img);
@@ -185,6 +199,10 @@ export function dessinerChute(ctx, { img, logo, texte, credit: cr }) {
   const hBloc = LOGO_LARGE_COUV + 30 + size + (lignes.length - 1) * lh;
   const haut = Math.round((H - hBloc) / 2) + LOGO_LARGE_COUV + 30 + size;
   const clarte = clarteDuBas(ctx, haut - size - LOGO_LARGE_COUV - 30, hBloc + size * 0.4);
+  if (clarte > 0.45) {
+    const cy = haut - size / 2 - (hBloc - size - (lignes.length - 1) * lh) / 2 + (lignes.length - 1) * lh / 2;
+    voileRadial(ctx, W / 2, cy, W * 0.62, Math.min(0.58, 0.30 + (clarte - 0.45) * 1.1));
+  }
   marque(ctx, logo, haut - size - 30 - LOGO_LARGE_COUV, LOGO_LARGE_COUV);
   ctx.font = `${size}px "${SERIF}"`;
   ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte);
