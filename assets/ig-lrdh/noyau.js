@@ -151,6 +151,7 @@ export function dessinerCouverture(ctx, { img, logo, titre, credit: cr }) {
   const bas = H - 196;
   const haut = bas - (lignes.length - 1) * lh;
   const clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
+  voileTexte(ctx, haut - size / 2 + (lignes.length - 1) * lh / 2, clarte);
   ctx.fillStyle = '#fff';
   ctx.font = `${size}px "${SERIF}"`;
   marque(ctx, logo, haut - size - 30 - LOGO_LARGE_COUV, LOGO_LARGE_COUV);
@@ -173,11 +174,24 @@ export function dessinerPhoto(ctx, { img, logo, legende, credit: cr }) {
     const lh = Math.round(size * 1.25);
     const haut = H - 172 - (lignes.length - 1) * lh;
     const clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
+    voileTexte(ctx, haut - size / 2 + (lignes.length - 1) * lh / 2, clarte);
+    ctx.fillStyle = '#fff';
     ctx.font = `${size}px "${SERIF}"`;
     ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte);
   }
   signer(ctx, logo);
   return { legendeRetiree: Boolean(legende) && !leg };
+}
+
+// Voile pose SOUS un bloc de texte, quand la photo est trop claire pour que
+// l'ombre portee et le filet suffisent. Il est RADIAL : il epouse le bloc et
+// se fond sur les bords, la ou un bandeau rectangulaire trancherait la photo.
+// ⚠️ Devenu necessaire partout, et plus seulement sur le carton de fin, depuis
+// le passage a Playfair Display : ses deliés sont plus fins que ceux de
+// Newsreader, donc moins contrastes sur un fond clair.
+function voileTexte(ctx, cy, clarte) {
+  if (clarte <= 0.55) return;
+  voileRadial(ctx, W / 2, cy, W * 0.66, Math.min(0.52, 0.24 + (clarte - 0.55) * 1.1));
 }
 
 // Le carton de fin ecrit AU MILIEU de l'image, la ou aucune photo ne garantit
