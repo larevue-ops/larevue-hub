@@ -278,7 +278,8 @@
     </div>
     <div class="strip instalrdh" id="strip-insta-lrdh">
       <div class="head"><span class="t">🏨 Instagram LRDH · <span id="iglhcount">0</span> carrousels</span>
-        <span id="iglhsrc" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
+        <button id="iglhnew" title="Choisir un article et fabriquer son carrousel">+ Générer un carrousel</button>
+        <span id="iglhsrc" style="font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
       <div class="list" id="iglhlist"></div>
     </div>
     <div class="note">Style « exqz » : photo plein cadre, credit discret, titre serif centre. Les carrousels reprennent la selection LinkedIn ·
@@ -685,6 +686,22 @@ window.enregistrerCarrouselLrdh = async (id, charge) => {
 };
 // Ancien nom, garde le temps qu'un onglet ouvert avant la mise a jour se recharge.
 window.enregistrerOrdreIgLrdh = (id, slides) => window.enregistrerCarrouselLrdh(id, { slides });
+
+// Fabrique le carrousel d'UN article, a la demande. Le jeton GitHub vit dans
+// `app_config/github_dispatch`, deja utilise par le declencheur LinkedIn · on
+// reprend le jeton, mais le depot et le workflow sont ceux du runner social.
+window.fabriquerCarrouselLrdh = async (articleUrl) => {
+  const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
+  if (!snap.exists()) throw new Error('jeton GitHub absent de app_config');
+  const { token } = snap.data();
+  const r = await fetch('https://api.github.com/repos/larevue-media/larevue-social-runner/actions/workflows/instagram-lrdh.yml/dispatches', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: 'main', inputs: { article: String(articleUrl), max: '0' } }),
+  });
+  if (r.status !== 204) throw new Error(`GitHub a repondu ${r.status}`);
+  return true;
+};
 
 try {
   cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
@@ -1164,6 +1181,29 @@ try {
     padding:6px 8px; font-size:12px; cursor:pointer; }
   #iglhview .sl .num { z-index:2; }
   #iglhview .sl .fl { bottom:auto; top:8px; right:8px; left:auto; transform:none; z-index:2; }
+  /* Le choix de l'article. Meme habillage que la fenetre d'edition : c'est la
+     meme fonction, choisir puis fabriquer, et deux habillages differents
+     feraient croire a deux outils. */
+  #iglhnew { margin-left:auto; background:transparent; color:var(--lrdh); border:1px solid color-mix(in srgb, var(--lrdh) 45%, transparent);
+    border-radius:20px; padding:4px 12px; font-size:11.5px; font-weight:700; letter-spacing:.04em; cursor:pointer; white-space:nowrap; }
+  #iglhnew:hover { background:color-mix(in srgb, var(--lrdh) 14%, transparent); }
+  #iglhpick { position:fixed; inset:0; z-index:9001; background:rgba(8,8,10,.94); display:none; align-items:center; justify-content:center; padding:24px; }
+  #iglhpick.on { display:flex; }
+  #iglhpick .box { max-width:min(760px,96vw); width:100%; max-height:calc(100vh - 48px); display:flex; flex-direction:column; }
+  #iglhpick .hd { display:flex; align-items:baseline; gap:12px; color:#eee; margin-bottom:6px; font-size:14px; }
+  #iglhpick .hd .x { margin-left:auto; cursor:pointer; font-size:22px; color:#bbb; line-height:1; }
+  #iglhpick .aide { color:#8d8d8d; font-size:12px; margin:0 0 12px; }
+  #iglhplist { overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
+  #iglhplist .row { display:flex; align-items:center; gap:12px; padding:9px 11px; border:1px solid #2b2b30;
+    border-radius:10px; background:#151517; }
+  #iglhplist .row img { width:58px; height:44px; object-fit:cover; border-radius:5px; flex:0 0 58px; background:#222; }
+  #iglhplist .row .tt { flex:1; color:#e8e8ea; font:14px/1.35 Georgia,serif; }
+  #iglhplist .row .nb { font:700 11px/1 -apple-system,sans-serif; color:#8d8d8d; white-space:nowrap; }
+  #iglhplist .row button { background:#e0bd6a; color:#111; border:0; border-radius:7px; padding:6px 13px;
+    font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap; }
+  #iglhplist .row.maigre { opacity:.42; }
+  #iglhplist .row.maigre button { display:none; }
+  #iglhpetat { color:#b9b9b9; font-size:12.5px; }
 </style>
 <script>
 // Rendu du bloc Instagram LRDH · volontairement HORS du module Firebase : le
@@ -1364,6 +1404,59 @@ try {
     }
   });
 
+  // ── Choisir l'article, puis fabriquer ────────────────────────────────────
+  // La fabrication n'est plus automatique : la redaction designe le sujet.
+  // On liste les articles LRDH recents avec leur nombre de photos, parce que
+  // c'est le seul critere qui decide si un carrousel est faisable · en deca de
+  // quatre, la fabrication echoue et mieux vaut le dire avant le clic.
+  const WPL = 'https://larevuedeshotels.com';
+  async function ouvrirChoix() {
+    const l = document.getElementById('iglhplist');
+    document.getElementById('iglhpick').classList.add('on');
+    l.innerHTML = '<div class="row"><span class="tt">Chargement des articles…</span></div>';
+    document.getElementById('iglhpetat').textContent = '';
+    try {
+      // ⚠️ On lit large. LRDH publie en cinq langues : sur 24 articles recents,
+      // quatre seulement sont francais et la liste paraissait vide. On demande
+      // 80 entrees et on garde les 25 premieres versions francaises.
+      const r = await fetch(`${WPL}/wp-json/wp/v2/posts?per_page=80&status=publish&_fields=id,title,link,content,date`, { cache: 'no-store' });
+      const posts = (await r.json()).filter(p => !/\/(en|es|de|pt)\//.test(p.link)).slice(0, 25);
+      const dejaFait = new Set(rows.map(x => String(x.postId)));
+      document.getElementById('iglhpn').textContent = posts.length + ' articles récents';
+      l.innerHTML = posts.map(p => {
+        const html = p.content?.rendered || '';
+        const n = (html.match(/<img\b/gi) || []).length;
+        const vign = (html.match(/<img[^>]+src="([^"]+)"/i) || [])[1] || '';
+        const assez = n >= 4;
+        const vu = dejaFait.has(String(p.id));
+        return '<div class="row' + (assez ? '' : ' maigre') + '" data-url="' + ESC(p.link) + '">'
+          + (vign ? '<img src="' + ESC(vign) + '" alt="" loading="lazy">' : '<img alt="">')
+          + '<span class="tt">' + ESC(DE(p.title.rendered)) + '</span>'
+          + '<span class="nb">' + n + ' photo' + (n > 1 ? 's' : '') + (vu ? ' · déjà fait' : '') + '</span>'
+          + '<button data-gen="' + ESC(p.link) + '">' + (vu ? 'Refaire' : 'Générer') + '</button></div>';
+      }).join('');
+    } catch (e) {
+      l.innerHTML = '<div class="row"><span class="tt">Impossible de lire les articles : ' + ESC(String(e.message)) + '</span></div>';
+    }
+  }
+
+  document.addEventListener('click', async (e) => {
+    if (e.target.id === 'iglhnew') { ouvrirChoix(); return; }
+    const b = e.target.closest('#iglhplist [data-gen]'); if (!b) return;
+    const etat = document.getElementById('iglhpetat');
+    if (!window.fabriquerCarrouselLrdh) { etat.textContent = 'base indisponible'; return; }
+    b.disabled = true; b.textContent = '…';
+    try {
+      await window.fabriquerCarrouselLrdh(b.dataset.gen);
+      b.textContent = 'lancé';
+      etat.textContent = 'Fabrication lancée · le carrousel apparaîtra dans la bande d’ici deux à trois minutes.';
+    } catch (err) {
+      b.disabled = false; b.textContent = 'Générer';
+      etat.textContent = 'échec : ' + String(err.message || err).slice(0, 80);
+    }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('iglhpick')?.classList.remove('on'); });
+
   function demarrer() {
     if (!document.getElementById('iglhlist')) return;
     rendre(SEED, true);
@@ -1384,6 +1477,13 @@ try {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer); else demarrer();
 })();
 </script>
+<div id="iglhpick"><div class="box">
+  <div class="hd"><b>Quel article mettre en carrousel ?</b><span id="iglhpn"></span>
+    <span class="x" onclick="document.getElementById('iglhpick').classList.remove('on')">✕</span></div>
+  <p class="aide">La fabrication demande au moins quatre photos dans le corps de l’article. Les articles trop peu illustrés sont grisés.</p>
+  <div id="iglhplist"></div>
+  <div class="enreg"><span id="iglhpetat"></span></div>
+</div></div>
 <div id="iglhview"><div class="box">
   <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
   <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="cap" id="iglhvc"></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
