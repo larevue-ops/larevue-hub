@@ -17,8 +17,15 @@ export const LARGEUR_MINI = 900;        // en deca, l'image serait etiree
 export const INK = '#0d0d0c';
 export const CTA_DEFAUT = "Plus d'infos via le lien dans la bio.";
 
-export const SERIF = 'ExqzSerif';       // Newsreader SemiBold
-export const SERIF_REG = 'ExqzSerifReg';// Newsreader Medium
+// ⚠️ Newsreader etait une erreur d'identification : je l'avais lue dans la
+// feuille de style d'exqz.com en supposant que le site et les visuels
+// partageaient la meme police. C'est faux · leurs carrousels emploient un
+// display serif resserre a fort contraste. Comparaison de lettres a l'appui
+// (le mot « Norway's Whale » de leur visuel, agrandi et mis en regard de six
+// candidates), Playfair Display en graisse 500 est ce qui s'en approche le
+// plus parmi les fontes libres. Newsreader rendait trop large et trop douce.
+export const SERIF = 'ExqzSerif';       // Playfair Display 500
+export const SERIF_REG = 'ExqzSerifReg';// Playfair Display 400
 export const LOGO_LARGE_COUV = 88;
 export const LOGO_LARGE_SUITE = 58;
 

@@ -20,8 +20,8 @@ export function pret() {
   if (_pret) return _pret;
   _pret = (async () => {
     const fontes = [
-      [N.SERIF, `${BASE}/fonts/Newsreader-SemiBold.ttf`],
-      [N.SERIF_REG, `${BASE}/fonts/Newsreader-Medium.ttf`],
+      [N.SERIF, `${BASE}/fonts/PlayfairDisplay-Titre.ttf`],
+      [N.SERIF_REG, `${BASE}/fonts/PlayfairDisplay-Legende.ttf`],
     ];
     await Promise.all(fontes.map(async ([nom, url]) => {
       const f = new FontFace(nom, `url(${url})`);
