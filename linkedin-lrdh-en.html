@@ -95,7 +95,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, onSnapshot, doc, setDoc, updateDoc, getDoc, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const app = initializeApp({
@@ -374,11 +374,33 @@ onAuthStateChanged(auth, user => {
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user && !started) {
     started = true;
-    onSnapshot(collection(db, 'lrdh_en_linkedin_queue'), snap => {
-      const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+    // ⚠️ Ecouter la collection entiere coutait 249 lectures a CHAQUE attache,
+    // reconnexion reseau comprise. Le quota gratuit a saute le 29/08/2026 pour
+    // cette raison. On n'ecoute donc que les documents non publies, plus les
+    // six dernieres publications, et on detache quand l'onglet est cache.
+    const fusion = { vivants: [], publies: [] };
+    const rendre = () => {
+      const rows = [...fusion.vivants, ...fusion.publies];
       rows.sort((a,b) => String(b.regenRequest?.requestedAt || b.generatedAt || '').localeCompare(String(a.regenRequest?.requestedAt || a.generatedAt || '')));
       queueDocs = rows; renderQueue(); renderArts();
-    }, e => { document.getElementById('queue').innerHTML = '<div class="empty">Erreur : ' + esc(e.message) + '</div>'; });
+    };
+    const erreur = e => { document.getElementById('queue').innerHTML = '<div class="empty">Erreur : ' + esc(e.message) + '</div>'; };
+    const lire = (qref, cible) => onSnapshot(qref, snap => {
+      const r = []; snap.forEach(d => r.push({ id: d.id, ...d.data() }));
+      fusion[cible] = r; rendre();
+    }, erreur);
+    let stop = [];
+    const attacher = () => {
+      if (stop.length) return;
+      stop = [
+        lire(query(collection(db, 'lrdh_en_linkedin_queue'), where('publishedToLinkedin', '==', false)), 'vivants'),
+        lire(query(collection(db, 'lrdh_en_linkedin_queue'), orderBy('publishedAt', 'desc'), limit(6)), 'publies'),
+      ];
+    };
+    const detacher = () => { stop.forEach(f => f && f()); stop = []; };
+    document.addEventListener('visibilitychange', () => (document.hidden ? detacher() : attacher()));
+    window.addEventListener('pagehide', detacher);
+    if (!document.hidden) attacher();
     loadWp();
   }
 });

@@ -178,10 +178,20 @@ onAuthStateChanged(auth, user => {
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user && !started) {
     started = true;
-    onSnapshot(query(collection(db, 'news_drafts_auto'), orderBy('createdAt','desc'), limit(250)), snap => {
+    // ⚠️ Chaque attache relit les 250 documents, reconnexion reseau comprise.
+    // Sur un portable qui s'endort, un onglet laisse ouvert multiplie donc les
+    // lectures : c'est ce qui a fait sauter le quota le 29/08/2026. On coupe
+    // l'ecoute tant que la page n'est pas regardee.
+    let _stop = null;
+    const _demarrer = () => onSnapshot(query(collection(db, 'news_drafts_auto'), orderBy('createdAt','desc'), limit(250)), snap => {
       const r = []; snap.forEach(d => r.push({ id: d.id, ...d.data() }));
       rows = r; render();
     }, e => { document.getElementById('days').innerHTML = '<div class="empty">Erreur de chargement : '+esc(e.message)+'</div>'; });
+    const _on  = () => { if (!_stop) _stop = _demarrer(); };
+    const _off = () => { if (_stop) { _stop(); _stop = null; } };
+    document.addEventListener('visibilitychange', () => (document.hidden ? _off() : _on()));
+    window.addEventListener('pagehide', _off);
+    if (!document.hidden) _on();
   }
 });
 </script>

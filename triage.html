@@ -255,6 +255,13 @@ onAuthStateChanged(auth, user => {
     switchSite(site);
   }
 });
+
+// ⚠️ Une reconnexion reseau relance l'ecoute et relit toute la requete.
+// Sur un portable qui s'endort, un onglet laisse ouvert multiplie donc les
+// lectures. On coupe pendant que la page n'est pas regardee.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && typeof unsubSite === 'function') { try { unsubSite(); } catch {} }
+});
 </script>
 </body>
 </html>

@@ -475,7 +475,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, query, where, limit, onSnapshot, doc, updateDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, query, where, limit, onSnapshot, doc, updateDoc, getDoc, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const app = initializeApp({
@@ -624,18 +624,53 @@ const trimIg = x => ({ ...pick(x, ['igTitle','title','scheduledAt','status','pub
   availableImages: Array.isArray(x.availableImages) ? x.availableImages.slice(0, 14) : [],
   ...pick(x, ['igCategory','igTitle','igFact1','igFact2','igPara1','igPara2','nbSlides']) });
 function showDbWarn() { const w = document.getElementById('dbwarn'); if (w) w.style.display = 'block'; }
+// ⚠️ Firestore relit la collection ENTIERE a chaque attache d'un onSnapshot,
+// y compris apres une simple reconnexion reseau. Une file de 249 documents
+// ecoutee sans borne coutait donc 249 lectures a chaque reveil de la machine.
+// Le 29/08/2026, le quota gratuit (50 000 lectures/jour) a saute pour cette
+// raison et toute la publication sociale s'est arretee.
+//
+// Deux garde-fous :
+//   1. on n'ecoute QUE ce que la page affiche, en deux requetes a champ unique
+//      (donc sans index composite a creer) ;
+//   2. on detache l'ecoute des que l'onglet passe en arriere-plan.
+function ecouteVisible(demarrer) {
+  let stop = null;
+  const on  = () => { if (!stop) stop = demarrer(); };
+  const off = () => { if (stop) { stop(); stop = null; } };
+  document.addEventListener('visibilitychange', () => (document.hidden ? off() : on()));
+  window.addEventListener('pagehide', off);
+  if (!document.hidden) on();
+}
+
 function cachedListen(qref, key, trim, apply) {
   try { const c = JSON.parse(localStorage.getItem('hub:'+key) || 'null'); if (c) apply(c); } catch {}
-  onSnapshot(qref, snap => {
+  ecouteVisible(() => onSnapshot(qref, snap => {
     const rows = []; snap.forEach(d => rows.push(trim({ id: d.id, ...d.data() })));
     try { localStorage.setItem('hub:'+key, JSON.stringify(rows)); } catch {}
     apply(rows);
-  }, e => { console.error('[hub]', key, e.message); showDbWarn(); });
+  }, e => { console.error('[hub]', key, e.message); showDbWarn(); }));
+}
+
+// Deux vues d'une meme file, fusionnees cote client :
+//   - tout ce qui n'est PAS encore publie (une poignee de documents) ;
+//   - les six dernieres publications, par date de publication.
+// Les documents publies plus anciens ne sont jamais relus.
+function cachedListenFile(col, key, trim, apply) {
+  const parts = { vivants: null, publies: null };
+  const fusion = () => {
+    if (!parts.vivants && !parts.publies) return;
+    apply([...(parts.vivants || []), ...(parts.publies || [])]);
+  };
+  cachedListen(query(collection(db, col), where('publishedToLinkedin', '==', false)),
+               key + '-v', trim, rows => { parts.vivants = rows; fusion(); });
+  cachedListen(query(collection(db, col), orderBy('publishedAt', 'desc'), limit(6)),
+               key + '-p', trim, rows => { parts.publies = rows; fusion(); });
 }
 
 function startListeners() {
 for (const q of QUEUES) {
-  cachedListen(collection(db, q.col), 'q-'+q.key, trimQueue, rows => {
+  cachedListenFile(q.col, 'q-'+q.key, trimQueue, rows => {
     const scheduled = [], ready = [], published = [];
     for (const x of rows) {
       if (x.publishedToLinkedin) published.push(x);
