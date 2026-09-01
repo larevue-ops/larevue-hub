@@ -28,7 +28,7 @@
     --radius:16px; --radius-sm:10px;
     --serif:'Fraunces', Georgia, 'Times New Roman', serif;
     --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --lrdl:#2563eb; --lrdv:#0f766e; --lrdh:#b45309; --insta:#be185d;
+    --lrdl:#2563eb; --lrdv:#0f766e; --lrdh:#b45309; --lra:#d8232a; --insta:#be185d;
     --ok:#0f9d63; --danger:#dc2626;
   }
   @media (prefers-color-scheme: dark) {
@@ -37,7 +37,7 @@
       --ink:#efeae0; --muted:#9c968a; --faint:#6b665b;
       --border:#2c2921; --border-2:#37332a; --gold-soft:#2e2718;
       --shadow:0 1px 3px rgba(0,0,0,.4); --shadow-lg:0 18px 44px rgba(0,0,0,.55);
-      --lrdl:#6ba5f5; --lrdv:#4fd6bd; --lrdh:#e6a23c; --insta:#ec5a97;
+      --lrdl:#6ba5f5; --lrdv:#4fd6bd; --lrdh:#e6a23c; --lra:#f2686d; --insta:#ec5a97;
     }
   }
   * { box-sizing:border-box; margin:0; }
@@ -167,6 +167,7 @@
   .stat .l { font-size:10.5px; color:var(--muted); margin-top:4px; letter-spacing:.02em; }
   .stat .i { font-size:22px; opacity:.55; }
   /* instagram compact */
+  .strip.lra { background:color-mix(in srgb, var(--lra) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lra) 22%, var(--border)); } .strip.lra .t { color:var(--lra); }
   .strip.insta { background:color-mix(in srgb, var(--insta) 6%, var(--surface)); border-color:color-mix(in srgb, var(--insta) 22%, var(--border)); } .strip.insta .t { color:var(--insta); }
   .strip.insta .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); gap:10px; }
   .igcard { cursor:pointer; border-radius:10px; overflow:hidden; background:var(--surface); border:1px solid var(--border); transition:transform .15s, box-shadow .15s; }
@@ -243,6 +244,7 @@
     <a href="#strip-lrdl">💼 <span>LinkedIn LRDL</span></a>
     <a href="#strip-lrdv">✈️ <span>LinkedIn LRDV</span></a>
     <a href="#strip-lrdh">🏨 <span>LinkedIn LRDH</span></a>
+    <a href="#strip-lra">📰 <span>LinkedIn La Revue</span></a>
     <a href="#strip-insta">📸 <span>Instagram</span></a>
     <a href="#strip-insta-lrdh">🏨 <span>Insta LRDH</span></a>
     <a href="#drafts-sec">📰 <span>Brouillons</span></a>
@@ -432,8 +434,10 @@
         <input id="mcat" placeholder="ex : HÔTELS D'EXCEPTION / DESTINATION…">
         <label>Titre sur l’image <span class="hint">· en test = citation du bas (« » + majuscule auto) · *mots* = marqueur · _mots_ = souligné</span></label>
         <textarea id="mcovtitle"></textarea>
-        <label>Marque / bandeau <span class="hint">· ligne sous le titre</span></label>
-        <input id="mbrand">
+        <div id="mbrandrow">
+          <label>Marque / bandeau <span class="hint">· ligne sous le titre</span></label>
+          <input id="mbrand">
+        </div>
         <div id="mlocrow" style="display:none">
           <label>Localisation <span class="hint">· après la marque dans le bandeau haut (ex : Le Morne, Maurice)</span></label>
           <input id="mloc" placeholder="Ville, Pays">
@@ -492,6 +496,7 @@ const QUEUES = [
   { key:'lrdl', cls:'lrdl', icon:'💼', name:'LinkedIn LRDL', col:'linkedin_queue' },
   { key:'lrdv', cls:'lrdv', icon:'✈️', name:'LinkedIn LRDV', col:'lrdv_linkedin_queue' },
   { key:'lrdh', cls:'lrdh', icon:'🏨', name:'LinkedIn LRDH', col:'lrdh_linkedin_queue' },
+  { key:'lra',  cls:'lra',  icon:'📰', name:'LinkedIn La Revue', col:'larevue_linkedin_queue' },
 ];
 const state = {}; // key -> {scheduled, ready, published}
 let editing = null;
@@ -1008,7 +1013,14 @@ window.openModal = (qkey, id) => {
   document.getElementById('mpost').textContent = de(post.title || post.id);
   document.getElementById('mimg').src = post.linkedinImageUrl || '';
   document.getElementById('mcat').value = post.linkedinCategory || '';
-  document.getElementById('mcovtitle').value = post.linkedinTitle || '';
+  // ⚠️ Sur La Revue, le titre de l'ARTICLE est ce qui s'ecrit sur l'image : on
+  // pre-remplit donc le champ, sinon l'editeur presente une case vide sous un
+  // libelle « titre sur l'image » alors qu'un titre y figure bel et bien.
+  // `titreBase` sert ensuite de reference de comparaison, pour ne pas declencher
+  // une regeneration a chaque enregistrement sans modification.
+  editing.titreBase = post.linkedinTitle || (qkey === 'lra' ? de(post.title || '') : '');
+  document.getElementById('mcovtitle').value = editing.titreBase;
+  document.getElementById('mbrandrow').style.display = qkey === 'lra' ? 'none' : 'block';
   document.getElementById('mbrand').value = post.linkedinBrand || '';
   // localisation : uniquement sur le gabarit LRDH (bandeau « marque · lieu »)
   document.getElementById('mlocrow').style.display = qkey === 'lrdh' ? 'block' : 'none';
@@ -1094,7 +1106,7 @@ window.saveEdit = async () => {
     const brand = document.getElementById('mbrand').value.trim();
     const customUrl = document.getElementById('mcustomimg').value.trim();
     if (cat && cat !== (post.linkedinCategory || '')) rr.category = cat;
-    if (covTitle && covTitle !== (post.linkedinTitle || '')) rr.title = covTitle;
+    if (covTitle && covTitle !== (editing.titreBase ?? (post.linkedinTitle || ''))) rr.title = covTitle;
     if (brand && brand !== (post.linkedinBrand || '')) rr.brand = brand;
     if (editing.qkey === 'lrdh') {
       const style = document.getElementById('mstyle').value;
