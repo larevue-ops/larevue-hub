@@ -680,10 +680,17 @@ function cachedListenFile(col, key, trim, apply) {
     if (!parts.vivants && !parts.publies) return;
     apply([...(parts.vivants || []), ...(parts.publies || [])]);
   };
-  // ⚠️ « une poignee de documents » etait vrai a l'ecriture ; la file LinkedIn
-  // La Revue en compte 40 aujourd'hui, et rien ne borne la croissance. Une
-  // limite genereuse coute une ligne et enleve la derniere lecture non bornee.
-  cachedListen(query(collection(db, col), where('publishedToLinkedin', '==', false), limit(200)),
+  // ⚠️ NE PAS REMETTRE DE `limit()` ICI. J'en ai pose un de 200 le 02/09 pour
+  // borner la lecture : la file LRDH depasse ce nombre, la requete n'a AUCUN
+  // `orderBy`, donc Firestore coupait dans l'ordre des identifiants et faisait
+  // disparaitre des posts au hasard. Le post genere le jour meme etait invisible
+  // sur cette page alors qu'il s'affichait sur linkedin-lrdh.html, dont la meme
+  // requete n'est pas bornee — et le lien `#edit=` tombait donc dans le vide.
+  //
+  // Une limite sans tri ne borne pas un cout, elle cache des donnees. Le vrai
+  // poste de depense etait ailleurs : l'ecoute qui se detachait en arriere-plan
+  // et refacturait tout au retour (voir `ecouteVisible` plus haut).
+  cachedListen(query(collection(db, col), where('publishedToLinkedin', '==', false)),
                key + '-v', trim, rows => { parts.vivants = rows; fusion(); });
   cachedListen(query(collection(db, col), orderBy('publishedAt', 'desc'), limit(6)),
                key + '-p', trim, rows => { parts.publies = rows; fusion(); });
