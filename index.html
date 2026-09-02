@@ -269,6 +269,7 @@
 </div>
 <main id="appmain" style="display:none">
   <div id="dbwarn" style="display:none">⚠️ Base de données momentanément indisponible (quota du jour atteint) · affichage du dernier état connu, les modifications reprendront après le reset (9h Paris).</div>
+  <div class="jauge" id="jauge"></div>
   <div class="stats" id="stats"></div>
   <div class="board">
     <h2>⏰ Programmations sociales <span class="next" id="next"></span></h2>
@@ -532,8 +533,34 @@ let pendingHashEdit = hm ? [hm[1], decodeURIComponent(hm[2])] : null;
 
 const de = s => String(s||'').replace(/&#8211;|&ndash;/g,'–').replace(/&#8217;|&rsquo;/g,'\u2019').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
 const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fdate = iso => iso ? new Date(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}) : '';
-const toLocal = iso => { if(!iso) return ''; const d=new Date(iso), p=n=>String(n).padStart(2,'0');
+// ⚠️ Firestore ne rend pas TOUJOURS une chaine ISO. Selon la facon dont le
+// document a ete ecrit — serverTimestamp() cote runner, chaine ISO cote hub —
+// le champ arrive tantot en texte, tantot en objet Timestamp. Et le cache
+// localStorage, qui passe par JSON, le transforme en { seconds, nanoseconds }.
+//
+// Trois defauts vivaient de cette hypothese, dans trois registres differents :
+//   · un PLANTAGE · `(a.createdAt||'').slice(0,10)` sur un Timestamp cassait
+//     tout le rendu des brouillons (TypeError vu en production le 02/09) ;
+//   · un AFFICHAGE FAUX · `new Date(unTimestamp)` rend « Invalid Date », donc
+//     chaque date de la page pouvait sortir illisible sans rien casser ;
+//   · un TRI FAUX · `String(unTimestamp)` rend « [object Object] », identique
+//     pour tous les documents : le tri par date ne triait plus rien.
+// D'ou une normalisation unique, utilisee partout.
+const versDate = (v) => {
+  if (!v) return null;
+  if (typeof v === 'string' || typeof v === 'number') { const d = new Date(v); return isNaN(d) ? null : d; }
+  if (typeof v.toDate === 'function') { try { return v.toDate(); } catch { return null; } }
+  const sec = v.seconds ?? v._seconds;
+  if (typeof sec === 'number') return new Date(sec * 1000);
+  const d = new Date(v); return isNaN(d) ? null : d;
+};
+/** Clé de tri comparable, quelle que soit la forme d'origine. */
+const cleDate = (v) => { const d = versDate(v); return d ? d.toISOString() : ''; };
+/** AAAA-MM-JJ, ou chaine vide si la date est inexploitable. */
+const jourDate = (v) => cleDate(v).slice(0, 10);
+
+const fdate = v => { const d = versDate(v); return d ? d.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}) : ''; };
+const toLocal = v => { const d=versDate(v); if(!d) return ''; const p=n=>String(n).padStart(2,'0');
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 
 function render() {
@@ -650,6 +677,7 @@ onAuthStateChanged(auth, user => {
   document.getElementById('logout').style.display = user ? 'block' : 'none';
   document.getElementById('topnav').style.display = user ? 'flex' : 'none';
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
+  if (user) rendreJauge();
   if (user && !started) { started = true; startListeners(); }
 });
 
@@ -668,6 +696,66 @@ const trimIg = x => ({ ...pick(x, ['igTitle','title','scheduledAt','status','pub
   selectedImages: x.selectedImages || {},
   availableImages: Array.isArray(x.availableImages) ? x.availableImages.slice(0, 14) : [],
   ...pick(x, ['igCategory','igTitle','igFact1','igFact2','igPara1','igPara2','nbSlides']) });
+// ─── Jauge de quota Firestore ───────────────────────────────────────────────
+//
+// Ce qu'elle mesure, exactement : les documents que CE navigateur recoit de
+// Firestore depuis le dernier reset de quota. C'est la mesure la plus fidele
+// qu'une page statique puisse faire — le total du PROJET n'est lisible que par
+// Cloud Monitoring, qui demande une autorisation que le hub n'a pas, et qui
+// accuse plusieurs minutes de retard.
+//
+// ⚠️ Ce n'est donc PAS le total du projet, et l'affichage le dit. Mais la
+// mesure du 02/09 a montre que 99,8 % des lectures venaient de requetes de
+// collection, en rafales interactives : le hub EST le consommateur principal,
+// et ce compteur en donne l'image en direct.
+//
+// Pourquoi `docChanges()` et non `snap.size` : Firestore facture les documents
+// LIVRES. Au premier instantane, tous les documents arrivent en « added » ;
+// ensuite, seuls ceux qui changent. `docChanges()` suit donc exactement ce qui
+// est compte, la ou `snap.size` refacturerait la file entiere a chaque
+// notification.
+const QUOTA_JOUR = 50000;                       // palier gratuit Spark
+const CLE_QUOTA = 'hub:quota';
+// Le compteur Firestore repart a minuit heure du Pacifique, soit 07:00 ou 08:00
+// UTC selon l'heure d'ete. On se cale sur la meme journee que lui.
+const jourQuota = () => {
+  const d = new Date(Date.now() - 8 * 3600 * 1000);
+  return d.toISOString().slice(0, 10);
+};
+let quota = (() => {
+  try { const q = JSON.parse(localStorage.getItem(CLE_QUOTA) || 'null');
+        if (q && q.jour === jourQuota()) return q; } catch {}
+  return { jour: jourQuota(), lectures: 0 };
+})();
+function compterLectures(n) {
+  if (!n) return;
+  if (quota.jour !== jourQuota()) quota = { jour: jourQuota(), lectures: 0 };
+  quota.lectures += n;
+  try { localStorage.setItem(CLE_QUOTA, JSON.stringify(quota)); } catch {}
+  rendreJauge();
+}
+function rendreJauge() {
+  const el = document.getElementById('jauge');
+  if (!el) return;
+  const pct = Math.min(100, Math.round((quota.lectures / QUOTA_JOUR) * 100));
+  // Vert jusqu'a 60 %, ambre jusqu'a 85 %, rouge au-dela : on veut savoir AVANT
+  // la falaise, pas au moment de la toucher.
+  const couleur = pct >= 85 ? '#dc2626' : pct >= 60 ? '#f59e0b' : '#16a34a';
+  el.innerHTML = `
+    <div class="jauge-l">
+      <span class="jauge-t">Quota Firestore · lectures de ce navigateur</span>
+      <span class="jauge-p" style="color:${couleur}">${pct}%</span>
+    </div>
+    <div class="pile" title="${quota.lectures.toLocaleString('fr-FR')} sur ${QUOTA_JOUR.toLocaleString('fr-FR')} lectures">
+      <div class="pile-c"><div class="pile-f" style="width:${Math.max(pct, 1)}%;background:${couleur}"></div></div>
+      <div class="pile-b"></div>
+    </div>
+    <div class="jauge-s">${quota.lectures.toLocaleString('fr-FR')} / ${QUOTA_JOUR.toLocaleString('fr-FR')}
+      · projet <code>${db.app.options.projectId}</code>
+      · compte <code>${(auth.currentUser && auth.currentUser.email) || '—'}</code></div>
+    <div class="jauge-n">Mesure ce navigateur depuis le reset (minuit Pacifique), pas le total du projet.</div>`;
+}
+
 function showDbWarn() { const w = document.getElementById('dbwarn'); if (w) w.style.display = 'block'; }
 // ⚠️ Firestore relit la collection ENTIERE a chaque attache d'un onSnapshot,
 // y compris apres une simple reconnexion reseau. Une file de 249 documents
@@ -702,6 +790,7 @@ function ecouteVisible(demarrer) {
 function cachedListen(qref, key, trim, apply) {
   try { const c = JSON.parse(localStorage.getItem('hub:'+key) || 'null'); if (c) apply(c); } catch {}
   ecouteVisible(() => onSnapshot(qref, snap => {
+    compterLectures(snap.docChanges().length);
     const rows = []; snap.forEach(d => rows.push(trim({ id: d.id, ...d.data() })));
     try { localStorage.setItem('hub:'+key, JSON.stringify(rows)); } catch {}
     apply(rows);
@@ -743,9 +832,9 @@ for (const q of QUEUES) {
       else if (x.status === 'scheduled') scheduled.push(x);
       else if (x.regenRequest?.pending || (x.status === 'image_ready' && x.linkedinImageUrl)) ready.push(x);
     }
-    scheduled.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
-    ready.sort((a,b) => String(b.regenRequest?.requestedAt||b.generatedAt||'').localeCompare(String(a.regenRequest?.requestedAt||a.generatedAt||'')));
-    published.sort((a,b) => String(b.publishedAt||b.scheduledAt||'').localeCompare(String(a.publishedAt||a.scheduledAt||'')));
+    scheduled.sort((a,b) => cleDate(a.scheduledAt).localeCompare(cleDate(b.scheduledAt)));
+    ready.sort((a,b) => cleDate(b.regenRequest?.requestedAt||b.generatedAt).localeCompare(cleDate(a.regenRequest?.requestedAt||a.generatedAt)));
+    published.sort((a,b) => cleDate(b.publishedAt||b.scheduledAt).localeCompare(cleDate(a.publishedAt||a.scheduledAt)));
     // ⚠️ `ready.slice(0,10)` masquait en silence les posts au-dela du dixieme.
     // La rangee defile deja horizontalement : la coupe n'apportait rien, et elle
     // cassait le lien d'edition venu de linkedin-lrdh.html — `#edit=lrdh:<id>`
@@ -761,7 +850,7 @@ for (const q of QUEUES) {
 // Instagram (lecture seule) · requête filtrée : ne lit plus toute l'archive (quota Firestore)
 cachedListen(query(collection(db, 'instagram_queue'), where('status','==','scheduled'), limit(120)), 'ig', trimIg, all => {
   const rows = all.filter(x => !x.publishedToInstagram);
-  rows.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
+  rows.sort((a,b) => cleDate(a.scheduledAt).localeCompare(cleDate(b.scheduledAt)));
   igCount = rows.length;
   document.getElementById('igcount').textContent = rows.length;
   igRows = rows;
@@ -820,7 +909,7 @@ try {
       && !x.publishedToInstagram
       && !['archived', 'archived_stale', 'published'].includes(x.status)
       && (x.slides || []).length >= 2);
-    vivants.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    vivants.sort((a, b) => cleDate(b.createdAt).localeCompare(cleDate(a.createdAt)));
     if (vivants.length && window.rendreIgLrdh) window.rendreIgLrdh(vivants, false);
   });
 } catch (e) { console.warn('Instagram LRDH : file illisible, rendus de reference conserves', e); }
@@ -828,7 +917,7 @@ try {
 // Brouillons en attente · requête filtrée (ne lit plus publiés/archivés · quota Firestore)
 cachedListen(query(collection(db, 'news_drafts_auto'), where('status','==','ai_draft_auto'), limit(150)), 'drafts', trimDraft, rows => {
   drafts = rows;
-  drafts.sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  drafts.sort((a,b) => cleDate(b.createdAt).localeCompare(cleDate(a.createdAt)));
   renderDrafts();
   renderStats();
 });
@@ -1002,7 +1091,7 @@ function renderDrafts() {
     return `<div class="draft">
       ${img ? `<img loading="lazy" src="${esc(img)}">` : ''}
       <div class="db">
-        <div class="dm">${cat ? cat.emoji + ' ' + cat.label : esc(a.categoryDisplay || a.category || '')}${a.city ? ' · ' + esc(a.city) : ''} · ${(a.createdAt||'').slice(0,10)}</div>
+        <div class="dm">${cat ? cat.emoji + ' ' + cat.label : esc(a.categoryDisplay || a.category || '')}${a.city ? ' · ' + esc(a.city) : ''} · ${jourDate(a.createdAt)}</div>
         <div class="dt">${esc(de(a.title||''))}</div>
         <div class="dx">${esc((a.summary||'').replace(/<[^>]+>/g,'').slice(0,180))}</div>
         <div class="da">
