@@ -223,7 +223,7 @@
             background:color-mix(in srgb, var(--tc) 16%, transparent); color:var(--tc);
             border-radius:999px; padding:1px 7px; font-variant-numeric:tabular-nums; }
   .etat { font-weight:700; }
-  .etat.ok { color:#16a34a; }
+  .etat.na { color:var(--muted,#9a9384); font-weight:600; }
   .etat.ko { color:#dc2626; }
   @media (max-width:640px) { .mtab-n { display:none; } .mtab { padding:9px 12px; } }
   .stat { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:15px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:transform .16s, box-shadow .16s; }
@@ -867,12 +867,13 @@ function rendreJauge() {
     </div>
     ${detail ? `<div class="qmeds">${detail}</div>` : ''}
     <div class="jauge-s">
-      <span class="etat ${projetEpuise ? 'ko' : 'ok'}">${projetEpuise
+      <span class="etat ${projetEpuise ? 'ko' : 'na'}">${projetEpuise
         ? '⛔ Projet : quota du jour ÉPUISÉ · les écritures passent encore, pas les lectures'
-        : '✅ Projet : lectures acceptées'}</span>
+        : '◦ Projet : aucun refus observé'}</span>
       · projet <code>${db.app.options.projectId}</code>
       · compte <code>${(auth.currentUser && auth.currentUser.email) || '—'}</code></div>
-    <div class="jauge-n">⚠️ Ce compteur mesure CET onglet, pas le projet. Le projet a son propre
+    <div class="jauge-n">⚠️ « Aucun refus observé » n'est PAS « tout va bien » : une écoute servie
+      par le cache local ne part jamais au serveur, donc ne peut pas être refusée. Ce compteur mesure CET onglet, pas le projet. Le projet a son propre
       total (50 000 lectures/jour, tous appareils et robots confondus) que cette page ne peut pas
       lire : seul l'état ci-dessus, appris quand une lecture est refusée, en témoigne.</div>`;
 }
