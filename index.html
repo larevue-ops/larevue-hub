@@ -1204,10 +1204,16 @@ function organiser() {
     }
     const corps = sec.querySelector('.mbody');
     for (const sel of BLOCS_MEDIA[cle] || []) {
-      const el = document.querySelector(sel);
-      // appendChild deplace le noeud s'il existe deja ailleurs, et le remet
-      // dans le bon ordre s'il est deja la : l'appel est idempotent.
-      if (el) corps.appendChild(el);
+      // ⚠️ `render()` vide SA zone de fabrication, pas les groupes. Un simple
+      // appendChild empilait donc un exemplaire de plus a chaque rendu : seize
+      // copies du meme bandeau apres quelques instantanes. On dedoublonne.
+      const tous = [...document.querySelectorAll(sel)];
+      if (!tous.length) continue;
+      // Le bon exemplaire est celui que `render()` vient de produire ; a defaut
+      // — bloc statique deja range — c'est le dernier trouve.
+      const frais = tous.find((e) => e.closest('#strips')) || tous[tous.length - 1];
+      for (const e of tous) if (e !== frais) e.remove();
+      corps.appendChild(frais);
     }
   }
 }
