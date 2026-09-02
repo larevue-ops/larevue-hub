@@ -639,13 +639,24 @@ function showDbWarn() { const w = document.getElementById('dbwarn'); if (w) w.st
 //   1. on n'ecoute QUE ce que la page affiche, en deux requetes a champ unique
 //      (donc sans index composite a creer) ;
 //   2. on detache l'ecoute des que l'onglet passe en arriere-plan.
+// ⚠️ 2026-09-02 · DETACHER EN ARRIERE-PLAN COUTAIT DES LECTURES, IL N'EN
+// ECONOMISAIT AUCUNE. Firestore facture l'instantane INITIAL d'un onSnapshot,
+// puis seulement les documents qui changent. Une ecoute laissee attachee ne
+// coute donc presque rien ; en revanche, se detacher a chaque passage en
+// arriere-plan et se rattacher au retour REFACTURE l'ensemble a chaque fois.
+//
+// Le compte : sept ecoutes, environ 730 documents au total. A raison d'un
+// aller-retour d'onglet, c'est 730 lectures. Soixante-huit allers-retours dans
+// la journee — une matinee de travail dans le hub — et le plafond gratuit de
+// 50 000 est atteint. C'est ce qui bloquait la regeneration des visuels le
+// 02/09, et deja les 16, 17 et 18/07.
+//
+// On garde donc l'ecoute pour la duree de la page, et on ne la relache qu'a la
+// fermeture. Le nom de la fonction est conserve : trois appelants s'y referent.
 function ecouteVisible(demarrer) {
-  let stop = null;
-  const on  = () => { if (!stop) stop = demarrer(); };
+  let stop = demarrer();
   const off = () => { if (stop) { stop(); stop = null; } };
-  document.addEventListener('visibilitychange', () => (document.hidden ? off() : on()));
   window.addEventListener('pagehide', off);
-  if (!document.hidden) on();
 }
 
 function cachedListen(qref, key, trim, apply) {
@@ -667,7 +678,10 @@ function cachedListenFile(col, key, trim, apply) {
     if (!parts.vivants && !parts.publies) return;
     apply([...(parts.vivants || []), ...(parts.publies || [])]);
   };
-  cachedListen(query(collection(db, col), where('publishedToLinkedin', '==', false)),
+  // ⚠️ « une poignee de documents » etait vrai a l'ecriture ; la file LinkedIn
+  // La Revue en compte 40 aujourd'hui, et rien ne borne la croissance. Une
+  // limite genereuse coute une ligne et enleve la derniere lecture non bornee.
+  cachedListen(query(collection(db, col), where('publishedToLinkedin', '==', false), limit(200)),
                key + '-v', trim, rows => { parts.vivants = rows; fusion(); });
   cachedListen(query(collection(db, col), orderBy('publishedAt', 'desc'), limit(6)),
                key + '-p', trim, rows => { parts.publies = rows; fusion(); });
