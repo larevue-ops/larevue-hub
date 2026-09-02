@@ -108,20 +108,19 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 
-// ─── Second projet Firestore · voir index.html pour l'explication ───────────
-// ⚠️ Cet interrupteur doit valoir la MEME chose que celui d'index.html, et
-// basculer en meme temps que LRDH_LINKEDIN_PROJET_2 cote runner. Deux pages qui
-// ne regardent pas la meme base afficheraient deux files differentes.
-const LRDH_SUR_PROJET_2 = false;
+// ─── Projet Firestore de La Revue des Hôtels · voir index.html ──────────────
+// ⚠️ Cet interrupteur doit valoir la MÊME chose que celui d'index.html, et
+// basculer en même temps que FIRESTORE_SA_LRDH côté runner. Deux pages qui ne
+// regardent pas la même base afficheraient deux files différentes.
+const LRDH_SUR_PROJET_DEDIE = false;
 
-const app2 = LRDH_SUR_PROJET_2 ? initializeApp({
+const app2 = LRDH_SUR_PROJET_DEDIE ? initializeApp({
   apiKey: 'AIzaSyBEKkYULpRZO1jkfT9MyzKF48SNS2KDymk',
   authDomain: 'larevue-auto-dashboard-2.firebaseapp.com',
   projectId: 'larevue-auto-dashboard-2',
-  storageBucket: 'larevue-auto-dashboard-2.firebasestorage.app',
   messagingSenderId: '364018884402',
   appId: '1:364018884402:web:b78819b4ffbfcc868c012b',
-}, 'projet2') : null;
+}, 'projet_lrdh') : null;
 const dbq = app2 ? getFirestore(app2) : db;   // la base de la file LRDH
 const auth2 = app2 ? getAuth(app2) : null;
 const auth = getAuth(app);
