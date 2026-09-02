@@ -208,6 +208,24 @@
      titre du bloc : on l'efface pour ne pas dire deux fois la même chose. */
   .mgroup .pmed { display:none; }
   @media (max-width:640px) { .mgroup { padding-left:11px; } .mtitle { font-size:17px; } }
+  /* ─── Sélecteur de média ─────────────────────────────────────────────── */
+  .msel { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 14px; }
+  .mtab { display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+          background:var(--surface); border:1px solid var(--border); border-radius:12px;
+          padding:9px 14px; font-size:13.5px; font-weight:600; color:var(--muted,#6b6355);
+          font-family:inherit; transition:border-color .15s, color .15s, background .15s, box-shadow .15s; }
+  .mtab:hover { border-color:var(--tc); color:var(--tc); }
+  .mtab.on { color:var(--tc); border-color:var(--tc); background:color-mix(in srgb, var(--tc) 8%, var(--surface));
+             box-shadow:0 0 0 3px color-mix(in srgb, var(--tc) 14%, transparent); }
+  .mtab-i { font-size:15px; }
+  /* Pastille de charge : ce qui attend une action pour ce média. */
+  .mtab-b { min-width:20px; text-align:center; font-size:11.5px; font-weight:800;
+            background:color-mix(in srgb, var(--tc) 16%, transparent); color:var(--tc);
+            border-radius:999px; padding:1px 7px; font-variant-numeric:tabular-nums; }
+  .etat { font-weight:700; }
+  .etat.ok { color:#16a34a; }
+  .etat.ko { color:#dc2626; }
+  @media (max-width:640px) { .mtab-n { display:none; } .mtab { padding:9px 12px; } }
   .stat { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:15px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:transform .16s, box-shadow .16s; }
   .stat::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold); opacity:.85; }
   .stat:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
@@ -293,16 +311,9 @@
          barre alignait onze liens d'un seul tenant, mélangeait ancres de page et
          autres pages, et deux entrées ne disaient pas de quel média elles
          parlaient — « Instagram » et « Brouillons », tous deux LRDL. -->
-    <span class="navg">Ce qui part</span>
-    <a href="#strip-lrdl">💼 <span>LinkedIn · Luxe</span></a>
-    <a href="#strip-lrdv">💼 <span>LinkedIn · Voyages</span></a>
-    <a href="#strip-lrdh">💼 <span>LinkedIn · Hôtels</span></a>
-    <a href="#strip-lra">💼 <span>LinkedIn · La Revue</span></a>
-    <a href="#strip-insta">📸 <span>Instagram · Luxe</span></a>
-    <a href="#strip-insta-lrdh">📸 <span>Instagram · Hôtels</span></a>
-    <span class="navg">À publier</span>
-    <a href="#drafts-sec">📝 <span>Brouillons · Luxe</span></a>
-    <span class="navg">Ailleurs</span>
+    <!-- ⚠️ Les onze ancres par média ont disparu : le sélecteur de média, en
+         haut de page, fait ce travail mieux qu'une barre de liens. Il ne reste
+         ici que ce qui mène AILLEURS, c'est-à-dire sur une autre page. -->
     <a href="triage.html">✨ <span>Tri du jour</span></a>
     <a href="triage-lrdl.html">🗞️ <span>Journal · Luxe</span></a>
     <a href="linkedin-lrdh.html">🏨 <span>Générer · Hôtels</span></a>
@@ -324,6 +335,7 @@
 </div>
 <main id="appmain" style="display:none">
   <div id="dbwarn" style="display:none">⚠️ Base de données momentanément indisponible (quota du jour atteint) · affichage du dernier état connu, les modifications reprendront après le reset (9h Paris).</div>
+  <div class="msel" id="msel" role="tablist" aria-label="Choisir un média"></div>
   <div class="jauge" id="jauge"></div>
   <div class="stats" id="stats"></div>
   <div class="board">
@@ -846,21 +858,35 @@ function rendreJauge() {
 
   el.innerHTML = `
     <div class="jauge-l">
-      <span class="jauge-t">Quota Firestore · lectures de ce navigateur</span>
-      <span class="jauge-p" style="color:${couleur}">${pct}%</span>
+      <span class="jauge-t">Lectures Firestore de cet onglet <em>depuis son ouverture</em></span>
+      <span class="jauge-p" style="color:${couleur}">${quota.lectures.toLocaleString('fr-FR')}</span>
     </div>
     <div class="pile" title="${quota.lectures.toLocaleString('fr-FR')} sur ${QUOTA_JOUR.toLocaleString('fr-FR')} lectures">
       <div class="pile-c">${segments || `<div class="pile-s" style="width:1%;background:${couleur}"></div>`}</div>
       <div class="pile-b"></div>
     </div>
     ${detail ? `<div class="qmeds">${detail}</div>` : ''}
-    <div class="jauge-s">${quota.lectures.toLocaleString('fr-FR')} / ${QUOTA_JOUR.toLocaleString('fr-FR')}
+    <div class="jauge-s">
+      <span class="etat ${projetEpuise ? 'ko' : 'ok'}">${projetEpuise
+        ? '⛔ Projet : quota du jour ÉPUISÉ · les écritures passent encore, pas les lectures'
+        : '✅ Projet : lectures acceptées'}</span>
       · projet <code>${db.app.options.projectId}</code>
       · compte <code>${(auth.currentUser && auth.currentUser.email) || '—'}</code></div>
-    <div class="jauge-n">Mesure ce navigateur depuis le reset (minuit Pacifique), pas le total du projet.</div>`;
+    <div class="jauge-n">⚠️ Ce compteur mesure CET onglet, pas le projet. Le projet a son propre
+      total (50 000 lectures/jour, tous appareils et robots confondus) que cette page ne peut pas
+      lire : seul l'état ci-dessus, appris quand une lecture est refusée, en témoigne.</div>`;
 }
 
-function showDbWarn() { const w = document.getElementById('dbwarn'); if (w) w.style.display = 'block'; }
+let projetEpuise = false;
+function showDbWarn(e) {
+  const w = document.getElementById('dbwarn'); if (w) w.style.display = 'block';
+  // ⚠️ Le seul moment ou le hub apprend l'etat REEL du projet : une ecoute
+  // refusee pour quota. On le retient et on l'affiche, au lieu de laisser
+  // croire que tout va bien parce que NOTRE compteur, lui, est bas.
+  if (e && /resource-exhausted|quota/i.test(String(e.code || e.message || ''))) {
+    projetEpuise = true; rendreJauge();
+  }
+}
 // ⚠️ Firestore relit la collection ENTIERE a chaque attache d'un onSnapshot,
 // y compris apres une simple reconnexion reseau. Une file de 249 documents
 // ecoutee sans borne coutait donc 249 lectures a chaque reveil de la machine.
@@ -898,7 +924,7 @@ function cachedListen(qref, key, trim, apply, media) {
     const rows = []; snap.forEach(d => rows.push(trim({ id: d.id, ...d.data() })));
     try { localStorage.setItem('hub:'+key, JSON.stringify(rows)); } catch {}
     apply(rows);
-  }, e => { console.error('[hub]', key, e.message); showDbWarn(); }));
+  }, e => { console.error('[hub]', key, e.message); showDbWarn(e); }));
 }
 
 // Deux vues d'une meme file, fusionnees cote client :
@@ -1186,6 +1212,63 @@ const BLOCS_MEDIA = {
   lrdv: ['#strip-lrdv'],
   lra:  ['#strip-lra'],
 };
+// ─── Sélecteur de média · divulgation progressive ───────────────────────────
+//
+// Quatre médias × trois canaux, tout affiché d'un bloc : la page demandait de
+// tout lire pour trouver une chose. Les onglets sont le bon outil ici parce que
+// les quatre sections sont VRAIMENT parallèles — même nature, même structure,
+// aucune séquence entre elles. On n'en montre qu'une à la fois, « Tous » restant
+// disponible pour la vue d'ensemble.
+//
+// Le choix survit au rechargement (localStorage) et se met dans l'URL, pour
+// qu'un onglet épinglé sur « Hôtels » rouvre sur « Hôtels ».
+let mediaActif = (() => {
+  const h = (location.hash.match(/^#m=(\w+)$/) || [])[1];
+  if (h && (h === 'tous' || MEDIAS[h])) return h;
+  const m = localStorage.getItem('hub:media');
+  return (m && (m === 'tous' || MEDIAS[m])) ? m : 'tous';
+})();
+
+function choisirMedia(cle) {
+  mediaActif = cle;
+  try { localStorage.setItem('hub:media', cle); } catch {}
+  history.replaceState(null, '', cle === 'tous' ? location.pathname : '#m=' + cle);
+  appliquerFiltre();
+  rendreSelecteur();
+  renderStats();
+}
+
+/** Ce qui demande une action pour ce média : programmés + prêts. */
+function enAttente(cle) {
+  let n = 0;
+  for (const q of QUEUES) if (q.media === cle) {
+    const st = state[q.key] || {};
+    n += (st.scheduled || []).length + (st.ready || []).length;
+  }
+  if (cle === 'lrdl') n += drafts.length;
+  return n;
+}
+
+function rendreSelecteur() {
+  const el = document.getElementById('msel');
+  if (!el) return;
+  const onglet = (cle, ico, nom, n, c) => `
+    <button role="tab" aria-selected="${mediaActif === cle}" class="mtab${mediaActif === cle ? ' on' : ''}"
+      data-m="${cle}" style="--tc:${c || 'var(--muted,#6b6355)'}">
+      <span class="mtab-i">${ico}</span><span class="mtab-n">${nom}</span>
+      ${n ? `<span class="mtab-b">${n}</span>` : ''}
+    </button>`;
+  el.innerHTML = onglet('tous', '◧', 'Tous les médias', 0, '#6b6355')
+    + ORDRE_MEDIAS.map((k) => onglet(k, MEDIAS[k].ico, MEDIAS[k].nom, enAttente(k), MEDIAS[k].c)).join('');
+  el.querySelectorAll('.mtab').forEach((b) => { b.onclick = () => choisirMedia(b.dataset.m); });
+}
+
+function appliquerFiltre() {
+  document.querySelectorAll('#medias section.mgroup').forEach((sec) => {
+    sec.hidden = !(mediaActif === 'tous' || sec.dataset.m === mediaActif);
+  });
+}
+
 function organiser() {
   const hote = document.getElementById('medias');
   if (!hote) return;
@@ -1216,6 +1299,8 @@ function organiser() {
       corps.appendChild(frais);
     }
   }
+  appliquerFiltre();
+  rendreSelecteur();
 }
 
 function renderStats() {
