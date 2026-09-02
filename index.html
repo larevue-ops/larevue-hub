@@ -174,6 +174,16 @@
   .jauge-s code { background:rgba(0,0,0,.05); border-radius:4px; padding:1px 5px; font-size:11px; }
   .jauge-n { font-size:11px; color:var(--muted, #9a9384); opacity:.8; margin-top:3px; font-style:italic; }
   @media (max-width:640px) { .jauge-s, .jauge-n { font-size:11px; } }
+  /* Puce de média : dit à quel titre un bloc appartient, et où il publie. */
+  .pmed { display:inline-flex; align-items:center; gap:4px; font-family:var(--sans, inherit); font-size:11px; font-weight:600;
+          color:var(--pc); background:color-mix(in srgb, var(--pc) 12%, transparent);
+          border:1px solid color-mix(in srgb, var(--pc) 30%, transparent);
+          border-radius:999px; padding:2px 9px; letter-spacing:.2px; vertical-align:middle; white-space:nowrap; }
+  /* Intertitre de la barre de navigation : sépare « ce qui part » du reste. */
+  .navg { font-size:10px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted,#9a9384);
+          opacity:.75; padding:0 4px 0 10px; align-self:center; font-weight:700; }
+  .navg:first-of-type { padding-left:0; }
+  @media (max-width:900px) { .navg { display:none; } }
   .stat { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:15px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:transform .16s, box-shadow .16s; }
   .stat::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold); opacity:.85; }
   .stat:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
@@ -255,17 +265,24 @@
   <div class="logo">LR</div>
   <div><h1>La Revue · Hub</h1><p>Console de publication</p></div>
   <nav id="topnav" style="display:none">
-    <a href="#strip-lrdl">💼 <span>LinkedIn LRDL</span></a>
-    <a href="#strip-lrdv">✈️ <span>LinkedIn LRDV</span></a>
-    <a href="#strip-lrdh">🏨 <span>LinkedIn LRDH</span></a>
-    <a href="#strip-lra">📰 <span>LinkedIn La Revue</span></a>
-    <a href="#strip-insta">📸 <span>Instagram</span></a>
-    <a href="#strip-insta-lrdh">🏨 <span>Insta LRDH</span></a>
-    <a href="#drafts-sec">📰 <span>Brouillons</span></a>
+    <!-- ⚠️ Groupée par INTENTION, et chaque entrée nomme son média. L'ancienne
+         barre alignait onze liens d'un seul tenant, mélangeait ancres de page et
+         autres pages, et deux entrées ne disaient pas de quel média elles
+         parlaient — « Instagram » et « Brouillons », tous deux LRDL. -->
+    <span class="navg">Ce qui part</span>
+    <a href="#strip-lrdl">💼 <span>LinkedIn · Luxe</span></a>
+    <a href="#strip-lrdv">💼 <span>LinkedIn · Voyages</span></a>
+    <a href="#strip-lrdh">💼 <span>LinkedIn · Hôtels</span></a>
+    <a href="#strip-lra">💼 <span>LinkedIn · La Revue</span></a>
+    <a href="#strip-insta">📸 <span>Instagram · Luxe</span></a>
+    <a href="#strip-insta-lrdh">📸 <span>Instagram · Hôtels</span></a>
+    <span class="navg">À publier</span>
+    <a href="#drafts-sec">📝 <span>Brouillons · Luxe</span></a>
+    <span class="navg">Ailleurs</span>
     <a href="triage.html">✨ <span>Tri du jour</span></a>
-    <a href="triage-lrdl.html">🗞️ <span>Journal LRDL</span></a>
-    <a href="linkedin-lrdh.html">💼 <span>Générer LRDH</span></a>
-    <a href="linkedin-lrdh-en.html">🇬🇧 <span>Générer LRDH EN</span></a>
+    <a href="triage-lrdl.html">🗞️ <span>Journal · Luxe</span></a>
+    <a href="linkedin-lrdh.html">🏨 <span>Générer · Hôtels</span></a>
+    <a href="linkedin-lrdh-en.html">🇬🇧 <span>Générer · Hôtels EN</span></a>
     <span class="divider"></span>
     <button id="logout" style="display:none">Se déconnecter</button>
   </nav>
@@ -289,12 +306,12 @@
     <h2>⏰ Programmations sociales <span class="next" id="next"></span></h2>
     <div id="strips"></div>
     <div class="strip insta" id="strip-insta">
-      <div class="head"><span class="t">📸 Instagram · <span id="igcount">0</span> programmés</span>
+      <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#7c3aed">💎 La Revue du Luxe</span> · <span id="igcount">0</span> programmés</span>
         <a href="./instagram-lrdl.html" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a;text-decoration:none">Page dédiée · dialoguer avec Hermes →</a></div>
       <div class="list" id="iglist"></div>
     </div>
     <div class="strip instalrdh" id="strip-insta-lrdh">
-      <div class="head"><span class="t">🏨 Instagram LRDH · <span id="iglhcount">0</span> carrousels</span>
+      <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#b8860b">🏨 La Revue des Hôtels</span> · <span id="iglhcount">0</span> carrousels</span>
         <button id="iglhnew" title="Choisir un article et fabriquer son carrousel">+ Générer un carrousel</button>
         <span id="iglhsrc" style="font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
       <div class="list" id="iglhlist"></div>
@@ -413,8 +430,8 @@
       <input id="q" type="search" placeholder="🔍 Rechercher un article, une ville…">
       <div class="chips" id="chips"></div>
     </div>
-    <div class="sect-title">📰 Brouillons en attente de publication</div>
-    <div class="autonote">Publication automatique : 2 passages par jour (8h30 et 16h30 Paris) via GitHub Actions · 3 articles max par passage, plus anciens d'abord.</div>
+    <div class="sect-title">📝 Brouillons <span class="pmed" style="--pc:#7c3aed">💎 La Revue du Luxe</span></div>
+    <div class="autonote">Ces brouillons partent sur <strong>larevueduluxe.com</strong> · publication automatique 2 fois par jour (8h30 et 16h30 Paris), 3 articles max par passage, les plus anciens d'abord.</div>
     <div class="drafts" id="drafts"></div>
   </div>
 </main>
@@ -533,11 +550,32 @@ const auth2 = app2 ? getAuth(app2) : null;
 /** La base qui heberge cette collection. */
 const dbPour = (col) => (db2 && col === 'lrdh_linkedin_queue') ? db2 : db;
 
+// ─── Les quatre médias, et à quoi chaque bloc appartient ────────────────────
+//
+// ⚠️ Le hub était organisé par PLATEFORME (LinkedIn, Instagram, Brouillons)
+// alors qu'on raisonne par MÉDIA. Deux sections ne disaient pas de quel média
+// elles parlaient, et c'étaient justement les deux ambiguës :
+//   · « 📸 Instagram »  → c'est l'Instagram de La Revue du Luxe
+//   · « 📰 Brouillons » → ce sont les brouillons de La Revue du Luxe
+// Vérifié sur les données, pas déduit : `instagram_queue` et
+// `news_drafts_auto` ne contiennent que des URL larevueduluxe.com, et c'est
+// le bloc LRDL de publish-wp.mjs qui publie ces brouillons.
+//
+// Chaque bloc porte désormais le nom de son média et son site de destination.
+const MEDIAS = {
+  lrdh: { nom:'La Revue des Hôtels',  site:'larevuedeshotels.com',  ico:'🏨', c:'#b8860b' },
+  lrdl: { nom:'La Revue du Luxe',     site:'larevueduluxe.com',     ico:'💎', c:'#7c3aed' },
+  lrdv: { nom:'La Revue des Voyages', site:'larevuedesvoyages.com', ico:'✈️', c:'#0891b2' },
+  lra:  { nom:'La Revue',             site:'larevue.app',           ico:'📰', c:'#dc2626' },
+};
+const puceMedia = (k) => { const m = MEDIAS[k]; return m
+  ? `<span class="pmed" style="--pc:${m.c}" title="Publié sur ${m.site}">${m.ico} ${m.nom}</span>` : ''; };
+
 const QUEUES = [
-  { key:'lrdl', cls:'lrdl', icon:'💼', name:'LinkedIn LRDL', col:'linkedin_queue' },
-  { key:'lrdv', cls:'lrdv', icon:'✈️', name:'LinkedIn LRDV', col:'lrdv_linkedin_queue' },
-  { key:'lrdh', cls:'lrdh', icon:'🏨', name:'LinkedIn LRDH', col:'lrdh_linkedin_queue' },
-  { key:'lra',  cls:'lra',  icon:'📰', name:'LinkedIn La Revue', col:'larevue_linkedin_queue' },
+  { key:'lrdl', cls:'lrdl', icon:'💼', name:'LinkedIn', media:'lrdl', col:'linkedin_queue' },
+  { key:'lrdv', cls:'lrdv', icon:'💼', name:'LinkedIn', media:'lrdv', col:'lrdv_linkedin_queue' },
+  { key:'lrdh', cls:'lrdh', icon:'💼', name:'LinkedIn', media:'lrdh', col:'lrdh_linkedin_queue' },
+  { key:'lra',  cls:'lra',  icon:'💼', name:'LinkedIn', media:'lra',  col:'larevue_linkedin_queue' },
 ];
 const state = {}; // key -> {scheduled, ready, published}
 let editing = null;
@@ -644,7 +682,7 @@ function render() {
     const genCta = q.key === 'lrdh'
       ? `<a class="gencta" href="linkedin-lrdh.html">✨ Générer un post depuis un article</a>`
       : '';
-    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} · ${parts.join(' · ')}</span>${genCta}</div>` +
+    div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} ${puceMedia(q.media)} · ${parts.join(' · ')}</span>${genCta}</div>` +
       (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé.</div>`);
     root.appendChild(div);
   }
@@ -1082,12 +1120,15 @@ function renderStats() {
   const cnt = id => drafts.filter(a => a.category === id).length;
   const lif = drafts.filter(a => ['voyages','lifestyle','culture','mode'].includes(a.category)).length;
   document.getElementById('stats').innerHTML = [
-    { v: drafts.length, l: 'En attente', i: '📰', c: '#D4AF37' },
-    { v: cnt('hotel'), l: 'Hôtels', i: '🏨', c: '#3b82f6' },
-    { v: cnt('restaurant'), l: 'Restaurants', i: '🍽️', c: '#f97316' },
-    { v: lif, l: 'Lifestyle & Co', i: '✨', c: '#8b5cf6' },
-    { v: liTotal, l: 'LinkedIn prog.', i: '💼', c: '#0A66C2' },
-    { v: igCount, l: 'Instagram prog.', i: '📸', c: '#dc2743' },
+    // ⚠️ Les quatre premiers comptent les brouillons LRDL, pas « tout le hub ».
+    // Sans le dire, « Hôtels : 22 » se lisait comme un compteur de La Revue des
+    // Hôtels, alors que c'est une RUBRIQUE de La Revue du Luxe.
+    { v: drafts.length, l: 'Brouillons LRDL', i: '📝', c: '#7c3aed' },
+    { v: cnt('hotel'), l: 'dont rubrique Hôtels', i: '🏨', c: '#3b82f6' },
+    { v: cnt('restaurant'), l: 'dont Restaurants', i: '🍽️', c: '#f97316' },
+    { v: lif, l: 'dont Lifestyle & Co', i: '✨', c: '#8b5cf6' },
+    { v: liTotal, l: 'LinkedIn programmés · 4 médias', i: '💼', c: '#0A66C2' },
+    { v: igCount, l: 'Instagram programmés · LRDL', i: '📸', c: '#dc2743' },
   ].map(s => `<div class="stat"><div><div class="v" style="color:${s.c}">${s.v}</div><div class="l">${s.l}</div></div><span class="i">${s.i}</span></div>`).join('');
 }
 
