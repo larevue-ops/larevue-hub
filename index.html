@@ -184,6 +184,30 @@
           opacity:.75; padding:0 4px 0 10px; align-self:center; font-weight:700; }
   .navg:first-of-type { padding-left:0; }
   @media (max-width:900px) { .navg { display:none; } }
+  /* Pile segmentée : une couleur par média, largeur = part du quota. */
+  .pile-c { display:flex; gap:1px; overflow:hidden; }
+  .pile-s { height:100%; border-radius:2px; transition:width .5s ease; min-width:2px; }
+  .qmeds { display:flex; flex-wrap:wrap; gap:4px 14px; margin:2px 0 7px; }
+  .qmed { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; color:var(--muted,#6b6355); }
+  .qmed i { width:9px; height:9px; border-radius:3px; display:inline-block; flex:none; }
+  .qmed b { font-variant-numeric:tabular-nums; font-weight:700; color:var(--text,#2a2620); }
+  .qmed em { font-style:normal; opacity:.65; font-variant-numeric:tabular-nums; }
+  /* ─── Un média = un bloc ─────────────────────────────────────────────── */
+  .mgroup { margin:26px 0 0; border-left:3px solid var(--mc); border-radius:0 16px 16px 0;
+            padding:2px 0 2px 16px; background:linear-gradient(90deg,
+            color-mix(in srgb, var(--mc) 5%, transparent), transparent 320px); }
+  .mtitle { font-family:var(--serif); font-size:19px; font-weight:700; letter-spacing:-0.01em;
+            margin:6px 0 10px; display:flex; align-items:baseline; gap:9px; color:var(--mc); }
+  .mico { font-size:17px; }
+  .msite { margin-left:auto; font-family:var(--sans, inherit); font-size:11px; font-weight:600;
+           letter-spacing:.4px; text-transform:lowercase; color:var(--muted,#9a9384);
+           text-decoration:none; opacity:.8; align-self:center; }
+  .msite:hover { opacity:1; color:var(--mc); }
+  .mbody > * { margin-bottom:10px; }
+  /* Dans un bloc média, la puce répète une information déjà portée par le
+     titre du bloc : on l'efface pour ne pas dire deux fois la même chose. */
+  .mgroup .pmed { display:none; }
+  @media (max-width:640px) { .mgroup { padding-left:11px; } .mtitle { font-size:17px; } }
   .stat { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:15px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:transform .16s, box-shadow .16s; }
   .stat::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold); opacity:.85; }
   .stat:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
@@ -304,7 +328,10 @@
   <div class="stats" id="stats"></div>
   <div class="board">
     <h2>⏰ Programmations sociales <span class="next" id="next"></span></h2>
-    <div id="strips"></div>
+    <!-- Zone de fabrication : `render()` y reconstruit les bandeaux, puis
+         `organiser()` les repartit dans les groupes ci-dessous. -->
+    <div id="strips" hidden></div>
+    <div id="medias"></div>
     <div class="strip insta" id="strip-insta">
       <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#7c3aed">💎 La Revue du Luxe</span> · <span id="igcount">0</span> programmés</span>
         <a href="./instagram-lrdl.html" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a;text-decoration:none">Page dédiée · dialoguer avec Hermes →</a></div>
@@ -687,6 +714,7 @@ function render() {
     root.appendChild(div);
   }
   document.getElementById('next').textContent = soonest ? `Prochaine : ${fdate(soonest)}` : '';
+  organiser();
   root.querySelectorAll('button.edit').forEach(b => b.onclick = () => openModal(b.dataset.q, b.dataset.id));
   root.querySelectorAll('button.rebtn').forEach(b => b.onclick = () => window.reRegen(b.dataset.reQ, b.dataset.reId));
   // ouverture directe depuis une autre page : index.html#edit=lrdh:12737
@@ -774,15 +802,22 @@ const jourQuota = () => {
   const d = new Date(Date.now() - 8 * 3600 * 1000);
   return d.toISOString().slice(0, 10);
 };
+// ⚠️ Ventilé PAR MÉDIA, et l'attribution est exacte, pas estimée : chaque
+// écoute porte sur une collection, et chaque collection appartient à un seul
+// média. Savoir que le quota est à 60 % ne dit pas quoi faire ; savoir que
+// La Revue du Luxe en consomme les trois quarts, si.
+const neuf = () => ({ jour: jourQuota(), lectures: 0, parMedia: {} });
 let quota = (() => {
   try { const q = JSON.parse(localStorage.getItem(CLE_QUOTA) || 'null');
-        if (q && q.jour === jourQuota()) return q; } catch {}
-  return { jour: jourQuota(), lectures: 0 };
+        if (q && q.jour === jourQuota()) return { parMedia: {}, ...q }; } catch {}
+  return neuf();
 })();
-function compterLectures(n) {
+function compterLectures(n, media) {
   if (!n) return;
-  if (quota.jour !== jourQuota()) quota = { jour: jourQuota(), lectures: 0 };
+  if (quota.jour !== jourQuota()) quota = neuf();
   quota.lectures += n;
+  const k = media || 'autre';
+  quota.parMedia[k] = (quota.parMedia[k] || 0) + n;
   try { localStorage.setItem(CLE_QUOTA, JSON.stringify(quota)); } catch {}
   rendreJauge();
 }
@@ -793,15 +828,32 @@ function rendreJauge() {
   // Vert jusqu'a 60 %, ambre jusqu'a 85 %, rouge au-dela : on veut savoir AVANT
   // la falaise, pas au moment de la toucher.
   const couleur = pct >= 85 ? '#dc2626' : pct >= 60 ? '#f59e0b' : '#16a34a';
+  // Les segments de la pile, un par média, dans l'ordre décroissant.
+  const parts = Object.entries(quota.parMedia)
+    .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const segments = parts.map(([k, v]) => {
+    const m = MEDIAS[k], c = m ? m.c : '#9a9384';
+    const w = (v / QUOTA_JOUR) * 100;
+    return `<div class="pile-s" style="width:${w}%;background:${c}"
+      title="${m ? m.nom : 'Autre'} · ${v.toLocaleString('fr-FR')} lectures"></div>`;
+  }).join('');
+  const detail = parts.map(([k, v]) => {
+    const m = MEDIAS[k], c = m ? m.c : '#9a9384';
+    const part = quota.lectures ? Math.round((v / quota.lectures) * 100) : 0;
+    return `<span class="qmed"><i style="background:${c}"></i>${m ? m.nom : 'Autre'}
+      <b>${v.toLocaleString('fr-FR')}</b> <em>${part}%</em></span>`;
+  }).join('');
+
   el.innerHTML = `
     <div class="jauge-l">
       <span class="jauge-t">Quota Firestore · lectures de ce navigateur</span>
       <span class="jauge-p" style="color:${couleur}">${pct}%</span>
     </div>
     <div class="pile" title="${quota.lectures.toLocaleString('fr-FR')} sur ${QUOTA_JOUR.toLocaleString('fr-FR')} lectures">
-      <div class="pile-c"><div class="pile-f" style="width:${Math.max(pct, 1)}%;background:${couleur}"></div></div>
+      <div class="pile-c">${segments || `<div class="pile-s" style="width:1%;background:${couleur}"></div>`}</div>
       <div class="pile-b"></div>
     </div>
+    ${detail ? `<div class="qmeds">${detail}</div>` : ''}
     <div class="jauge-s">${quota.lectures.toLocaleString('fr-FR')} / ${QUOTA_JOUR.toLocaleString('fr-FR')}
       · projet <code>${db.app.options.projectId}</code>
       · compte <code>${(auth.currentUser && auth.currentUser.email) || '—'}</code></div>
@@ -839,10 +891,10 @@ function ecouteVisible(demarrer) {
   window.addEventListener('pagehide', off);
 }
 
-function cachedListen(qref, key, trim, apply) {
+function cachedListen(qref, key, trim, apply, media) {
   try { const c = JSON.parse(localStorage.getItem('hub:'+key) || 'null'); if (c) apply(c); } catch {}
   ecouteVisible(() => onSnapshot(qref, snap => {
-    compterLectures(snap.docChanges().length);
+    compterLectures(snap.docChanges().length, media);
     const rows = []; snap.forEach(d => rows.push(trim({ id: d.id, ...d.data() })));
     try { localStorage.setItem('hub:'+key, JSON.stringify(rows)); } catch {}
     apply(rows);
@@ -853,7 +905,7 @@ function cachedListen(qref, key, trim, apply) {
 //   - tout ce qui n'est PAS encore publie (une poignee de documents) ;
 //   - les six dernieres publications, par date de publication.
 // Les documents publies plus anciens ne sont jamais relus.
-function cachedListenFile(col, key, trim, apply) {
+function cachedListenFile(col, key, trim, apply, media) {
   const parts = { vivants: null, publies: null };
   const fusion = () => {
     if (!parts.vivants && !parts.publies) return;
@@ -870,9 +922,9 @@ function cachedListenFile(col, key, trim, apply) {
   // poste de depense etait ailleurs : l'ecoute qui se detachait en arriere-plan
   // et refacturait tout au retour (voir `ecouteVisible` plus haut).
   cachedListen(query(collection(dbPour(col), col), where('publishedToLinkedin', '==', false)),
-               key + '-v', trim, rows => { parts.vivants = rows; fusion(); });
+               key + '-v', trim, rows => { parts.vivants = rows; fusion(); }, media);
   cachedListen(query(collection(dbPour(col), col), orderBy('publishedAt', 'desc'), limit(6)),
-               key + '-p', trim, rows => { parts.publies = rows; fusion(); });
+               key + '-p', trim, rows => { parts.publies = rows; fusion(); }, media);
 }
 
 function startListeners() {
@@ -896,7 +948,7 @@ for (const q of QUEUES) {
     state[q.key] = { scheduled, ready, published: published.slice(0,6) };
     render();
     renderStats();
-  });
+  }, q.media);
 }
 
 // Instagram (lecture seule) · requête filtrée : ne lit plus toute l'archive (quota Firestore)
@@ -916,7 +968,7 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
     </div>`;
   }).join('') + (rows.length > 12 ? `<div class="line"><span style="color:#be185d">+${rows.length - 12} autres</span></div>` : '');
   renderStats();
-});
+}, 'lrdl');
 
 // Instagram LRDH · la file `lrdh_instagram_queue` est alimentee par le workflow
 // instagram-lrdh.yml. Le rendu vit dans un script autonome en bas de page (il
@@ -963,7 +1015,7 @@ try {
       && (x.slides || []).length >= 2);
     vivants.sort((a, b) => cleDate(b.createdAt).localeCompare(cleDate(a.createdAt)));
     if (vivants.length && window.rendreIgLrdh) window.rendreIgLrdh(vivants, false);
-  });
+  }, 'lrdh');
 } catch (e) { console.warn('Instagram LRDH : file illisible, rendus de reference conserves', e); }
 
 // Brouillons en attente · requête filtrée (ne lit plus publiés/archivés · quota Firestore)
@@ -972,7 +1024,7 @@ cachedListen(query(collection(db, 'news_drafts_auto'), where('status','==','ai_d
   drafts.sort((a,b) => cleDate(b.createdAt).localeCompare(cleDate(a.createdAt)));
   renderDrafts();
   renderStats();
-});
+}, 'lrdl');
 }
 
 // ─── Éditeur des carrousels Instagram ───
@@ -1115,6 +1167,51 @@ const CATS = [
   { id:'mode', label:'Mode', emoji:'👗' }, { id:'lifestyle', label:'Lifestyle', emoji:'✨' },
   { id:'culture', label:'Culture', emoji:'🎭' }, { id:'automobile', label:'Auto', emoji:'🚗' },
 ];
+// ─── Regrouper la page PAR MEDIA ────────────────────────────────────────────
+//
+// La page etait organisee par PLATEFORME : tous les LinkedIn ensemble, puis les
+// Instagram, puis les brouillons. Pour savoir ou en etait La Revue du Luxe, il
+// fallait la chercher a trois endroits differents, et deux de ces endroits ne
+// disaient meme pas qu'il s'agissait d'elle.
+//
+// Un media = un bloc, avec tout ce qui le concerne : LinkedIn, Instagram,
+// brouillons. L'ordre est fixe et volontaire — La Revue des Hotels d'abord, qui
+// est le media principal — plutot que trie par volume, qui changerait de place
+// d'un jour a l'autre.
+const ORDRE_MEDIAS = ['lrdh', 'lrdl', 'lrdv', 'lra'];
+// Ce que chaque media possede, dans l'ordre d'affichage a l'interieur du bloc.
+const BLOCS_MEDIA = {
+  lrdh: ['#strip-lrdh', '#strip-insta-lrdh'],
+  lrdl: ['#strip-lrdl', '#strip-insta', '#drafts-sec'],
+  lrdv: ['#strip-lrdv'],
+  lra:  ['#strip-lra'],
+};
+function organiser() {
+  const hote = document.getElementById('medias');
+  if (!hote) return;
+  for (const cle of ORDRE_MEDIAS) {
+    const m = MEDIAS[cle];
+    let sec = hote.querySelector(`section[data-m="${cle}"]`);
+    if (!sec) {
+      sec = document.createElement('section');
+      sec.className = 'mgroup';
+      sec.dataset.m = cle;
+      sec.style.setProperty('--mc', m.c);
+      sec.innerHTML = `<h2 class="mtitle"><span class="mico">${m.ico}</span>${m.nom}
+        <a class="msite" href="https://${m.site}" target="_blank" rel="noopener">${m.site} ↗</a></h2>
+        <div class="mbody"></div>`;
+      hote.appendChild(sec);
+    }
+    const corps = sec.querySelector('.mbody');
+    for (const sel of BLOCS_MEDIA[cle] || []) {
+      const el = document.querySelector(sel);
+      // appendChild deplace le noeud s'il existe deja ailleurs, et le remet
+      // dans le bon ordre s'il est deja la : l'appel est idempotent.
+      if (el) corps.appendChild(el);
+    }
+  }
+}
+
 function renderStats() {
   const liTotal = QUEUES.reduce((n, q) => n + ((state[q.key]||{}).scheduled||[]).length, 0);
   const cnt = id => drafts.filter(a => a.category === id).length;
