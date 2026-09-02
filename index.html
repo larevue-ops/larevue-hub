@@ -160,6 +160,20 @@
   .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:22px; }
   @media(min-width:640px){ .stats { grid-template-columns:repeat(3,1fr); } }
   @media(min-width:1024px){ .stats { grid-template-columns:repeat(6,1fr); } }
+  /* ─── Jauge de quota Firestore (pile) ─────────────────────────────────── */
+  .jauge { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin:0 0 14px; box-shadow:var(--shadow); }
+  .jauge-l { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+  .jauge-t { font-size:13px; font-weight:600; color:var(--muted, #6b6355); letter-spacing:.2px; }
+  .jauge-p { font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; }
+  /* La pile : un corps, un remplissage, et la petite borne a droite. */
+  .pile { display:flex; align-items:center; gap:3px; margin:9px 0 7px; }
+  .pile-c { flex:1; height:20px; border:2px solid var(--border); border-radius:5px; padding:2px; background:rgba(0,0,0,.03); }
+  .pile-f { height:100%; border-radius:3px; transition:width .5s ease, background .5s ease; }
+  .pile-b { width:4px; height:9px; border-radius:0 2px 2px 0; background:var(--border); }
+  .jauge-s { font-size:12px; color:var(--muted, #6b6355); font-variant-numeric:tabular-nums; }
+  .jauge-s code { background:rgba(0,0,0,.05); border-radius:4px; padding:1px 5px; font-size:11px; }
+  .jauge-n { font-size:11px; color:var(--muted, #9a9384); opacity:.8; margin-top:3px; font-style:italic; }
+  @media (max-width:640px) { .jauge-s, .jauge-n { font-size:11px; } }
   .stat { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:15px 16px; display:flex; justify-content:space-between; align-items:center; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:transform .16s, box-shadow .16s; }
   .stat::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold); opacity:.85; }
   .stat:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
