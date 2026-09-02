@@ -492,6 +492,32 @@ const app = initializeApp({
 });
 const db = getFirestore(app);
 
+// ─── Second projet Firestore, pour la file LinkedIn LRDH ────────────────────
+//
+// Le palier gratuit Firestore se compte PAR PROJET. La file LRDH, la plus
+// grosse, peut vivre sur `larevue-auto-dashboard-2` et y disposer de ses
+// propres 50 000 lectures par jour.
+//
+// ⚠️ UN SEUL INTERRUPTEUR, et il doit basculer EN MEME TEMPS que celui du
+// runner (LRDH_LINKEDIN_PROJET_2=1) et APRES la copie des donnees. Le mettre a
+// `true` en avance ferait lire au hub un miroir perime pendant que le runner
+// ecrit ailleurs : la file paraitrait amputee de la journee.
+const LRDH_SUR_PROJET_2 = false;
+
+const app2 = LRDH_SUR_PROJET_2 ? initializeApp({
+  apiKey: 'AIzaSyBEKkYULpRZO1jkfT9MyzKF48SNS2KDymk',
+  authDomain: 'larevue-auto-dashboard-2.firebaseapp.com',
+  projectId: 'larevue-auto-dashboard-2',
+  storageBucket: 'larevue-auto-dashboard-2.firebasestorage.app',
+  messagingSenderId: '364018884402',
+  appId: '1:364018884402:web:b78819b4ffbfcc868c012b',
+}, 'projet2') : null;
+const db2 = app2 ? getFirestore(app2) : null;
+const auth2 = app2 ? getAuth(app2) : null;
+
+/** La base qui heberge cette collection. */
+const dbPour = (col) => (db2 && col === 'lrdh_linkedin_queue') ? db2 : db;
+
 const QUEUES = [
   { key:'lrdl', cls:'lrdl', icon:'💼', name:'LinkedIn LRDL', col:'linkedin_queue' },
   { key:'lrdv', cls:'lrdv', icon:'✈️', name:'LinkedIn LRDV', col:'lrdv_linkedin_queue' },
@@ -602,7 +628,19 @@ let started = false;
 document.getElementById('gbtn').onclick = async () => {
   const err = document.getElementById('gerr');
   err.textContent = '';
-  try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+  const mail = document.getElementById('gmail').value.trim(), mdp = document.getElementById('gpass').value;
+  try {
+    await signInWithEmailAndPassword(auth, mail, mdp);
+    // ⚠️ Les comptes Firebase appartiennent a un projet : il faut s'authentifier
+    // sur les DEUX. On le fait avec la meme saisie plutot que de demander deux
+    // fois les memes identifiants — le compte du projet 2 porte volontairement
+    // la meme adresse. Si celui-la echoue, seule la file LRDH sera muette : on
+    // le dit au lieu de laisser une section vide sans explication.
+    if (auth2) {
+      try { await signInWithEmailAndPassword(auth2, mail, mdp); }
+      catch (e2) { console.error('[hub] projet 2', e2.code); err.textContent = 'Connecté, mais le second projet a refusé : la file LRDH restera vide.'; }
+    }
+  }
   catch (e) { err.textContent = 'Identifiants invalides.'; }
 };
 document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
@@ -690,9 +728,9 @@ function cachedListenFile(col, key, trim, apply) {
   // Une limite sans tri ne borne pas un cout, elle cache des donnees. Le vrai
   // poste de depense etait ailleurs : l'ecoute qui se detachait en arriere-plan
   // et refacturait tout au retour (voir `ecouteVisible` plus haut).
-  cachedListen(query(collection(db, col), where('publishedToLinkedin', '==', false)),
+  cachedListen(query(collection(dbPour(col), col), where('publishedToLinkedin', '==', false)),
                key + '-v', trim, rows => { parts.vivants = rows; fusion(); });
-  cachedListen(query(collection(db, col), orderBy('publishedAt', 'desc'), limit(6)),
+  cachedListen(query(collection(dbPour(col), col), orderBy('publishedAt', 'desc'), limit(6)),
                key + '-p', trim, rows => { parts.publies = rows; fusion(); });
 }
 

@@ -107,6 +107,23 @@ const app = initializeApp({
   appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
 });
 const db = getFirestore(app);
+
+// ─── Second projet Firestore · voir index.html pour l'explication ───────────
+// ⚠️ Cet interrupteur doit valoir la MEME chose que celui d'index.html, et
+// basculer en meme temps que LRDH_LINKEDIN_PROJET_2 cote runner. Deux pages qui
+// ne regardent pas la meme base afficheraient deux files differentes.
+const LRDH_SUR_PROJET_2 = false;
+
+const app2 = LRDH_SUR_PROJET_2 ? initializeApp({
+  apiKey: 'AIzaSyBEKkYULpRZO1jkfT9MyzKF48SNS2KDymk',
+  authDomain: 'larevue-auto-dashboard-2.firebaseapp.com',
+  projectId: 'larevue-auto-dashboard-2',
+  storageBucket: 'larevue-auto-dashboard-2.firebasestorage.app',
+  messagingSenderId: '364018884402',
+  appId: '1:364018884402:web:b78819b4ffbfcc868c012b',
+}, 'projet2') : null;
+const dbq = app2 ? getFirestore(app2) : db;   // la base de la file LRDH
+const auth2 = app2 ? getAuth(app2) : null;
 const auth = getAuth(app);
 
 const WP = 'https://larevuedeshotels.com';
@@ -199,13 +216,13 @@ function renderQueue() {
     if (!dt) return;
     b.disabled = true;
     try {
-      await updateDoc(doc(db, 'lrdh_linkedin_queue', id), { status: 'scheduled', scheduledAt: new Date(dt).toISOString() });
+      await updateDoc(doc(dbq, 'lrdh_linkedin_queue', id), { status: 'scheduled', scheduledAt: new Date(dt).toISOString() });
       toast(`🗓️ Programmé · ${fdate(new Date(dt).toISOString())} · modifiable depuis l'accueil du hub`);
     } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
   });
   root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
     if (!confirm('Retirer ce post généré ?')) return;
-    try { await updateDoc(doc(db, 'lrdh_linkedin_queue', b.dataset.drop), { status: 'archived_stale' }); } catch(e) { alert('Erreur : ' + e.message); }
+    try { await updateDoc(doc(dbq, 'lrdh_linkedin_queue', b.dataset.drop), { status: 'archived_stale' }); } catch(e) { alert('Erreur : ' + e.message); }
   });
   // Arrêter une génération coincée (ex. worker bloqué par le quota Firestore). L'écriture
   // passe même quand les LECTURES sont épuisées (quota séparé) → débloque toujours la carte.
@@ -213,7 +230,7 @@ function renderQueue() {
     if (!confirm('Arrêter la génération de ce post ?')) return;
     b.disabled = true;
     try {
-      await updateDoc(doc(db, 'lrdh_linkedin_queue', b.dataset.cancel), { 'regenRequest.pending': false, 'regenRequest.cancelledAt': new Date().toISOString(), 'regenRequest.cancelledBy': 'hub' });
+      await updateDoc(doc(dbq, 'lrdh_linkedin_queue', b.dataset.cancel), { 'regenRequest.pending': false, 'regenRequest.cancelledAt': new Date().toISOString(), 'regenRequest.cancelledBy': 'hub' });
       toast('✖ Génération annulée.');
     } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
   });
@@ -282,7 +299,7 @@ function renderArts() {
     }
     b.disabled = true; b.textContent = 'Lancement…';
     try {
-      await setDoc(doc(db, 'lrdh_linkedin_queue', String(a.id)), {
+      await setDoc(doc(dbq, 'lrdh_linkedin_queue', String(a.id)), {
         postId: String(a.id),
         title: a._title,
         excerpt: a._excerpt,
@@ -369,7 +386,13 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
 
 document.getElementById('gbtn').onclick = async () => {
   const err = document.getElementById('gerr'); err.textContent = '';
-  try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+  const mail = document.getElementById('gmail').value.trim(), mdp = document.getElementById('gpass').value;
+  try {
+    await signInWithEmailAndPassword(auth, mail, mdp);
+    // Meme saisie pour les deux projets : le compte du projet 2 porte la meme adresse.
+    if (auth2) { try { await signInWithEmailAndPassword(auth2, mail, mdp); }
+                 catch (e2) { console.error('[hub] projet 2', e2.code); } }
+  }
   catch { err.textContent = 'Identifiants invalides.'; }
 };
 document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
@@ -399,8 +422,8 @@ onAuthStateChanged(auth, user => {
     const attacher = () => {
       if (stop.length) return;
       stop = [
-        lire(query(collection(db, 'lrdh_linkedin_queue'), where('publishedToLinkedin', '==', false)), 'vivants'),
-        lire(query(collection(db, 'lrdh_linkedin_queue'), orderBy('publishedAt', 'desc'), limit(6)), 'publies'),
+        lire(query(collection(dbq, 'lrdh_linkedin_queue'), where('publishedToLinkedin', '==', false)), 'vivants'),
+        lire(query(collection(dbq, 'lrdh_linkedin_queue'), orderBy('publishedAt', 'desc'), limit(6)), 'publies'),
       ];
     };
     const detacher = () => { stop.forEach(f => f && f()); stop = []; };
