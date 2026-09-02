@@ -588,7 +588,9 @@ function render() {
   if (pendingHashEdit) {
     const [qk, id] = pendingHashEdit;
     const st2 = state[qk];
-    if (st2 && [...st2.scheduled, ...st2.ready].some(p => p.id === id)) {
+    // ⚠️ On cherche AUSSI dans les publies : un post deja parti reste
+    // editable, et le lien doit ouvrir la modale plutot que de ne rien faire.
+    if (st2 && [...st2.scheduled, ...st2.ready, ...st2.published].some(p => p.id === id)) {
       pendingHashEdit = null;
       openModal(qk, id);
     }
@@ -699,7 +701,13 @@ for (const q of QUEUES) {
     scheduled.sort((a,b) => String(a.scheduledAt||'').localeCompare(String(b.scheduledAt||'')));
     ready.sort((a,b) => String(b.regenRequest?.requestedAt||b.generatedAt||'').localeCompare(String(a.regenRequest?.requestedAt||a.generatedAt||'')));
     published.sort((a,b) => String(b.publishedAt||b.scheduledAt||'').localeCompare(String(a.publishedAt||a.scheduledAt||'')));
-    state[q.key] = { scheduled, ready: ready.slice(0,10), published: published.slice(0,6) };
+    // ⚠️ `ready.slice(0,10)` masquait en silence les posts au-dela du dixieme.
+    // La rangee defile deja horizontalement : la coupe n'apportait rien, et elle
+    // cassait le lien d'edition venu de linkedin-lrdh.html — `#edit=lrdh:<id>`
+    // ne trouve le post que s'il figure dans cette liste, donc le crayon
+    // renvoyait vers une page ou le post etait devenu invisible.
+    // `published` reste borne, lui, par sa requete (limit 6).
+    state[q.key] = { scheduled, ready, published: published.slice(0,6) };
     render();
     renderStats();
   });
