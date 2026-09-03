@@ -390,13 +390,37 @@ document.getElementById('gbtn').onclick = async () => {
     await signInWithEmailAndPassword(auth, mail, mdp);
     // Meme saisie pour les deux projets : le compte du projet 2 porte la meme adresse.
     if (auth2) { try { await signInWithEmailAndPassword(auth2, mail, mdp); }
-                 catch (e2) { console.error('[hub] projet 2', e2.code); } }
+                 catch (e2) { console.error('[hub] projet 2', e2.code);
+                   document.getElementById('gerr').textContent = 'Refusé sur le projet de La Revue des Hôtels : la file restera vide.';
+                   return; } }
+    // onAuthStateChanged ne se redeclenchera pas si la session du projet
+    // historique etait deja active : on leve le portail nous-memes.
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('topnav').style.display = 'flex';
+    // ⚠️ Le demarrage des ecoutes est inline dans onAuthStateChanged, il n'y a
+    // pas de fonction a rappeler. Plutot que d'en extraire une a la va-vite sur
+    // une page de production, on recharge : les deux sessions sont desormais
+    // persistees, donc le rechargement passera le portail tout seul.
+    location.reload();
   }
   catch { err.textContent = 'Identifiants invalides.'; }
 };
 document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
 let started = false;
 onAuthStateChanged(auth, user => {
+  // ⚠️ Meme piege qu'index.html : Firebase restaure la session PROJET PAR
+  // PROJET, et le second n'est authentifie que dans le formulaire. Une session
+  // restauree ne repasse jamais par la, donc la file resterait vide avec un
+  // « Missing or insufficient permissions » en console et rien a l'ecran.
+  if (user && auth2 && !auth2.currentUser) {
+    document.getElementById('gate').style.display = 'flex';
+    document.getElementById('topnav').style.display = 'none';
+    document.getElementById('appmain').style.display = 'none';
+    const err = document.getElementById('gerr');
+    if (err) err.textContent = 'Une seule fois : ressaisissez vos identifiants pour ouvrir aussi La Revue des Hôtels. La session sera ensuite mémorisée.';
+    const m = document.getElementById('gmail'); if (m && !m.value) m.value = user.email || '';
+    return;
+  }
   document.getElementById('gate').style.display = user ? 'none' : 'flex';
   document.getElementById('topnav').style.display = user ? 'flex' : 'none';
   document.getElementById('appmain').style.display = user ? 'block' : 'none';

@@ -792,18 +792,56 @@ document.getElementById('gbtn').onclick = async () => {
       try { await signInWithEmailAndPassword(a, mail, mdp); }
       catch (e2) { console.error('[hub]', cle, e2.code); refuses.push(MEDIAS[cle]?.nom || cle); }
     }
-    if (refuses.length) err.textContent = 'Connecté, mais refusé sur : ' + refuses.join(', ') + '. Ces files resteront vides.';
+    if (refuses.length) { err.textContent = 'Connecté, mais refusé sur : ' + refuses.join(', ') + '. Ces files resteront vides.'; return; }
+    // Tous les projets sont ouverts : on lève le portail nous-mêmes, car
+    // onAuthStateChanged ne se redéclenchera pas si la session du projet
+    // historique était déjà active.
+    err.textContent = '';
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('appmain').style.display = 'block';
+    rendreJauge();
+    if (!started) { started = true; startListeners(); }
   }
   catch (e) { err.textContent = 'Identifiants invalides.'; }
 };
 document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
 document.getElementById('logout').onclick = () => signOut(auth).then(() => location.reload());
+// ⚠️ Firebase restaure la session AU RECHARGEMENT, projet par projet. Or je
+// n'authentifiais les projets secondaires que dans le gestionnaire du
+// formulaire : un utilisateur dont la session du projet historique est
+// restaurée n'y repasse jamais, et les projets dédiés restaient sans session.
+// Symptôme : « Missing or insufficient permissions » sur la file LRDH, dont les
+// règles exigent un compte connecté — la file paraissait vide sans que rien
+// n'explique pourquoi.
+//
+// Les sessions Firebase persistent par projet : il suffit de se connecter UNE
+// fois sur chacun. On détecte donc les projets sans session et on redemande la
+// saisie, en disant lesquels et pourquoi.
+function projetsSansSession() {
+  return Object.entries(_auths).filter(([, a]) => !a.currentUser)
+    .map(([cle]) => MEDIAS[cle]?.nom || cle);
+}
+
 onAuthStateChanged(auth, user => {
   document.getElementById('gate').style.display = user ? 'none' : 'flex';
   document.getElementById('logout').style.display = user ? 'block' : 'none';
   document.getElementById('topnav').style.display = user ? 'flex' : 'none';
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user) rendreJauge();
+  if (user) {
+    const manquants = projetsSansSession();
+    if (manquants.length) {
+      // On garde le portail ouvert plutôt que d'afficher un hub à moitié vide.
+      document.getElementById('gate').style.display = 'flex';
+      document.getElementById('appmain').style.display = 'none';
+      const err = document.getElementById('gerr');
+      if (err) err.textContent = 'Une seule fois : ressaisissez vos identifiants pour ouvrir aussi '
+        + manquants.join(' et ') + '. La session sera ensuite mémorisée.';
+      const m = document.getElementById('gmail');
+      if (m && !m.value) m.value = user.email || '';
+      return;
+    }
+  }
   if (user && !started) { started = true; startListeners(); }
 });
 
