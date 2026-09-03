@@ -790,9 +790,22 @@ document.getElementById('gbtn').onclick = async () => {
     const refuses = [];
     for (const [cle, a] of Object.entries(_auths)) {
       try { await signInWithEmailAndPassword(a, mail, mdp); }
-      catch (e2) { console.error('[hub]', cle, e2.code); refuses.push(MEDIAS[cle]?.nom || cle); }
+      // ⚠️ Afficher le CODE : « refusé » sans motif n'aide personne. Le cas le
+      // plus courant est un mot de passe différent d'un projet à l'autre — les
+      // comptes sont distincts, rien n'oblige à les avoir alignés, et le
+      // formulaire n'en saisit qu'un.
+      catch (e2) {
+        console.error('[hub]', cle, e2.code, e2.message);
+        const motif = /wrong-password|invalid-credential|invalid-login/.test(e2.code || '')
+          ? 'mot de passe différent sur ce projet'
+          : /user-not-found/.test(e2.code || '') ? 'aucun compte sur ce projet'
+          : /too-many-requests/.test(e2.code || '') ? 'trop de tentatives, réessayez dans quelques minutes'
+          : (e2.code || 'erreur inconnue');
+        refuses.push(`${MEDIAS[cle]?.nom || cle} (${motif})`);
+      }
     }
-    if (refuses.length) { err.textContent = 'Connecté, mais refusé sur : ' + refuses.join(', ') + '. Ces files resteront vides.'; return; }
+    if (refuses.length) { err.textContent = 'Refusé sur ' + refuses.join(' · ')
+      + '. Le mot de passe doit être IDENTIQUE sur tous les projets : le formulaire n\'en saisit qu\'un.'; return; }
     // Tous les projets sont ouverts : on lève le portail nous-mêmes, car
     // onAuthStateChanged ne se redéclenchera pas si la session du projet
     // historique était déjà active.
