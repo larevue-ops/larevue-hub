@@ -600,10 +600,16 @@ const PROJETS = {
 };
 
 // Quelle collection appartient à quel média. Sert au routage ET à la jauge.
+// ⚠️ NE LISTER QUE CE QUI A REELLEMENT DEMENAGE. J'y avais mis toutes les
+// collections d'un media, dont `lrdh_instagram_queue`, qui n'a PAS ete copiee :
+// le hub allait la chercher sur un projet ou elle n'existe pas, et la section
+// serait restee vide sans le moindre message.
+// Une collection n'entre ici qu'APRES sa copie.
 const MEDIA_DE_COLLECTION = {
-  lrdh_linkedin_queue: 'lrdh', lrdh_instagram_queue: 'lrdh',
-  lrdv_linkedin_queue: 'lrdv',
-  larevue_linkedin_queue: 'lra',
+  lrdh_linkedin_queue: 'lrdh',   // migre le 03/09/2026
+  // lrdh_instagram_queue: 'lrdh',   pas encore migre
+  // lrdv_linkedin_queue: 'lrdv',    pas encore migre
+  // larevue_linkedin_queue: 'lra',  pas encore migre
 };
 
 const _bases = {}, _auths = {};
@@ -1484,7 +1490,10 @@ window.reRegen = async (qkey, id) => {
   const q = QUEUES.find(x => x.key === qkey);
   if (!q) return;
   try {
-    await updateDoc(doc(db, q.col, id), { 'regenRequest.pending': true, 'regenRequest.requestedAt': new Date().toISOString() });
+    // ⚠️ `dbPour` et non `db` : les lectures etaient routees, pas les ecritures.
+    // Une demande de regeneration partait donc sur l'ancien projet, ou plus
+    // personne ne la lit — le hub n'affichait rien et le worker ne voyait rien.
+    await updateDoc(doc(dbPour(q.col), q.col, id), { 'regenRequest.pending': true, 'regenRequest.requestedAt': new Date().toISOString() });
   } catch (e) { /* Firestore peut être en quota : on tente quand même le dispatch */ }
   const fired = await triggerRegenWorkflow();
   toast(fired
@@ -1632,7 +1641,7 @@ window.saveEdit = async () => {
     if (wantsRegen) {
       upd.regenRequest = { ...rr, pending: true, requestedAt: new Date().toISOString() };
     }
-    await updateDoc(doc(db, q.col, post.id), upd);
+    await updateDoc(doc(dbPour(q.col), q.col, post.id), upd);
     closeModal();
     if (wantsRegen) {
       const fired = await triggerRegenWorkflow();
@@ -1650,7 +1659,7 @@ window.unschedule = async () => {
   const q = QUEUES.find(x => x.key === editing.qkey);
   const target = editing.isReady ? 'archived_stale' : 'image_ready';
   if (editing.isReady && !confirm('Retirer ce post généré ?')) return;
-  try { await updateDoc(doc(db, q.col, editing.post.id), { status: target }); closeModal(); }
+  try { await updateDoc(doc(dbPour(q.col), q.col, editing.post.id), { status: target }); closeModal(); }
   catch(e) { alert('Erreur : ' + e.message); }
 };
 document.getElementById('overlay').addEventListener('click', e => { if (e.target.id === 'overlay') closeModal(); });
