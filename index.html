@@ -754,9 +754,17 @@ function render() {
     root.appendChild(div);
   }
   document.getElementById('next').textContent = soonest ? `Prochaine : ${fdate(soonest)}` : '';
-  organiser();
+  // ⚠️ ATTACHER LES CLICS AVANT DE DEPLACER. `organiser()` sort les bandeaux de
+  // la zone de fabrication pour les ranger par média ; appelé d'abord, il
+  // laissait `root` vide et AUCUN gestionnaire n'était posé. Les boutons
+  // existaient, joliment rendus, et ne réagissaient à rien — sans la moindre
+  // erreur en console, puisqu'il n'y avait rien à exécuter.
+  //
+  // Un noeud déplacé conserve ses gestionnaires : les poser ici, puis
+  // déménager, est donc l'ordre correct.
   root.querySelectorAll('button.edit').forEach(b => b.onclick = () => openModal(b.dataset.q, b.dataset.id));
   root.querySelectorAll('button.rebtn').forEach(b => b.onclick = () => window.reRegen(b.dataset.reQ, b.dataset.reId));
+  organiser();
   // ouverture directe depuis une autre page : index.html#edit=lrdh:12737
   if (pendingHashEdit) {
     const [qk, id] = pendingHashEdit;
