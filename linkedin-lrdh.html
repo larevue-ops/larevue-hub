@@ -112,7 +112,7 @@ const db = getFirestore(app);
 // ⚠️ Cet interrupteur doit valoir la MÊME chose que celui d'index.html, et
 // basculer en même temps que FIRESTORE_SA_LRDH côté runner. Deux pages qui ne
 // regardent pas la même base afficheraient deux files différentes.
-const LRDH_SUR_PROJET_DEDIE = false;
+const LRDH_SUR_PROJET_DEDIE = true;
 
 const app2 = LRDH_SUR_PROJET_DEDIE ? initializeApp({
   apiKey: 'AIzaSyBEKkYULpRZO1jkfT9MyzKF48SNS2KDymk',
