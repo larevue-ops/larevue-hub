@@ -109,6 +109,32 @@ const app = initializeApp({
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// ─── Aiguillage vers le projet dedie LRDH ───────────────────────────────────
+//
+// Cette page n'attaquait qu'un seul projet. Le jour ou `lrdh_en_linkedin_queue`
+// demenage, elle continuerait de lire et d'ecrire sur l'historique pendant que
+// le runner travaille sur le projet dedie : la file paraitrait figee, sans la
+// moindre erreur.
+//
+// ⚠️ Les sessions Firebase sont PAR PROJET. Se connecter ici ne connecte pas
+// la-bas : il faut rejouer les identifiants sur le second projet, sinon toutes
+// les lectures repondent « Missing or insufficient permissions » — ce qui, dans
+// une page qui affiche une file vide, ressemble a une file vide.
+const appLrdh = initializeApp({
+  apiKey: 'AIzaSyBEKkYULpRZO1jkfT9MyzKF48SNS2KDymk',
+  authDomain: 'larevue-auto-dashboard-2.firebaseapp.com',
+  projectId: 'larevue-auto-dashboard-2',
+  messagingSenderId: '364018884402',
+  appId: '1:364018884402:web:b78819b4ffbfcc868c012b',
+}, 'projet_lrdh');
+const dbLrdh = getFirestore(appLrdh);
+const authLrdh = getAuth(appLrdh);
+
+// ⚠️ A passer a true UNE FOIS la copie faite, pas avant : sinon la page va
+// chercher la file sur un projet ou elle n'existe pas encore.
+const EN_SUR_PROJET_LRDH = false;
+const baseFile = () => (EN_SUR_PROJET_LRDH ? dbLrdh : db);
+
 const WP = 'https://larevuedeshotels.com';
 const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const de = s => { const t = document.createElement('textarea'); t.innerHTML = String(s||''); return t.value; };
@@ -199,13 +225,13 @@ function renderQueue() {
     if (!dt) return;
     b.disabled = true;
     try {
-      await updateDoc(doc(db, 'lrdh_en_linkedin_queue', id), { status: 'scheduled', scheduledAt: new Date(dt).toISOString() });
+      await updateDoc(doc(baseFile(), 'lrdh_en_linkedin_queue', id), { status: 'scheduled', scheduledAt: new Date(dt).toISOString() });
       toast(`🗓️ Programmé · ${fdate(new Date(dt).toISOString())} · modifiable depuis l'accueil du hub`);
     } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
   });
   root.querySelectorAll('[data-drop]').forEach(b => b.onclick = async () => {
     if (!confirm('Retirer ce post généré ?')) return;
-    try { await updateDoc(doc(db, 'lrdh_en_linkedin_queue', b.dataset.drop), { status: 'archived_stale' }); } catch(e) { alert('Erreur : ' + e.message); }
+    try { await updateDoc(doc(baseFile(), 'lrdh_en_linkedin_queue', b.dataset.drop), { status: 'archived_stale' }); } catch(e) { alert('Erreur : ' + e.message); }
   });
   // Arrêter une génération coincée (ex. worker bloqué par le quota Firestore). L'écriture
   // passe même quand les LECTURES sont épuisées (quota séparé) → débloque toujours la carte.
@@ -213,7 +239,7 @@ function renderQueue() {
     if (!confirm('Arrêter la génération de ce post ?')) return;
     b.disabled = true;
     try {
-      await updateDoc(doc(db, 'lrdh_en_linkedin_queue', b.dataset.cancel), { 'regenRequest.pending': false, 'regenRequest.cancelledAt': new Date().toISOString(), 'regenRequest.cancelledBy': 'hub' });
+      await updateDoc(doc(baseFile(), 'lrdh_en_linkedin_queue', b.dataset.cancel), { 'regenRequest.pending': false, 'regenRequest.cancelledAt': new Date().toISOString(), 'regenRequest.cancelledBy': 'hub' });
       toast('✖ Génération annulée.');
     } catch(e) { alert('Erreur : ' + e.message); b.disabled = false; }
   });
@@ -282,7 +308,7 @@ function renderArts() {
     }
     b.disabled = true; b.textContent = 'Lancement…';
     try {
-      await setDoc(doc(db, 'lrdh_en_linkedin_queue', String(a.id)), {
+      await setDoc(doc(baseFile(), 'lrdh_en_linkedin_queue', String(a.id)), {
         postId: String(a.id),
         title: a._title,
         excerpt: a._excerpt,
@@ -363,7 +389,13 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
 
 document.getElementById('gbtn').onclick = async () => {
   const err = document.getElementById('gerr'); err.textContent = '';
-  try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+  const mail = document.getElementById('gmail').value.trim();
+  const mdp = document.getElementById('gpass').value;
+  // ⚠️ Le second projet AUSSI, avec les memes identifiants. Sans lui, la page
+  // se croit connectee et ne lit rien une fois la file migree.
+  signInWithEmailAndPassword(authLrdh, mail, mdp).catch((e) =>
+    console.warn('projet LRDH : session non ouverte ·', e.code || e.message));
+  try { await signInWithEmailAndPassword(auth, mail, mdp); }
   catch { err.textContent = 'Identifiants invalides.'; }
 };
 document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
@@ -393,8 +425,8 @@ onAuthStateChanged(auth, user => {
     const attacher = () => {
       if (stop.length) return;
       stop = [
-        lire(query(collection(db, 'lrdh_en_linkedin_queue'), where('publishedToLinkedin', '==', false)), 'vivants'),
-        lire(query(collection(db, 'lrdh_en_linkedin_queue'), orderBy('publishedAt', 'desc'), limit(6)), 'publies'),
+        lire(query(collection(baseFile(), 'lrdh_en_linkedin_queue'), where('publishedToLinkedin', '==', false)), 'vivants'),
+        lire(query(collection(baseFile(), 'lrdh_en_linkedin_queue'), orderBy('publishedAt', 'desc'), limit(6)), 'publies'),
       ];
     };
     const detacher = () => { stop.forEach(f => f && f()); stop = []; };

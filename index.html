@@ -1119,7 +1119,8 @@ cachedListen(query(collection(db, 'instagram_queue'), where('status','==','sched
 window.enregistrerCarrouselLrdh = async (id, charge) => {
   if (!id) throw new Error('carrousel sans identifiant (rendu de référence)');
   const maj = { ...charge, editeLe: new Date().toISOString() };
-  await updateDoc(doc(db, 'lrdh_instagram_queue', id), maj);
+  // ⚠️ dbPour et non db : la file Instagram LRDH suivra le projet dedie.
+  await updateDoc(doc(dbPour('lrdh_instagram_queue'), 'lrdh_instagram_queue', id), maj);
 };
 // Ancien nom, garde le temps qu'un onglet ouvert avant la mise a jour se recharge.
 window.enregistrerOrdreIgLrdh = (id, slides) => window.enregistrerCarrouselLrdh(id, { slides });
