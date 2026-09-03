@@ -1486,8 +1486,18 @@ window.reRegen = async (qkey, id) => {
 
 window.openModal = (qkey, id) => {
   const st = state[qkey] || {};
-  const post = [...(st.scheduled || []), ...(st.ready || [])].find(p => p.id === id);
-  if (!post) return;
+  // ⚠️ Les PUBLIES etaient absents de cette recherche, alors qu'ils portent
+  // un bouton d'edition comme les autres. Cliquer dessus ne faisait donc
+  // rien du tout — pas d'erreur, pas de message, rien. Un bouton qui ne
+  // reagit pas est pire qu'un bouton absent : on croit l'application cassee.
+  const post = [...(st.scheduled || []), ...(st.ready || []), ...(st.published || [])]
+    .find(p => p.id === id);
+  if (!post) {
+    // Et si on ne le trouve toujours pas, on le DIT plutot que de se taire.
+    console.warn('[hub] openModal : post introuvable', qkey, id);
+    alert("Ce post n'est plus dans la liste chargée. Rechargez la page.");
+    return;
+  }
   const isReady = post.status !== 'scheduled';
   editing = { qkey, post, pickedImage: null, isReady };
   const danger = document.querySelector('.btn.danger');
