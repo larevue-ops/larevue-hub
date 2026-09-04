@@ -162,15 +162,29 @@ export function measureEditorialSegments(ctx, segments, size) {
   return total;
 }
 
-export function wrapEditorialSegments(ctx, segments, maxW, size) {
-  const tokens = [];
+// Decoupe en unites insecables. Un passage surligne (*mots*) ou souligne
+// (_mots_) forme UN pave de couleur : le couper en fin de ligne en fabrique
+// deux, ce qui se voit immediatement et se lit mal. On le garde donc entier,
+// SAUF s'il est a lui seul plus large que la colonne · dans ce cas il faut
+// bien le casser, et on retombe sur la decoupe mot a mot.
+function uniteInsecables(ctx, segments, maxW, size) {
+  const unites = [];
   for (const seg of segments) {
-    const parts = seg.text.split(/(\s+)/);
-    for (const p of parts) {
+    const tok = { text: seg.text, italic: !!seg.italic, underline: !!seg.underline };
+    if ((tok.italic || tok.underline) && measureEditorialSegments(ctx, [tok], size) <= maxW) {
+      unites.push(tok);
+      continue;
+    }
+    for (const p of seg.text.split(/(\s+)/)) {
       if (!p) continue;
-      tokens.push({ text: p, italic: !!seg.italic, underline: !!seg.underline });
+      unites.push({ ...tok, text: p });
     }
   }
+  return unites;
+}
+
+export function wrapEditorialSegments(ctx, segments, maxW, size) {
+  const tokens = uniteInsecables(ctx, segments, maxW, size);
   const lines = [];
   let curLine = [];
   for (const tok of tokens) {
