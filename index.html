@@ -130,6 +130,25 @@
   .mhint { font-size:10.5px; color:var(--muted); margin-top:5px; }
   .hint { font-weight:400; color:var(--faint); }
   .modal textarea#mcovtitle { min-height:52px; }
+  /* Polices du bloc-titre · MÊMES fichiers que public/fonts du générateur, sous
+     les MÊMES noms de famille (là-bas : GlobalFonts.registerFromPath). C'est ce
+     qui permet à l'aperçu de couper les lignes au même endroit que le rendu
+     final. Les copier : `npm run titre:diffuser` dans larevue-social-runner. */
+  @font-face { font-family:'EditorialPlayfair'; font-weight:bold; font-style:normal;
+    src:url('assets/fonts/PlayfairDisplay-Bold.ttf') format('truetype'); font-display:block; }
+  @font-face { font-family:'EditorialPlayfairItalic'; font-weight:bold; font-style:italic;
+    src:url('assets/fonts/PlayfairDisplay-BoldItalic.ttf') format('truetype'); font-display:block; }
+  /* Familles de secours : le générateur les déclare aussi, elles ne servent que
+     pour un glyphe absent du gras. Poids annoncé « bold » pour que le navigateur
+     les prenne telles quelles, sans gras synthétique. */
+  @font-face { font-family:'EditorialPlayfairFallback'; font-weight:bold; font-style:normal;
+    src:url('assets/fonts/PlayfairDisplay.ttf') format('truetype'); font-display:block; }
+  @font-face { font-family:'EditorialPlayfairItalicFallback'; font-weight:bold; font-style:italic;
+    src:url('assets/fonts/PlayfairDisplay-Italic.ttf') format('truetype'); font-display:block; }
+  #mcovprevrow { margin-top:8px; }
+  #mcovprev { display:block; width:100%; height:auto; border-radius:9px; border:1px solid var(--border-2); background:#141414; }
+  .apercu-note { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; color:var(--muted); margin-top:5px; }
+  .apercu-note .alerte { color:#b45309; font-weight:600; }
   #mcroprow .crop { display:flex; gap:12px; align-items:flex-start; margin-top:2px; }
   .cropbox { flex:0 0 92px; width:92px; aspect-ratio:4/5; border-radius:9px; overflow:hidden; border:1px solid var(--border-2); background:var(--surface-2); }
   .cropbox img { width:100%; height:100%; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
@@ -515,6 +534,13 @@
         <input id="mcat" placeholder="ex : HÔTELS D'EXCEPTION / DESTINATION…">
         <label>Titre sur l’image <span class="hint">· en test = citation du bas (« » + majuscule auto) · *mots* = surligné · _mots_ = souligné · ~mots~ = italique · "mots" = « guillemets » · cumulables</span></label>
         <textarea id="mcovtitle"></textarea>
+        <div id="mcovprevrow" style="display:none">
+          <canvas id="mcovprev" width="1080" height="220"
+                  aria-label="Aperçu du titre tel qu'il sera dessiné sur la cover"></canvas>
+          <div class="apercu-note">
+            <span id="mcovprevmeta"></span><span id="mcovprevwarn" class="alerte"></span>
+          </div>
+        </div>
         <div id="mbrandrow">
           <label>Marque / bandeau <span class="hint">· ligne sous le titre</span></label>
           <input id="mbrand">
@@ -562,6 +588,10 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, collection, query, where, limit, onSnapshot, doc, updateDoc, getDoc, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+// Découpe du bloc-titre : copie CONFORME de lib/shared/lrdh-titre.mjs du
+// générateur (larevue-social-runner). Ne pas la modifier ici · modifier là-bas
+// puis `npm run titre:diffuser`. `npm run titre:verifier` signale une dérive.
+import * as TITRE from './assets/lrdh-titre.mjs';
 
 const app = initializeApp({
   apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
@@ -1563,8 +1593,12 @@ window.openModal = (qkey, id) => {
     document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
     document.getElementById('mstylehint').style.display = isTest ? 'block' : 'none';
   };
-  document.getElementById('mstyle').onchange = syncStyleUI;
+  document.getElementById('mstyle').onchange = () => { syncStyleUI(); dessinerApercuTitre(); };
   syncStyleUI();
+  // L'aperçu suit le titre, la marque (reprise en surligné) et le gabarit.
+  document.getElementById('mcovtitle').oninput = planifierApercuTitre;
+  document.getElementById('mbrand').oninput = planifierApercuTitre;
+  dessinerApercuTitre();
   document.getElementById('mdate').value = toLocal(post.scheduledAt);
   // vignettes : photos candidates de l'article, l'actuelle en surbrillance
   const current = post.selectedImage || post.linkedinSelectedImage || '';
@@ -1610,6 +1644,73 @@ window.openModal = (qkey, id) => {
   }
   document.getElementById('overlay').classList.add('on');
 };
+// ─── Aperçu fidèle du bloc-titre ────────────────────────────────────────────
+//
+// Le générateur découpe le titre à la mesure du texte, pas au nombre de
+// caractères : impossible de deviner où tombent les retours à la ligne sans
+// mesurer avec les mêmes polices, aux mêmes dimensions. On redessine donc le
+// bloc dans un canvas de 1080 px de large — la largeur réelle de la cover —
+// avec le module et les polices recopiés du générateur.
+//
+// Règle : si les polices ne sont pas chargées, on MASQUE l'aperçu. Un aperçu
+// dessiné en Times donnerait des coupures fausses, ce qui est pire que rien.
+let policesTitre = null;
+function chargerPolicesTitre() {
+  if (policesTitre) return policesTitre;
+  const demandes = ['bold 78px "EditorialPlayfair"', 'italic bold 78px "EditorialPlayfairItalic"'];
+  policesTitre = Promise.all(demandes.map(f => document.fonts.load(f)))
+    .then(() => demandes.every(f => document.fonts.check(f)))
+    .catch(() => false);
+  return policesTitre;
+}
+
+let minuteurApercu = null;
+function planifierApercuTitre() {
+  clearTimeout(minuteurApercu);
+  minuteurApercu = setTimeout(dessinerApercuTitre, 120);
+}
+
+async function dessinerApercuTitre() {
+  const bloc = document.getElementById('mcovprevrow');
+  // Seul LRDH a ce gabarit : ailleurs, aucun aperçu ne serait fidèle.
+  if (!editing || editing.qkey !== 'lrdh') { bloc.style.display = 'none'; return; }
+  bloc.style.display = 'block';
+  const cv = document.getElementById('mcovprev');
+  const meta = document.getElementById('mcovprevmeta');
+  const alerte = document.getElementById('mcovprevwarn');
+  const pretes = await chargerPolicesTitre();
+  if (!editing || editing.qkey !== 'lrdh') return;   // modale refermée entre-temps
+  if (!pretes) {
+    cv.style.display = 'none'; meta.textContent = '';
+    alerte.textContent = "⚠️ Polices Playfair non chargées · aperçu masqué plutôt que faux.";
+    return;
+  }
+  cv.style.display = 'block'; alerte.textContent = '';
+  const ctx = cv.getContext('2d');
+  const mise = TITRE.layoutTitle(ctx, {
+    style: document.getElementById('mstyle').value,
+    title: document.getElementById('mcovtitle').value,
+    brand: document.getElementById('mbrand').value,
+  });
+  // Marge haute et basse identiques : on montre le bloc-titre, pas la cover.
+  const MARGE = 44;
+  cv.width = TITRE.W;
+  cv.height = MARGE * 2 + Math.max(1, mise.lines.length) * mise.lineHeight;
+  ctx.fillStyle = '#141414';           // le bas de la cover, assombri par le dégradé
+  ctx.fillRect(0, 0, cv.width, cv.height);
+  let y = MARGE + Math.round(mise.size * 0.80);   // haut du surlignage = MARGE
+  for (const ligne of mise.lines) {
+    TITRE.drawEditorialTitleLine(ctx, ligne, mise.marginX, y, mise.size, mise.color,
+      { markerBg: mise.markerBg, markerText: mise.markerText });
+    y += mise.lineHeight;
+  }
+  const n = mise.lines.length;
+  meta.textContent = `${n} ligne${n > 1 ? 's' : ''} · corps ${mise.size} px · aperçu à l'échelle réelle (1080 px)`;
+  if (mise.truncated) {
+    alerte.textContent = "✂️ Trop long · le générateur coupera tout ce qui dépasse.";
+  }
+}
+
 window.closeModal = () => { editing = null; document.getElementById('overlay').classList.remove('on'); };
 window.saveEdit = async () => {
   if (!editing) return;
