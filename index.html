@@ -145,6 +145,28 @@
     src:url('assets/fonts/PlayfairDisplay.ttf') format('truetype'); font-display:block; }
   @font-face { font-family:'EditorialPlayfairItalicFallback'; font-weight:bold; font-style:italic;
     src:url('assets/fonts/PlayfairDisplay-Italic.ttf') format('truetype'); font-display:block; }
+  /* Champ de saisie WYSIWYG : il affiche le surlignage au lieu des asterisques,
+     dans la police de la cover et a la meme echelle, donc il coupe ses lignes
+     exactement ou la cover coupera les siennes. Les caracteres * et _ restent
+     bien presents dans le texte (indispensable pour la saisie et la sauvegarde),
+     mais en corps 0 : ils ne prennent aucune largeur et ne decalent donc rien.
+     C'etait la seule cause d'ecart mesurable entre le champ et l'apercu. */
+  #mcovwys { width:100%; box-sizing:border-box; border:1px solid var(--border-2); border-radius:9px;
+    padding:9px 10px; background:var(--surface-2); color:var(--ink); min-height:52px;
+    white-space:pre-wrap; overflow-wrap:normal; word-break:normal; outline:none; }
+  #mcovwys:focus { border-color:var(--gold); box-shadow:0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+  /* Crenage et ligatures desarmes : notre decoupe mesure mot par mot et ne
+     tient donc pas compte du crenage entre deux mots. Le navigateur, lui,
+     faconne la ligne d'un bloc et gagne quelques dixiemes, ce qui suffit a
+     faire glisser une coupure. Sans crenage, les deux mesures se rejoignent. */
+  #mcovwys { font-kerning:none; font-variant-ligatures:none; }
+  #mcovwys .wys-mk { font-size:0 !important; }
+  #mcovwys .wys-pill { background:#dc2626; color:#fff; font-style:italic; white-space:nowrap;
+    border-radius:2px; padding:0 .04em; }
+  #mcovwys .wys-ul { text-decoration:underline; text-underline-offset:.16em; white-space:nowrap; }
+  /* Filet : si la coupe du champ ne correspond pas a celle de l'apercu, le champ
+     cesse de couper plutot que d'afficher une coupure fausse. */
+  #mcovwys.sans-coupe { white-space:pre; overflow-x:auto; }
   #mcovprevrow { margin-top:8px; }
   #mcovprev { display:block; width:100%; height:auto; border-radius:9px; border:1px solid var(--border-2); background:#141414; }
   .apercu-note { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; color:var(--muted); margin-top:5px; }
@@ -533,7 +555,9 @@
         <label>Catégorie (badge sur l'image)</label>
         <input id="mcat" placeholder="ex : HÔTELS D'EXCEPTION / DESTINATION…">
         <label>Titre sur l’image <span class="hint">· en test = citation du bas (« » + majuscule auto) · *mots* = surligné · _mots_ = souligné · ~mots~ = italique · "mots" = « guillemets » · cumulables</span></label>
-        <textarea id="mcovtitle"></textarea>
+        <div id="mcovwys" contenteditable="true" spellcheck="true"
+             aria-label="Titre sur l’image, affiché comme il sera dessiné"></div>
+        <textarea id="mcovtitle" style="display:none"></textarea>
         <div id="mcovprevrow" style="display:none">
           <canvas id="mcovprev" width="1080" height="220"
                   aria-label="Aperçu du titre tel qu'il sera dessiné sur la cover"></canvas>
@@ -1574,6 +1598,19 @@ window.openModal = (qkey, id) => {
   // une regeneration a chaque enregistrement sans modification.
   editing.titreBase = post.linkedinTitle || (qkey === 'lra' ? de(post.title || '') : '');
   document.getElementById('mcovtitle').value = editing.titreBase;
+  // Filet de securite : si le champ WYSIWYG echoue pour une raison quelconque,
+  // on remet le champ texte ordinaire plutot que de laisser l'editeur sans
+  // zone de saisie. Perdre la mise en forme est un desagrement, perdre le
+  // champ est une panne.
+  try {
+    wysInit();
+    document.getElementById('mcovwys').style.display = '';
+    document.getElementById('mcovtitle').style.display = 'none';
+  } catch (e) {
+    console.error('[hub] champ WYSIWYG indisponible, repli sur le champ texte', e);
+    document.getElementById('mcovwys').style.display = 'none';
+    document.getElementById('mcovtitle').style.display = '';
+  }
   document.getElementById('mbrandrow').style.display = qkey === 'lra' ? 'none' : 'block';
   document.getElementById('mbrand').value = post.linkedinBrand || '';
   // localisation : uniquement sur le gabarit LRDH (bandeau « marque · lieu »)
@@ -1644,6 +1681,139 @@ window.openModal = (qkey, id) => {
   }
   document.getElementById('overlay').classList.add('on');
 };
+
+// ─── Champ « Titre sur l'image » en WYSIWYG ─────────────────────────────────
+//
+// Le champ affiche le surlignage lui-meme, pas les asterisques, dans la police
+// de la cover et a la meme echelle : il coupe donc ses lignes exactement ou la
+// cover coupera les siennes. Mesure a l'appui : avec les asterisques affiches,
+// AUCUNE taille de police ne fait coincider les deux (recherche exhaustive sur
+// 4 titres reels, 2 sans solution). Les caracteres * et _ restent donc dans le
+// texte, mais rendus en corps 0 : aucune largeur, aucun decalage.
+//
+// Filet : apres chaque rendu on relit les coupures reelles du champ et on les
+// compare a celles de l'apercu. Au moindre desaccord le champ cesse de couper
+// plutot que d'afficher une coupure fausse.
+
+const echapper = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function wysHtml(brut) {
+  let html = '', dernier = 0, m;
+  const re = /\*([^*]+)\*|_([^_]+)_/g;
+  const mk = (c) => '<span class="wys-mk">' + c + '</span>';
+  while ((m = re.exec(brut)) !== null) {
+    html += echapper(brut.slice(dernier, m.index));
+    if (m[1] !== undefined) html += mk('*') + '<span class="wys-pill">' + echapper(m[1]) + '</span>' + mk('*');
+    else html += mk('_') + '<span class="wys-ul">' + echapper(m[2]) + '</span>' + mk('_');
+    dernier = m.index + m[0].length;
+  }
+  return html + echapper(brut.slice(dernier));
+}
+
+function wysBrut(el) {
+  let out = '';
+  const parcours = (n) => {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) out += c.data;
+      else if (c.nodeName === 'BR') out += '\n';
+      else { if (/^(DIV|P)$/.test(c.nodeName) && out && !out.endsWith('\n')) out += '\n'; parcours(c); }
+    }
+  };
+  parcours(el);
+  return out.replace(/ /g, ' ');
+}
+
+function wysCaret(el) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || !el.contains(sel.anchorNode)) return null;
+  const r0 = sel.getRangeAt(0), r = document.createRange();
+  r.selectNodeContents(el); r.setEnd(r0.endContainer, r0.endOffset);
+  const d = document.createElement('div'); d.appendChild(r.cloneContents());
+  return wysBrut(d).length;
+}
+
+function wysPoseCaret(el, offset) {
+  if (offset == null) return;
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let vus = 0, n;
+  const sel = window.getSelection();
+  while ((n = w.nextNode())) {
+    if (vus + n.data.length >= offset) {
+      const r = document.createRange();
+      r.setStart(n, Math.max(0, offset - vus)); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r); return;
+    }
+    vus += n.data.length;
+  }
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  sel.removeAllRanges(); sel.addRange(r);
+}
+
+// Les lignes REELLEMENT affichees par le champ, marqueurs exclus.
+function wysLignesVues(el) {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const lignes = []; let cur = '', y = null, n;
+  while ((n = w.nextNode())) {
+    if (n.parentElement && n.parentElement.classList.contains('wys-mk')) continue;
+    for (let i = 0; i < n.data.length; i++) {
+      const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
+      const t = r.getBoundingClientRect().top;
+      if (y === null) y = t;
+      if (Math.abs(t - y) > 1) { lignes.push(cur); cur = ''; y = t; }
+      cur += n.data[i];
+    }
+  }
+  lignes.push(cur);
+  return lignes.map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+}
+
+function wysRendre(brut, garderCaret = true) {
+  const el = document.getElementById('mcovwys');
+  const pos = garderCaret ? wysCaret(el) : null;
+  el.innerHTML = wysHtml(brut);
+  if (garderCaret) wysPoseCaret(el, pos);
+}
+
+function wysInit() {
+  const el = document.getElementById('mcovwys');
+  const ta = document.getElementById('mcovtitle');
+  if (!el.dataset.pret) {
+    el.dataset.pret = '1';
+    el.addEventListener('input', () => {
+      const brut = wysBrut(el);
+      ta.value = brut;
+      wysRendre(brut);
+      planifierApercuTitre();
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); document.execCommand('insertText', false, '\n'); }
+    });
+    el.addEventListener('paste', (e) => {
+      e.preventDefault();
+      document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text'));
+    });
+  }
+  wysRendre(ta.value, false);
+}
+
+// Aligne le champ sur la cover : meme police, meme rapport largeur/corps.
+function wysAccorder(mise) {
+  const el = document.getElementById('mcovwys');
+  if (!el || !mise.size) return;
+  el.classList.remove('sans-coupe');
+  const cs = getComputedStyle(el);
+  const utile = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  if (!utile) return;
+  el.style.fontFamily = '"EditorialPlayfair","EditorialPlayfairFallback",Georgia,serif';
+  el.style.fontWeight = 'bold';
+  el.style.fontSize = (utile * mise.size / mise.maxWidth) + 'px';
+  el.style.lineHeight = String(mise.lineHeight / mise.size);
+  const attendu = mise.lines.map((l) => TITRE.lineText(l).replace(/\s+/g, ' ').trim());
+  const accord = JSON.stringify(wysLignesVues(el)) === JSON.stringify(attendu);
+  if (!accord) el.classList.add('sans-coupe');
+  return accord;
+}
+
 // ─── Aperçu fidèle du bloc-titre ────────────────────────────────────────────
 //
 // Le générateur découpe le titre à la mesure du texte, pas au nombre de
@@ -1705,7 +1875,9 @@ async function dessinerApercuTitre() {
     y += mise.lineHeight;
   }
   const n = mise.lines.length;
-  meta.textContent = `${n} ligne${n > 1 ? 's' : ''} · corps ${mise.size} px · aperçu à l'échelle réelle (1080 px)`;
+  let accord; try { accord = wysAccorder(mise); } catch (e) { console.error('[hub] accord champ/apercu', e); }
+  meta.textContent = `${n} ligne${n > 1 ? 's' : ''} · corps ${mise.size} px · aperçu à l'échelle réelle (1080 px)`
+    + (accord === false ? ' · le champ ne coupe pas ici, l’aperçu fait foi' : '');
   if (mise.truncated) {
     alerte.textContent = "✂️ Trop long · le générateur coupera tout ce qui dépasse.";
   }
