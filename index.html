@@ -599,7 +599,7 @@ const PROJETS = {
     projectId: 'larevue-firestore-lrdv',
     messagingSenderId: '815667005159',
     appId: '1:815667005159:web:cf83116b2f4d0a798b0442' } },
-  lra: { actif: false, cfg: {
+  lra: { actif: true, cfg: {
     apiKey: 'AIzaSyBKJSuzFab-wCsF2ojPT_7O1hCiCsNLXX4',
     authDomain: 'larevue-firestore-lra.firebaseapp.com',
     projectId: 'larevue-firestore-lra',
@@ -616,10 +616,10 @@ const PROJETS = {
 // serait restee vide sans le moindre message.
 // Une collection n'entre ici qu'APRES sa copie.
 const MEDIA_DE_COLLECTION = {
-  lrdh_linkedin_queue: 'lrdh',   // migre le 03/09/2026
-  // lrdh_instagram_queue: 'lrdh',   pas encore migre
-  // lrdv_linkedin_queue: 'lrdv',    pas encore migre
-  // larevue_linkedin_queue: 'lra',  pas encore migre
+  lrdh_linkedin_queue: 'lrdh',      // migre le 03/09/2026
+  lrdh_instagram_queue: 'lrdh',     // migre le 04/09/2026 · 11 documents
+  larevue_linkedin_queue: 'lra',    // migre le 04/09/2026 · 51 documents
+  // lrdv_linkedin_queue: 'lrdv',   pas encore migre
 };
 
 const _bases = {}, _auths = {};
