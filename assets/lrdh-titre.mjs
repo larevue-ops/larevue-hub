@@ -88,6 +88,35 @@ export function stripHtml(input = '') {
     .trim();
 }
 
+// Comme stripHtml, mais les SAUTS DE LIGNE survivent. Dans l'editeur, appuyer
+// sur Entree est une intention de mise en page, pas une espace de plus : le
+// generateur ecrasait ce signal, l'apercu le montrait donc fidelement disparu.
+// Les espaces multiples, eux, restent normalises (personne ne veut cadrer un
+// titre a coups d'espaces).
+export function nettoyerTitre(input = '') {
+  return decodeHtmlEntities(String(input || ''))
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((l) => l.replace(/[^\S\n]+/g, ' ').trim())
+    .filter((l) => l !== '')
+    .join('\n');
+}
+
+// Coupe une liste de segments en BLOCS aux sauts de ligne. Sans saut de ligne,
+// renvoie un bloc unique : le comportement d'avant, a l'identique.
+export function decouperEnBlocs(segments) {
+  const blocs = [[]];
+  for (const seg of segments) {
+    const morceaux = String(seg.text).split('\n');
+    morceaux.forEach((m, i) => {
+      if (i > 0) blocs.push([]);
+      if (m !== '') blocs[blocs.length - 1].push({ ...seg, text: m });
+    });
+  }
+  return blocs.filter((b) => b.length > 0);
+}
+
 // *mots* = marqueur (fond plein) · _mots_ = souligné
 export function parseItalicMarkers(text = '') {
   const t = String(text || '');
@@ -180,10 +209,14 @@ function ajuster(ctx, segments, g) {
   // ces titres-la un peu plus petits que la mesure. C'est bancal, mais l'apercu
   // doit montrer ce qui sera dessine, pas ce qui aurait du l'etre. Si on
   // corrige un jour, ce sera ici, et les deux cotes suivront ensemble.
+  const blocs = decouperEnBlocs(segments);
   let size = g.sizeMax;
   let lines = [];
   while (size >= g.sizeMin) {
-    lines = wrapEditorialSegments(ctx, segments, g.maxWidth, size);
+    // Chaque bloc est habille separement, puis les lignes s'enchainent : un
+    // saut de ligne force donc une nouvelle ligne, et le corps se reduit sur
+    // le TOTAL, comme le ferait un titre d'un seul tenant.
+    lines = blocs.flatMap((b) => wrapEditorialSegments(ctx, b, g.maxWidth, size));
     if (lines.length <= g.maxLines) break;
     size -= g.sizeStep;
   }
@@ -205,13 +238,13 @@ function ajuster(ctx, segments, g) {
 // Gabarit « Actu » · le titre reprend la marque en surligné si l'auteur
 // n'a posé aucun marqueur lui-même.
 export function layoutNewsTitle(ctx, { title = '', brand = '' } = {}) {
-  const clean = stripHtml(title);
+  const clean = nettoyerTitre(title);
   return ajuster(ctx, autoItaliciseBrand(clean, stripHtml(brand)), NEWS);
 }
 
 // Gabarit « On a testé » · pas de reprise de marque, mais une mise en citation.
 export function layoutTestTitle(ctx, { title = '' } = {}) {
-  const clean = stripHtml(title);
+  const clean = nettoyerTitre(title);
   return ajuster(ctx, parseItalicMarkers(toCitation(clean)), TEST);
 }
 
