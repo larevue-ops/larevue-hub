@@ -2023,6 +2023,24 @@ try {
   #iglhview .sl textarea:focus { outline:none; border-color:#e0bd6a; }
   #iglhview .sl select { width:100%; background:#1b1b1d; color:#b9b9b9; border:1px solid #333; border-radius:8px;
     padding:6px 8px; font-size:12px; cursor:pointer; }
+  /* Remplacer la source d'un visuel · on colle une adresse plutot que de
+     relancer toute la fabrication. La video ne passe par aucun canvas : elle
+     s'affiche telle quelle et part telle quelle. */
+  #iglhview .sl .src { display:flex; gap:6px; }
+  #iglhview .sl .src input { flex:1; min-width:0; background:#1b1b1d; color:#eee; border:1px solid #333;
+    border-radius:8px; padding:6px 8px; font-size:11.5px; }
+  #iglhview .sl .src input:focus { outline:none; border-color:#e0bd6a; }
+  #iglhview .sl .src button { flex:0 0 auto; background:#2a2a2d; color:#e0bd6a; border:1px solid #3a3a3d;
+    border-radius:8px; padding:6px 10px; font-size:11.5px; font-weight:700; cursor:pointer; }
+  #iglhview .sl .src button:hover { background:#e0bd6a; color:#111; }
+  #iglhview .sl .src button[disabled] { opacity:.45; cursor:default; }
+  #iglhview .sl .etatsrc { font-size:11px; color:#8d8d8d; min-height:13px; line-height:1.25; }
+  #iglhview .sl .etatsrc.ko { color:#e08a6a; }
+  #iglhview .sl .etatsrc.ok { color:#8fc4a0; }
+  #iglhview .sl .cv video { width:100%; height:100%; object-fit:cover; display:block; background:#000; }
+  #iglhview .sl .vidnote { font-size:11.5px; color:#8d8d8d; line-height:1.35; background:#1b1b1d;
+    border:1px solid #333; border-radius:8px; padding:7px 9px; }
+  #iglhview .sl .num.vd { background:rgba(224,189,106,.9); color:#111; }
   #iglhview .sl .num { z-index:2; }
   #iglhview .sl .fl { bottom:auto; top:8px; right:8px; left:auto; transform:none; z-index:2; }
   /* Le choix de l'article. Meme habillage que la fenetre d'edition : c'est la
@@ -2123,9 +2141,15 @@ try {
 
   async function peindre(i) {
     if (!aRecette()) return;
-    const { rendre: r } = await moduleEdition();
+    const { rendre: r, estVideo } = await moduleEdition();
     const cible = document.querySelector(`#iglhvsl figure[data-i="${i}"] .cv`);
     if (!cible) return;
+    if (estVideo(travail[i])) {
+      const v = document.createElement('video');
+      v.src = travail[i].src; v.controls = true; v.muted = true; v.playsInline = true; v.preload = 'metadata';
+      cible.replaceChildren(v);
+      return;
+    }
     try {
       const c = await r(travail[i]);
       c.className = 'ap';
@@ -2140,15 +2164,21 @@ try {
     document.getElementById('iglhvsl').innerHTML = travail.map((it, i) => {
       const apercu = rec ? '<div class="cv"><div class="att">…</div></div>'
                          : '<img src="' + ESC(it) + '" alt="" loading="lazy">';
+      const vid = it && it.type === 'video';
       const champs = rec ? (
-        '<textarea data-tx="' + i + '" rows="2" spellcheck="true" placeholder="'
-        + (it.type === 'chute' ? "Plus d'infos via le lien dans la bio." : 'Texte du visuel (vide = photo seule)')
-        + '">' + ESC(it.texte) + '</textarea>'
+        (vid
+          ? '<div class="vidnote">Visuel vidéo : il part tel quel, sans texte incrusté. Remplacez-le par une image pour retrouver le titre.</div>'
+          : '<textarea data-tx="' + i + '" rows="2" spellcheck="true" placeholder="'
+            + (it.type === 'chute' ? "Plus d'infos via le lien dans la bio." : 'Texte du visuel (vide = photo seule)')
+            + '">' + ESC(it.texte) + '</textarea>')
+        + '<div class="src"><input data-url="' + i + '" type="url" spellcheck="false" placeholder="Coller l’adresse d’une image ou d’une vidéo">'
+        + '<button data-go="' + i + '">Remplacer</button></div>'
+        + '<span class="etatsrc" data-es="' + i + '"></span>'
         + '<select data-sw="' + i + '"><option value="">⇄ échanger la photo avec…</option>'
         + travail.map((_, j) => j === i ? '' : '<option value="' + j + '">' + ESC(etiquette(j)) + '</option>').join('')
         + '</select>') : '';
       return '<figure draggable="true" data-i="' + i + '">' + apercu
-        + '<span class="num">' + ESC(etiquette(i)) + '</span>'
+        + '<span class="num' + (vid ? ' vd' : '') + '">' + ESC(vid ? '▶ ' + etiquette(i) : etiquette(i)) + '</span>'
         + '<span class="fl">'
         + (i > 0 ? '<button data-mv="' + i + '" data-sens="-1" title="Reculer">‹</button>' : '')
         + (i < travail.length - 1 ? '<button data-mv="' + i + '" data-sens="1" title="Avancer">›</button>' : '')
@@ -2160,7 +2190,7 @@ try {
     b.textContent = rec ? 'Enregistrer les modifications' : "Enregistrer l'ordre";
     document.getElementById('iglhetat').textContent = chg ? 'modifié' : '';
     document.getElementById('iglhaide').textContent = rec
-      ? 'Modifiez le texte sous chaque visuel, échangez les photos entre deux slides, ou glissez une vignette pour la déplacer.'
+      ? 'Modifiez le texte sous chaque visuel, collez une adresse pour remplacer une photo (ou poser une vidéo à la place), échangez les photos entre deux slides, ou glissez une vignette pour la déplacer.'
       : 'Carrousel produit avant l’éditeur : seul l’ordre est modifiable. Les prochains seront éditables en entier.';
     if (rec) travail.forEach((_, i) => peindre(i));
   }
@@ -2198,9 +2228,57 @@ try {
     const s = e.target.closest('#iglhvsl [data-sw]'); if (!s || s.value === '') return;
     echangerPhoto(+s.dataset.sw, +s.value);
   });
+
+  // Remplacer la source d'un visuel par une adresse.
+  //
+  // On ne pose pas l'adresse telle quelle dans la recette : une image servie
+  // sans en-tete CORS contaminerait le canvas et l'enregistrement echouerait
+  // plus tard, sans que rien ne l'ait annonce. Le module la fait donc passer
+  // par Cloudinary d'abord · c'est aussi ce qui garantit qu'elle sera encore
+  // la au moment de publier. Une video, elle, ne traverse aucun canvas.
+  async function remplacerSource(i, url) {
+    const dit = (t, cls) => {
+      const el = document.querySelector(`#iglhvsl [data-es="${i}"]`);
+      if (el) { el.textContent = t; el.className = 'etatsrc' + (cls ? ' ' + cls : ''); }
+    };
+    const bouton = document.querySelector(`#iglhvsl [data-go="${i}"]`);
+    if (bouton) bouton.disabled = true;
+    dit('import en cours…');
+    try {
+      const { importer } = await moduleEdition();
+      const r = await importer(url);
+      travail[i].src = r.src;
+      travail[i].type = r.type === 'video'
+        ? 'video'
+        : (travail[i].type === 'video' ? (i === 0 ? 'couverture' : 'photo') : travail[i].type);
+      dit(r.type === 'video'
+        ? (r.heberge === false ? 'vidéo ajoutée (non réhébergée)' : 'vidéo importée')
+        : 'image importée', 'ok');
+      rendreSlides();
+    } catch (err) {
+      dit(String(err.message || err).slice(0, 90), 'ko');
+      if (bouton) bouton.disabled = false;
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#iglhvsl [data-go]'); if (!b) return;
+    const i = +b.dataset.go;
+    const champ = document.querySelector(`#iglhvsl [data-url="${i}"]`);
+    const url = (champ?.value || '').trim();
+    if (!url) { champ?.focus(); return; }
+    remplacerSource(i, url);
+  });
+  // Entree dans le champ = memes effets que le bouton.
+  document.addEventListener('keydown', (e) => {
+    const c = e.target.closest('#iglhvsl [data-url]'); if (!c || e.key !== 'Enter') return;
+    e.preventDefault();
+    const url = (c.value || '').trim();
+    if (url) remplacerSource(+c.dataset.url, url);
+  });
   document.addEventListener('dragstart', (e) => {
     const f = e.target.closest('#iglhvsl figure'); if (!f) return;
-    if (e.target.matches('textarea,select')) { e.preventDefault(); return; }
+    if (e.target.matches('textarea,select,input,button')) { e.preventDefault(); return; }
     tire = +f.dataset.i; f.classList.add('tire'); e.dataTransfer.effectAllowed = 'move';
   });
   document.addEventListener('dragover', (e) => {
