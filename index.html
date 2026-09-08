@@ -1195,6 +1195,24 @@ window.fabriquerCarrouselLrdh = async (articleUrl) => {
   return true;
 };
 
+// Refait un carrousel DEJA fabrique (demande user du 08/09/2026). Le workflow
+// `--article=` remplace le document existant du meme article ; on pose d'abord
+// un drapeau `regenRequest` pour que la bande montre l'attente, puis on
+// declenche. Si GitHub refuse, on solde le drapeau tout de suite : sinon la
+// carte resterait « en cours » sur un travail qui n'a jamais commence.
+window.regenererCarrouselLrdh = async (id, wpUrl) => {
+  if (!id || !wpUrl) throw new Error('carrousel sans identifiant ou sans article');
+  const ref = doc(dbPour('lrdh_instagram_queue'), 'lrdh_instagram_queue', id);
+  const requestedAt = new Date().toISOString();
+  await updateDoc(ref, { regenRequest: { pending: true, requestedAt, type: 'carrousel' } });
+  try { await window.fabriquerCarrouselLrdh(wpUrl); }
+  catch (e) {
+    await updateDoc(ref, { regenRequest: { pending: false, requestedAt, error: String(e.message || e).slice(0, 120) } }).catch(() => {});
+    throw e;
+  }
+  return requestedAt;
+};
+
 try {
   cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
     // Seuls les carrousels au nouveau style comptent. La file contenait cinq
@@ -1979,6 +1997,24 @@ try {
   #strip-insta-lrdh .igcard { position:relative; }
   #strip-insta-lrdh .igcard .ign { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.62); color:#fff;
     font-size:10px; font-weight:700; letter-spacing:.6px; padding:2px 6px; border-radius:20px; }
+  /* Refaire par la machine : petit ↻ en haut a gauche de la vignette, et
+     l'etat de la demande en bandeau sous la pastille. */
+  #strip-insta-lrdh .igcard .igre { position:absolute; top:6px; left:6px; width:24px; height:24px; border-radius:50%;
+    border:1px solid rgba(255,255,255,.55); background:rgba(0,0,0,.62); color:#fff; font-size:14px; line-height:22px;
+    padding:0; cursor:pointer; opacity:0; transition:opacity .15s; }
+  #strip-insta-lrdh .igcard:hover .igre, #strip-insta-lrdh .igcard .igre:disabled { opacity:1; }
+  #strip-insta-lrdh .igcard .igre:hover { background:var(--lrdh); border-color:var(--lrdh); }
+  #strip-insta-lrdh .igcard .igre-badge { position:absolute; top:34px; right:6px; font-size:9px; font-weight:700; letter-spacing:.5px;
+    padding:2px 7px; border-radius:20px; background:rgba(0,0,0,.72); color:#fff; }
+  #strip-insta-lrdh .igcard .igre-badge.on { background:color-mix(in srgb, var(--lrdh) 85%, #000); animation:igre-pulse 1.4s ease-in-out infinite; }
+  #strip-insta-lrdh .igcard .igre-badge.wait { background:#7a5a00; }
+  #strip-insta-lrdh .igcard .igre-badge.err { background:#8a1c1c; }
+  #strip-insta-lrdh .igcard.regen img { filter:saturate(.4) brightness(.8); }
+  @keyframes igre-pulse { 50% { opacity:.55; } }
+  #iglhview .hd .igre.hd { margin-left:auto; border:1px solid rgba(255,255,255,.35); background:transparent; color:#eee;
+    border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; }
+  #iglhview .hd .igre.hd:hover { background:rgba(255,255,255,.12); }
+  #iglhview .hd .x { margin-left:8px; }
   #iglhview { position:fixed; inset:0; z-index:9000; background:rgba(8,8,10,.94); display:none; align-items:center; justify-content:center; padding:24px; }
   #iglhview.on { display:flex; }
   /* La fiche d'edition est haute (visuel + texte + selecteur) : sans hauteur
@@ -2090,6 +2126,24 @@ try {
     slides: Array.from({length:x.n}, (_,i) => './assets/ig-lrdh/' + x.id + '-' + (i+1) + '.jpg') }));
 
   let rows = [];
+  // Firestore rend tantot une chaine ISO, tantot un Timestamp, et le cache
+  // local un `{seconds}` : on ramene tout a un nombre de millisecondes.
+  const MS = (v) => { if (!v) return 0; if (typeof v === 'string') return Date.parse(v) || 0;
+    if (typeof v.toDate === 'function') return v.toDate().getTime(); if (v.seconds) return v.seconds * 1000; return 0; };
+  // Etat d'une regeneration : 'none' · 'active' (la machine travaille) ·
+  // 'stale' (drapeau pose depuis plus de 20 min, rien n'est arrive : le
+  // workflow a probablement echoue ou le quota a bloque) · 'error'.
+  // Le travail est considere FAIT des que le document a ete refabrique apres
+  // la demande (createdAt ou regeneratedAt plus recent), meme si le drapeau
+  // n'a pas ete solde : c'est ce qui evite un spinner infini.
+  function etatRegen(p) {
+    const rr = p && p.regenRequest; if (!rr) return 'none';
+    const demande = MS(rr.requestedAt);
+    if (MS(p.regeneratedAt) > demande || MS(p.createdAt) > demande) return 'none';
+    if (rr.error && !rr.pending) return 'error';
+    if (!rr.pending) return 'none';
+    return (Date.now() - demande) > 20 * 60 * 1000 ? 'stale' : 'active';
+  }
   function rendre(list, seed) {
     rows = list;
     document.getElementById('iglhcount').textContent = list.length;
@@ -2097,14 +2151,50 @@ try {
     document.getElementById('iglhlist').innerHTML = list.slice(0, 12).map((p, i) => {
       const cover = (p.slides && p.slides[0]) || '';
       const n = (p.slides || []).length;
-      return '<div class="igcard" data-iglh="' + i + '" title="Voir le carrousel">'
+      const re = seed ? 'none' : etatRegen(p);
+      const peutRefaire = !seed && p.id && p.wpUrl;
+      const badge = re === 'active' ? '<span class="igre-badge on">\ud83c\udfa8 r\u00e9g\u00e9n\u00e9ration\u2026</span>'
+        : re === 'stale' ? '<span class="igre-badge wait" title="Demande pos\u00e9e depuis plus de 20 min · cliquez \u21bb pour relancer">\u23f3 en attente</span>'
+        : re === 'error' ? '<span class="igre-badge err" title="' + ESC(String(p.regenRequest.error || '')) + '">\u26a0\ufe0f \u00e9chec</span>' : '';
+      const bouton = peutRefaire && re !== 'active'
+        ? '<button class="igre" data-re="' + i + '" title="Refaire ce carrousel par la machine (nouvelles photos et nouveaux textes · la version actuelle est conserv\u00e9e)">\u21bb</button>' : '';
+      return '<div class="igcard' + (re === 'active' ? ' regen' : '') + '" data-iglh="' + i + '" title="Voir le carrousel">'
         + (cover ? '<img src="' + ESC(cover) + '" alt="" loading="lazy">' : '<div class="igph">?</div>')
-        + (n ? '<span class="ign">' + n + '</span>' : '')
+        + (n ? '<span class="ign">' + n + '</span>' : '') + badge + bouton
         + '<div class="igmeta"><span class="igt">' + ESC(DE(p.coverTitle || p.title || p.id)) + '</span>'
         + '<span class="igd">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'rendu de r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
     }).join('');
   }
   window.rendreIgLrdh = rendre;
+
+  // ── Refaire par la machine ───────────────────────────────────────────────
+  // Une regeneration efface ce qui a ete retouche a la main dans la fiche : on
+  // le dit avant, et la machine garde la version precedente dans `precedent`.
+  async function regenerer(p, boutons) {
+    if (!p || !p.id || !p.wpUrl) return;
+    if (!window.regenererCarrouselLrdh) { alert('Base indisponible : connectez-vous d\u2019abord.'); return; }
+    const ok = confirm('Refaire ce carrousel par la machine ?\n\nNouvelles photos et nouveaux textes pour \u00ab ' + DE(p.coverTitle || p.title || '') + ' \u00bb.\nLes retouches faites \u00e0 la main seront remplac\u00e9es · la version actuelle reste conserv\u00e9e en base.');
+    if (!ok) return;
+    (boutons || []).forEach(b => { b.disabled = true; b.textContent = '\u2026'; });
+    try {
+      const requestedAt = await window.regenererCarrouselLrdh(p.id, p.wpUrl);
+      p.regenRequest = { pending: true, requestedAt, type: 'carrousel' };
+      rendre(rows, false);
+      const etat = document.getElementById('iglhetat'); if (etat && ouvert && ouvert.id === p.id) etat.textContent = 'r\u00e9g\u00e9n\u00e9ration lanc\u00e9e · deux \u00e0 trois minutes';
+    } catch (err) {
+      (boutons || []).forEach(b => { b.disabled = false; b.textContent = '\u21bb'; });
+      alert('\u00c9chec : ' + String(err.message || err).slice(0, 120));
+    }
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#iglhlist button.igre'); if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    regenerer(rows[+b.dataset.re], [b]);
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (e.target.id !== 'iglhregen' || !ouvert) return;
+    regenerer(ouvert, [e.target]);
+  });
 
   // ── Editer le carrousel ──────────────────────────────────────────────────
   // Le carrousel est fabrique automatiquement : ni la photo qui ouvre, ni le
@@ -2407,7 +2497,7 @@ try {
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
 <div id="iglhview"><div class="box">
-  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
+  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
   <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="cap" id="iglhvc"></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
