@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Projet 2 (larevue-auto-dashboard-2) · files editees depuis le hub.
+    // Regle par defaut = refus : ce projet sert aussi de miroir de secours
+    // pour les autres files, et ces copies ne doivent pas devenir lisibles.
+
+    // Le jeton LinkedIn reste hors de portee de tout client. Seuls les runners
+    // GitHub y accedent, via le SDK admin, qui ignore ces regles.
+    match /linkedin_auth/{doc} { allow read, write: if false; }
+
+    // Les files deplacees sur ce projet : connexion requise, comme sur le projet 1.
+    match /lrdh_linkedin_queue/{doc}    { allow read, write: if request.auth != null; }
+    // 08/09/2026 · ces deux files ont demenage ici le 04/09 sans que les regles
+    // suivent : le hub ne pouvait ni les lire ni y ecrire.
+    match /lrdh_instagram_queue/{doc}   { allow read, write: if request.auth != null; }
+    match /larevue_linkedin_queue/{doc} { allow read, write: if request.auth != null; }
+
+    // Tout le reste reste ferme.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
