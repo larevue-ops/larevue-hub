@@ -386,20 +386,24 @@ export function drawEditorialTitleLine(ctx, segments, x, y, size, color, opts = 
 export function drawHandCircle(ctx, x, baseline, w, size, color = '#dc2626') {
   // Super-ellipse (choix user 08/09/2026) : un ovale aux flancs redressés, qui
   // reste collé au mot là où une vraie ellipse s'en écarterait, avec des angles
-  // ronds. Exposant 2,6 = entre l'ovale et le rectangle. Calé sur la hauteur
-  // RÉELLE du texte (ascendantes + descendantes mesurées), pas au jugé.
-  // Tracé DERRIÈRE le texte (drawEditorialTitleLine l'appelle avant fillText) :
-  // les lettres recouvrent le trait, il ne barre donc jamais un mot.
-  const m = ctx.measureText('Hdpô');
-  const asc = m.actualBoundingBoxAscent || size * 0.74;
-  const desc = m.actualBoundingBoxDescent || size * 0.20;
-  const cy = baseline - (asc - desc) / 2;
+  // ronds. Exposant 2,6 = entre l'ovale et le rectangle. Tracé DERRIÈRE le
+  // texte (drawEditorialTitleLine l'appelle avant fillText) : les lettres
+  // recouvrent le trait, il ne barre donc jamais un mot.
+  //
+  // ⚠️ Le cercle reste DANS la boîte de sa ligne. Constaté le 08/09 sur « IHG »
+  // en tête de titre : un ovale calé sur la hauteur des lettres débordait sous
+  // la ligne, et le fond rouge du *surlignage* de la ligne suivante, peint
+  // après, le coupait net. La boîte d'une ligne = celle du surlignage
+  // (baseline − 0,80·size → baseline + 0,22·size) ; on s'y tient, trait compris.
+  const lw = Math.max(3, Math.round(size * 0.07));
+  const haut = baseline - size * 0.80 + lw / 2;
+  const bas = baseline + size * 0.22 - lw / 2;
+  const cy = (haut + bas) / 2;
+  const ry = (bas - haut) / 2;
   const cx = x + w / 2;
-  const rx = w / 2 + size * 0.17;
-  const ry = (asc + desc) / 2 + size * 0.12;
-  const n = 2.6, tilt = -0.035;
+  const rx = w / 2 + size * 0.13;
+  const n = 2.6, tilt = -0.03;
   const cos = Math.cos(tilt), sin = Math.sin(tilt);
-  const lw = Math.max(3, Math.round(size * 0.075));
   const trace = (kx, ky, de, a) => {
     ctx.beginPath();
     const PAS = 160;
@@ -416,8 +420,10 @@ export function drawHandCircle(ctx, x, baseline, w, size, color = '#dc2626') {
   ctx.save();
   ctx.strokeStyle = color; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.lineWidth = lw; trace(0, 0, Math.PI * 0.62, Math.PI * 0.62 + Math.PI * 2.04);
+  // second passage plus fin sur la moitié basse, pour l'irrégularité du feutre ·
+  // décalé vers l'INTÉRIEUR, jamais vers l'extérieur (il sortirait de la boîte)
   ctx.lineWidth = Math.max(2, Math.round(lw * 0.5)); ctx.globalAlpha = 0.65;
-  trace(size * 0.03, size * 0.03, Math.PI * 0.2, Math.PI * 0.95);
+  trace(-size * 0.02, -size * 0.03, Math.PI * 0.2, Math.PI * 0.95);
   ctx.restore();
 }
 
