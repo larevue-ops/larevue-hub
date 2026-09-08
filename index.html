@@ -164,6 +164,9 @@
   #mcovwys .wys-pill { background:#dc2626; color:#fff; font-style:italic; white-space:nowrap;
     border-radius:2px; padding:0 .04em; }
   #mcovwys .wys-ul { text-decoration:underline; text-underline-offset:.16em; white-space:nowrap; }
+  /* =mots= : encerclé au trait rouge sur la cover · ici un contour ovale, sans
+     padding horizontal pour ne pas décaler la coupure des lignes. */
+  #mcovwys .wys-circ { outline:2px solid #dc2626; outline-offset:2px; border-radius:50%; white-space:nowrap; }
   /* Filet : si la coupe du champ ne correspond pas a celle de l'apercu, le champ
      cesse de couper plutot que d'afficher une coupure fausse. */
   #mcovwys.sans-coupe { white-space:pre; overflow-x:auto; }
@@ -554,7 +557,7 @@
         </div>
         <label>Catégorie (badge sur l'image)</label>
         <input id="mcat" placeholder="ex : HÔTELS D'EXCEPTION / DESTINATION…">
-        <label>Titre sur l’image <span class="hint">· en test = citation du bas (« » + majuscule auto) · *mots* = surligné · _mots_ = souligné · ~mots~ = italique · "mots" = « guillemets » · cumulables</span></label>
+        <label>Titre sur l’image <span class="hint">· en test = citation du bas (« » + majuscule auto) · *mots* = surligné · _mots_ = souligné · =mots= = encerclé en rouge · "mots" = « guillemets » · cumulables · le corps ne se réduit plus, un titre long prend plus de lignes</span></label>
         <div id="mcovwys" contenteditable="true" spellcheck="true"
              aria-label="Titre sur l’image, affiché comme il sera dessiné"></div>
         <textarea id="mcovtitle" style="display:none"></textarea>
@@ -1717,12 +1720,13 @@ const echapper = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/
 
 function wysHtml(brut) {
   let html = '', dernier = 0, m;
-  const re = /\*([^*]+)\*|_([^_]+)_/g;
+  const re = /\*([^*]+)\*|_([^_]+)_|=([^=\n]+)=/g;
   const mk = (c) => '<span class="wys-mk">' + c + '</span>';
   while ((m = re.exec(brut)) !== null) {
     html += echapper(brut.slice(dernier, m.index));
     if (m[1] !== undefined) html += mk('*') + '<span class="wys-pill">' + echapper(m[1]) + '</span>' + mk('*');
-    else html += mk('_') + '<span class="wys-ul">' + echapper(m[2]) + '</span>' + mk('_');
+    else if (m[2] !== undefined) html += mk('_') + '<span class="wys-ul">' + echapper(m[2]) + '</span>' + mk('_');
+    else html += mk('=') + '<span class="wys-circ">' + echapper(m[3]) + '</span>' + mk('=');
     dernier = m.index + m[0].length;
   }
   return html + echapper(brut.slice(dernier));

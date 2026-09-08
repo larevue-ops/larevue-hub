@@ -33,7 +33,10 @@ export const NEWS = {
   sizeMax: 78,
   sizeMin: 36,
   sizeStep: 2,
-  maxLines: 4,
+  // 08/09/2026 (demande user) : le corps ne se réduit PLUS avec la longueur du
+  // titre · un titre long prend plus de lignes, à la même taille.
+  fixe: true,
+  maxLines: 6,
   lineHeightRatio: 1.06,
   markerBg: '#dc2626',
   markerText: '#ffffff',
@@ -47,7 +50,8 @@ export const TEST = {
   sizeMax: 66,
   sizeMin: 34,
   sizeStep: 2,
-  maxLines: 3,
+  fixe: true,
+  maxLines: 5,
   lineHeightRatio: 1.12,
   markerBg: GOLD,
   markerText: '#141414',
@@ -117,11 +121,14 @@ export function decouperEnBlocs(segments) {
   return blocs.filter((b) => b.length > 0);
 }
 
-// *mots* = marqueur (fond plein) · _mots_ = souligné
+// *mots* = marqueur (fond plein) · _mots_ = souligné · =mots= = encerclé au
+// trait rouge (comme un stylo qui entoure un mot). Le cercle est un trait, pas
+// un fond : le texte garde sa couleur, seul le contour est dessiné.
+export const CIRCLE_MARKER_RE = /=([^=\n]+)=/;
 export function parseItalicMarkers(text = '') {
   const t = String(text || '');
   const segments = [];
-  const re = /\*([^*]+)\*|_([^_]+)_/g;
+  const re = /\*([^*]+)\*|_([^_]+)_|=([^=\n]+)=/g;
   let lastIndex = 0;
   let m;
   while ((m = re.exec(t)) !== null) {
@@ -129,7 +136,8 @@ export function parseItalicMarkers(text = '') {
       segments.push({ text: t.slice(lastIndex, m.index), italic: false });
     }
     if (m[1] !== undefined) segments.push({ text: m[1], italic: true });
-    else segments.push({ text: m[2], italic: false, underline: true });
+    else if (m[2] !== undefined) segments.push({ text: m[2], italic: false, underline: true });
+    else segments.push({ text: m[3], italic: false, circle: true });
     lastIndex = m.index + m[0].length;
   }
   if (lastIndex < t.length) {
@@ -141,7 +149,7 @@ export function parseItalicMarkers(text = '') {
 
 export function autoItaliciseBrand(title = '', brand = '') {
   if (!brand) return parseItalicMarkers(title);
-  if (title.includes('*') || /_[^_]+_/.test(title)) return parseItalicMarkers(title);
+  if (title.includes('*') || /_[^_]+_/.test(title) || CIRCLE_MARKER_RE.test(title)) return parseItalicMarkers(title);
   const idx = title.toLowerCase().indexOf(brand.toLowerCase());
   if (idx === -1) return [{ text: title, italic: false }];
   const segments = [];
@@ -170,8 +178,8 @@ export function measureEditorialSegments(ctx, segments, size) {
 function uniteInsecables(ctx, segments, maxW, size) {
   const unites = [];
   for (const seg of segments) {
-    const tok = { text: seg.text, italic: !!seg.italic, underline: !!seg.underline };
-    if ((tok.italic || tok.underline) && measureEditorialSegments(ctx, [tok], size) <= maxW) {
+    const tok = { text: seg.text, italic: !!seg.italic, underline: !!seg.underline, circle: !!seg.circle };
+    if ((tok.italic || tok.underline || tok.circle) && measureEditorialSegments(ctx, [tok], size) <= maxW) {
       unites.push(tok);
       continue;
     }
@@ -226,7 +234,12 @@ function ajuster(ctx, segments, g) {
   const blocs = decouperEnBlocs(segments);
   let size = g.sizeMax;
   let lines = [];
-  while (size >= g.sizeMin) {
+  // Corps FIXE (08/09/2026) : on habille au corps maximal et on s'arrête là,
+  // quel que soit le nombre de lignes. La boucle de réduction ci-dessous ne
+  // sert plus qu'aux gabarits qui n'ont pas `fixe`.
+  if (g.fixe) {
+    lines = blocs.flatMap((b) => wrapEditorialSegments(ctx, b, g.maxWidth, size));
+  } else while (size >= g.sizeMin) {
     // Chaque bloc est habille separement, puis les lignes s'enchainent : un
     // saut de ligne force donc une nouvelle ligne, et le corps se reduit sur
     // le TOTAL, comme le ferait un titre d'un seul tenant.
@@ -341,6 +354,65 @@ export function drawEditorialTitleLine(ctx, segments, x, y, size, color, opts = 
     cx += w;
   }
   flushUl();
+
+  // 4) Cercle rouge autour des passages entre =signes égal= : une ellipse
+  //    tracée à main levée (deux passes légèrement décalées, trait irrégulier),
+  //    par-dessus le texte comme un coup de stylo. Toujours rouge, quel que
+  //    soit le gabarit : c'est un geste, pas un fond.
+  cx = x;
+  let ciStart = null;
+  let ciW = 0;
+  const flushCircle = () => {
+    if (ciStart !== null && ciW > 0) drawHandCircle(ctx, ciStart, y, ciW, size, opts.circleColor || '#dc2626');
+    ciStart = null;
+    ciW = 0;
+  };
+  for (const seg of segments) {
+    ctx.font = police(seg.italic);
+    const w = ctx.measureText(seg.text).width;
+    if (seg.circle) {
+      if (ciStart === null) ciStart = cx;
+      ciW += w;
+    } else {
+      flushCircle();
+    }
+    cx += w;
+  }
+  flushCircle();
+}
+
+// Ellipse « au stylo » autour d'un passage de texte : centre sur la hauteur
+// d'x, un peu plus large que le mot, trait épais légèrement penché, second
+// passage décalé pour l'aspect main levée. Déterministe (aucun aléa) : le
+// hub et le générateur dessinent exactement la même chose.
+export function drawHandCircle(ctx, x, baseline, w, size, color = '#dc2626') {
+  const cx = x + w / 2;
+  const cy = baseline - size * 0.30;
+  const rx = w / 2 + size * 0.14;      // serré autour du mot, sans mordre les voisins
+  const ry = size * 0.56;
+  const tilt = -0.05;                  // légère pente, comme un geste rapide
+  const lw = Math.max(4, Math.round(size * 0.095));
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // passe 1 : le tour complet, qui dépasse un peu son point de départ
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  // ⚠️ jamais un balayage ≥ 2π : @napi-rs/canvas n'en dessine alors rien du
+  //    tout (constaté le 08/09/2026) · on ferme le tour à 1,97π, le second
+  //    passage recouvre la jointure.
+  ctx.ellipse(cx, cy, rx, ry, tilt, Math.PI * 0.55, Math.PI * 0.55 + Math.PI * 1.97);
+  ctx.stroke();
+  // passe 2 : le même tracé décalé d'un cheveu sur la moitié basse, pour
+  // l'épaisseur irrégulière d'un trait de feutre
+  ctx.globalAlpha = 0.85;
+  ctx.lineWidth = Math.max(3, Math.round(lw * 0.55));
+  ctx.beginPath();
+  ctx.ellipse(cx + size * 0.02, cy + size * 0.03, rx + size * 0.02, ry + size * 0.03, tilt + 0.02, Math.PI * 0.15, Math.PI * 0.95);
+  ctx.stroke();
+  ctx.restore();
 }
 
 // Le texte d'une ligne, utile pour un aperçu textuel ou un test.
