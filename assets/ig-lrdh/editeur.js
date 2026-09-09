@@ -105,9 +105,10 @@ export async function rendre(item) {
   const c = document.createElement('canvas');
   c.width = N.W; c.height = N.H;
   const ctx = c.getContext('2d', { willReadFrequently: true });
-  if (item.type === 'couverture') N.dessinerCouverture(ctx, { img, logo, titre: item.texte, credit: item.credit });
-  else if (item.type === 'chute')  N.dessinerChute(ctx, { img, logo, texte: item.texte, credit: item.credit });
-  else                             N.dessinerPhoto(ctx, { img, logo, legende: item.texte, credit: item.credit });
+  const taille = Number(item.taille) || 1;
+  if (item.type === 'couverture') N.dessinerCouverture(ctx, { img, logo, titre: item.texte, credit: item.credit, taille });
+  else if (item.type === 'chute')  N.dessinerChute(ctx, { img, logo, texte: item.texte, credit: item.credit, taille });
+  else                             N.dessinerPhoto(ctx, { img, logo, legende: item.texte, credit: item.credit, taille });
   return c;
 }
 
