@@ -2116,6 +2116,17 @@ try {
   #iglhview .sl .vidnote { font-size:11.5px; color:#8d8d8d; line-height:1.35; background:#1b1b1d;
     border:1px solid #333; border-radius:8px; padding:7px 9px; }
   #iglhview .sl .num.vd { background:rgba(224,189,106,.9); color:#111; }
+  #iglhview .sl .rm { position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.6); color:#fff; font-size:13px; line-height:1; cursor:pointer; opacity:0; transition:opacity .15s; }
+  #iglhview .sl figure:hover .rm { opacity:1; }
+  #iglhview .sl .rm:hover { background:#8a1c1c; border-color:#8a1c1c; }
+  #iglhview .sl .cv .vide { color:#8d8d8d; font-size:14px; text-align:center; padding:18px; line-height:1.45; }
+  #iglhview .sl .cv .vide small { color:#6f6f74; font-size:11.5px; }
+  #iglhview .sl .ajout { flex:0 0 auto; width:min(300px,64vw); aspect-ratio:4/5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    border:1px dashed #4a4a4d; border-radius:12px; color:#8d8d8d; font-size:12px; text-align:center; padding:16px; box-sizing:border-box; }
+  #iglhview .sl .ajout button { background:transparent; color:#e0bd6a; border:1px solid #6b5a2c; border-radius:999px; padding:10px 18px; font:700 13px/1 var(--sans); cursor:pointer; display:flex; align-items:center; gap:8px; }
+  #iglhview .sl .ajout button b { font-size:18px; line-height:1; }
+  #iglhview .sl .ajout button:hover { background:#e0bd6a; color:#111; }
   #iglhview .sl .num { z-index:2; }
   #iglhview .sl .fl { bottom:auto; top:8px; right:8px; left:auto; transform:none; z-index:2; }
   /* Le choix de l'article. Meme habillage que la fenetre d'edition : c'est la
@@ -2357,7 +2368,7 @@ try {
   async function moduleEdition() {
     // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
     // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609091247');
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609091311');
     return EDIT;
   }
 
@@ -2368,6 +2379,12 @@ try {
   }
 
   const modifie = () => JSON.stringify(travail) !== JSON.stringify(initial());
+  // Un slide ajouté sans visuel ne peut pas être rendu : on bloque l'enregistrement tant qu'il est vide.
+  const incomplet = () => aRecette() && travail.some(x => x && x.type !== 'video' && !x.src);
+  const majSauvegarde = () => {
+    const bt = document.getElementById('iglhsave'); bt.disabled = !modifie() || incomplet();
+    document.getElementById('iglhetat').textContent = incomplet() ? 'un slide n’a pas encore de visuel' : (modifie() ? 'modifié' : '');
+  };
 
   function etiquette(i) { return i === 0 ? 'Couverture' : (travail[i]?.type === 'chute' ? 'Fin' : String(i + 1)); }
 
@@ -2383,6 +2400,7 @@ try {
     const { rendre: r, estVideo } = await moduleEdition();
     const cible = document.querySelector(`#iglhvsl figure[data-i="${i}"] .cv`);
     if (!cible) return;
+    if (!travail[i] || !travail[i].src) { cible.innerHTML = '<div class="vide">Nouveau slide<br><small>collez l’adresse d’une image ou d’une vidéo ci-dessous, puis « Remplacer »</small></div>'; return; }
     if (estVideo(travail[i])) {
       const v = document.createElement('video');
       v.src = travail[i].src; v.controls = true; v.muted = true; v.playsInline = true; v.preload = 'metadata';
@@ -2423,16 +2441,18 @@ try {
         + '</select>') : '';
       return '<figure draggable="true" data-i="' + i + '">' + apercu
         + '<span class="num' + (vid ? ' vd' : '') + '">' + ESC(vid ? '▶ ' + etiquette(i) : etiquette(i)) + '</span>'
+        + (rec && travail.length > 2 ? '<button type="button" class="rm" data-rm="' + i + '" title="Retirer ce slide">✕</button>' : '')
         + '<span class="fl">'
         + (i > 0 ? '<button data-mv="' + i + '" data-sens="-1" title="Reculer">‹</button>' : '')
         + (i < travail.length - 1 ? '<button data-mv="' + i + '" data-sens="1" title="Avancer">›</button>' : '')
         + '</span>' + champs + '</figure>';
-    }).join('');
+    }).join('') + (rec && travail.length < 20
+        ? '<div class="ajout"><button type="button" data-add="1"><b>+</b>Ajouter un slide</button><span>Photo ou vidéo, avec son texte · jusqu’à 20 slides</span></div>' : '');
     const chg = modifie();
     const b = document.getElementById('iglhsave');
-    b.disabled = !chg;
+    b.disabled = !chg || incomplet();
     b.textContent = rec ? 'Enregistrer les modifications' : "Enregistrer l'ordre";
-    document.getElementById('iglhetat').textContent = chg ? 'modifié' : '';
+    document.getElementById('iglhetat').textContent = incomplet() ? 'un slide n’a pas encore de visuel' : (chg ? 'modifié' : '');
     document.getElementById('iglhaide').textContent = rec
       ? 'Modifiez le texte sous chaque visuel (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, ou glissez une vignette pour la déplacer.'
       : (Array.isArray(ouvert?.recette) && ouvert.recette.length
@@ -2465,10 +2485,25 @@ try {
     const t = e.target.closest('#iglhvsl [data-tx]'); if (!t) return;
     const i = +t.dataset.tx;
     travail[i].texte = t.value;
-    const bt = document.getElementById('iglhsave');
-    bt.disabled = !modifie();
-    document.getElementById('iglhetat').textContent = modifie() ? 'modifié' : '';
+    majSauvegarde();
     planifier(i);
+  });
+  // Ajouter / retirer un slide (demande user 09/09/2026). Le nouveau slide est
+  // une photo vide : on colle ensuite l'adresse d'une image ou d'une vidéo.
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#iglhvsl [data-add]')) {
+      if (!aRecette() || travail.length >= 20) return;
+      travail.push({ type: 'photo', src: '', texte: '', credit: '', taille: 1 });
+      rendreSlides();
+      const z = zone(); const f = z.querySelector('figure:last-of-type'); if (f) f.scrollIntoView({ behavior: 'smooth', inline: 'end', block: 'nearest' });
+      return;
+    }
+    const r = e.target.closest('#iglhvsl [data-rm]'); if (!r) return;
+    const i = +r.dataset.rm;
+    if (travail.length <= 2) return;
+    if (travail[i] && (travail[i].src || travail[i].texte) && !confirm('Retirer le slide ' + etiquette(i) + ' ?')) return;
+    travail.splice(i, 1);
+    rendreSlides();
   });
   document.addEventListener('change', (e) => {
     const s = e.target.closest('#iglhvsl [data-sw]'); if (!s || s.value === '') return;
@@ -2481,9 +2516,7 @@ try {
     const v = Math.min(1.6, Math.max(0.6, Math.round(((travail[i].taille || 1) + 0.1 * (+b.dataset.d)) * 10) / 10));
     travail[i].taille = v;
     const aff = document.querySelector('#iglhvsl [data-tlv="' + i + '"]'); if (aff) aff.textContent = Math.round(v * 100) + ' %';
-    const bt = document.getElementById('iglhsave');
-    bt.disabled = !modifie();
-    document.getElementById('iglhetat').textContent = modifie() ? 'modifié' : '';
+    majSauvegarde();
     planifier(i);
   });
 
