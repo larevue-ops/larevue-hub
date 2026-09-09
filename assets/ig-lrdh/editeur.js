@@ -58,9 +58,27 @@ export function charger(url) {
  * @param {string} url
  * @returns {Promise<{src:string, type:'image'|'video', duree?:number}>}
  */
+/**
+ * Une page Streamable (streamable.com/xxxx) n'est pas un fichier : on demande
+ * a son API publique l'adresse du mp4 (signee, valable quelques heures, le
+ * temps que Cloudinary aille le chercher). Demande user du 09/09/2026 :
+ * « integrer des videos dans les carrousels, par ex. streamable.com/eu9w69 ».
+ */
+async function resoudreVideo(url) {
+  const m = url.match(/^https?:\/\/(?:www\.)?streamable\.com\/([a-z0-9]+)/i);
+  if (!m) return url;
+  const r = await fetch(`https://api.streamable.com/videos/${m[1]}`, { headers: { Accept: 'application/json' } });
+  if (!r.ok) throw new Error(`Streamable a repondu ${r.status} pour cette video`);
+  const j = await r.json();
+  const f = j?.files?.mp4 || j?.files?.['mp4-mobile'];
+  if (!f?.url) throw new Error('Streamable : video introuvable ou encore en traitement');
+  return f.url.startsWith('//') ? 'https:' + f.url : f.url;
+}
+
 export async function importer(url) {
-  const propre = String(url || '').trim();
+  let propre = String(url || '').trim();
   if (!/^https?:\/\//i.test(propre)) throw new Error('Adresse invalide : elle doit commencer par https://');
+  propre = await resoudreVideo(propre);
   const fd = new FormData();
   fd.append('file', propre);
   fd.append('upload_preset', PRESET);
