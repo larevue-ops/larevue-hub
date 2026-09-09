@@ -88,7 +88,12 @@ export async function importer(url) {
   const video = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(propre) || /streamable\.com/i.test(String(url));
   const fd = new FormData();
   fd.append('file', propre);
-  fd.append('upload_preset', video ? PRESET_VIDEO : PRESET);
+  // Les images collees dans l'editeur servent de fond de slide (1080x1350) :
+  // le preset des articles (`larevue_articles`, limite 1200x800) ecrasait une
+  // photo portrait de 1934x2400 en 645x800, puis le noyau la refusait
+  // (« image trop petite, minimum 900 »). On passe par le preset sans
+  // transformation, comme pour les slides rendues.
+  fd.append('upload_preset', video ? PRESET_VIDEO : PRESET_SLIDES);
   let j = null;
   try {
     const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/${video ? 'video' : 'auto'}/upload`, { method: 'POST', body: fd });
