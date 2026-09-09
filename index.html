@@ -2038,6 +2038,8 @@ try {
     border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; }
   #iglhview .hd .igre.hd:hover { background:rgba(255,255,255,.12); }
   #iglhview .hd .x { margin-left:8px; }
+  #iglhview .hd #iglhdl { margin-left:auto; }
+  #iglhview .hd #iglhregen { margin-left:8px; }
   #iglhview { position:fixed; inset:0; z-index:9000; background:rgba(8,8,10,.94); display:none; align-items:center; justify-content:center; padding:24px; }
   #iglhview.on { display:flex; }
   /* La fiche d'edition est haute (visuel + texte + selecteur) : sans hauteur
@@ -2254,6 +2256,42 @@ try {
     if (e.target.id !== 'iglhregen' || !ouvert) return;
     regenerer(ouvert, [e.target]);
   });
+
+  // ── Télécharger le carrousel ─────────────────────────────────────────────
+  // Instagram se nourrit de fichiers, pas d'adresses : on livre une archive zip,
+  // un fichier par slide, numéroté dans l'ordre de publication. Les images sont
+  // prises en JPEG d'origine (sans f_auto, qui servirait du webp), la vidéo en mp4.
+  async function telechargerCarrousel(bouton) {
+    if (!ouvert) return;
+    if (modifie()) { alert('Enregistrez d\u2019abord vos modifications : le téléchargement prend la version enregistrée.'); return; }
+    const slides = (ouvert.slides || []).filter(Boolean);
+    if (!slides.length) return;
+    const etat = document.getElementById('iglhetat');
+    const texte = bouton.textContent; bouton.disabled = true;
+    try {
+      if (!window.JSZip) await new Promise((ok, non) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = ok; s.onerror = () => non(new Error('JSZip introuvable')); document.head.appendChild(s); });
+      const zip = new JSZip();
+      const nom = String(DE(ouvert.coverTitle || ouvert.title || 'carrousel')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'carrousel';
+      for (let i = 0; i < slides.length; i++) {
+        bouton.textContent = `\u2026 ${i + 1}/${slides.length}`;
+        const video = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(slides[i]) || /\/video\/upload\//.test(slides[i]);
+        const url = video ? slides[i] : slides[i].replace('/upload/f_auto,q_auto/', '/upload/');
+        const r = await fetch(url); if (!r.ok) throw new Error(`visuel ${i + 1} : HTTP ${r.status}`);
+        const blob = await r.blob();
+        const ext = video ? (url.match(/\.(mp4|mov|m4v|webm)/i)?.[1] || 'mp4').toLowerCase() : (blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg');
+        zip.file(`${String(i + 1).padStart(2, '0')}-${i === 0 ? 'couverture' : 'slide'}.${ext}`, blob);
+      }
+      if (ouvert.caption) zip.file('legende.txt', String(ouvert.caption));
+      bouton.textContent = '\u2026 archive';
+      const contenu = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(contenu); a.download = `${nom}.zip`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+      if (etat) etat.textContent = `archive téléchargée · ${slides.length} fichier${slides.length > 1 ? 's' : ''}`;
+    } catch (err) {
+      alert('Téléchargement impossible : ' + String(err.message || err).slice(0, 120));
+    } finally { bouton.disabled = false; bouton.textContent = texte; }
+  }
+  document.addEventListener('click', (e) => { if (e.target.id === 'iglhdl') telechargerCarrousel(e.target); });
 
   // ── Editer le carrousel ──────────────────────────────────────────────────
   // Le carrousel est fabrique automatiquement : ni la photo qui ouvre, ni le
@@ -2590,7 +2628,7 @@ try {
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
 <div id="iglhview"><div class="box">
-  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
+  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
   <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="cap" id="iglhvc"></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
