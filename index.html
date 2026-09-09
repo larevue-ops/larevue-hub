@@ -1217,7 +1217,11 @@ window.regenererCarrouselLrdh = async (id, wpUrl) => {
 };
 
 try {
-  cachedListen(query(collection(db, 'lrdh_instagram_queue'), limit(60)), 'iglh', (x) => x, rows => {
+  // ⚠️ Pas de `limit()` sans tri (09/09/2026) : Firestore coupait dans l'ordre
+  // des identifiants, archives compris, et les carrousels fraichement fabriques
+  // tombaient hors de la fenetre de 60 · la redaction ne les voyait jamais. On
+  // ne lit que les statuts vivants, ce qui borne le cout mieux qu'une limite.
+  cachedListen(query(collection(db, 'lrdh_instagram_queue'), where('status', 'in', ['ready', 'scheduled'])), 'iglh2', (x) => x, rows => {
     // Seuls les carrousels au nouveau style comptent. La file contenait cinq
     // entrees d'un pipeline anterieur (bandeau jaune, couverture-citation,
     // deux visuels morts) : elles restent en base, mais n'ont rien a faire
