@@ -2283,7 +2283,8 @@ try {
         const video = item ? ED.estVideo(item) : (/\.(mp4|mov|m4v|webm)(\?|$)/i.test(slides[i]) || /\/video\/upload\//.test(slides[i]));
         let blob, ext;
         if (!video && item) {
-          blob = await ED.enJpeg(await ED.rendre(item)); ext = 'jpg';
+          const cv = await ED.rendre(item);
+          blob = await (ED.enJpeg ? ED.enJpeg(cv) : new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.95))); ext = 'jpg';
         } else {
           const url = video ? (item ? item.src : slides[i]) : slides[i].replace('/upload/f_auto,q_auto/', '/upload/');
           const r = await fetch(url); if (!r.ok) throw new Error(`visuel ${i + 1} : HTTP ${r.status}`);
@@ -2316,7 +2317,9 @@ try {
   const aRecette = () => Array.isArray(ouvert?.recette) && ouvert.recette.length === (ouvert.slides || []).length;
 
   async function moduleEdition() {
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js');
+    // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
+    // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609091247');
     return EDIT;
   }
 
