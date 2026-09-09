@@ -1997,8 +1997,20 @@ try {
      LRDH plutot que le rose Instagram, pour distinguer les deux files. */
   #strip-insta-lrdh { background:color-mix(in srgb, var(--lrdh) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lrdh) 22%, var(--border)); }
   #strip-insta-lrdh .t { color:var(--lrdh); }
-  #strip-insta-lrdh .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(116px,1fr)); gap:10px; }
-  #strip-insta-lrdh .igcard { position:relative; }
+  #strip-insta-lrdh .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(164px,1fr)); gap:14px; }
+  #strip-insta-lrdh .igcard { position:relative; border-radius:14px; border-color:color-mix(in srgb, var(--lrdh) 18%, var(--border)); }
+  #strip-insta-lrdh .igcard:hover { box-shadow:0 10px 26px rgba(28,25,15,.16); border-color:color-mix(in srgb, var(--lrdh) 45%, var(--border)); }
+  #strip-insta-lrdh .igcard img { transition:transform .25s ease; }
+  #strip-insta-lrdh .igcard:hover img { transform:scale(1.02); }
+  #strip-insta-lrdh .igcard .igmeta { padding:9px 10px 10px; gap:5px; }
+  #strip-insta-lrdh .igcard .igt { font:600 12.5px/1.35 var(--serif); -webkit-line-clamp:3; letter-spacing:-.005em; }
+  #strip-insta-lrdh .igcard .igd { display:inline-flex; align-items:center; gap:5px; font:600 10px/1 var(--sans); letter-spacing:.04em;
+    text-transform:uppercase; color:var(--muted); }
+  #strip-insta-lrdh .igcard .igd::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--faint); }
+  #strip-insta-lrdh .igcard .igd.pret::before { background:var(--ok); }
+  #strip-insta-lrdh .igcard .igd.prog { color:var(--lrdh); }
+  #strip-insta-lrdh .igcard .igd.prog::before { background:var(--lrdh); }
+  #strip-insta-lrdh .igcard .ign::after { content:' slides'; font-weight:500; opacity:.85; }
   #strip-insta-lrdh .igcard .ign { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.62); color:#fff;
     font-size:10px; font-weight:700; letter-spacing:.6px; padding:2px 6px; border-radius:20px; }
   /* Refaire par la machine : petit ↻ en haut a gauche de la vignette, et
@@ -2091,20 +2103,48 @@ try {
   #iglhnew:hover { background:color-mix(in srgb, var(--lrdh) 14%, transparent); }
   #iglhpick { position:fixed; inset:0; z-index:9001; background:rgba(8,8,10,.94); display:none; align-items:center; justify-content:center; padding:24px; }
   #iglhpick.on { display:flex; }
-  #iglhpick .box { max-width:min(760px,96vw); width:100%; max-height:calc(100vh - 48px); display:flex; flex-direction:column; }
+  #iglhpick .box { max-width:min(960px,96vw); width:100%; max-height:calc(100vh - 48px); display:flex; flex-direction:column; }
   #iglhpick .hd { display:flex; align-items:baseline; gap:12px; color:#eee; margin-bottom:6px; font-size:14px; }
+  #iglhpick .hd b { font-family:var(--serif); font-size:20px; font-weight:600; letter-spacing:-.01em; }
+  #iglhpick .hd #iglhpn { color:#9a9a9a; font-size:12.5px; }
   #iglhpick .hd .x { margin-left:auto; cursor:pointer; font-size:22px; color:#bbb; line-height:1; }
-  #iglhpick .aide { color:#8d8d8d; font-size:12px; margin:0 0 12px; }
-  #iglhplist { overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; }
-  #iglhplist .row { display:flex; align-items:center; gap:12px; padding:9px 11px; border:1px solid #2b2b30;
-    border-radius:10px; background:#151517; }
-  #iglhplist .row img { width:58px; height:44px; object-fit:cover; border-radius:5px; flex:0 0 58px; background:#222; }
-  #iglhplist .row .tt { flex:1; color:#e8e8ea; font:14px/1.35 Georgia,serif; }
-  #iglhplist .row .nb { font:700 11px/1 -apple-system,sans-serif; color:#8d8d8d; white-space:nowrap; }
-  #iglhplist .row button { background:#e0bd6a; color:#111; border:0; border-radius:7px; padding:6px 13px;
-    font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap; }
-  #iglhplist .row.maigre { opacity:.42; }
+  #iglhpick .aide { color:#8d8d8d; font-size:12px; margin:0 0 10px; }
+  #iglhpick .outils { display:flex; gap:10px; align-items:center; margin:0 0 12px; }
+  #iglhpick .outils input { flex:1; background:#151517; color:#eee; border:1px solid #2b2b30; border-radius:9px;
+    padding:9px 12px; font:inherit; font-size:13px; }
+  #iglhpick .outils input:focus { outline:none; border-color:#e0bd6a; }
+  #iglhpick .outils .leg { display:flex; gap:12px; color:#8d8d8d; font-size:11.5px; white-space:nowrap; }
+  #iglhpick .outils .leg i { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:0; }
+  /* Une ligne = une grille à hauteur fixe : le titre se coupe proprement à
+     deux lignes au lieu de pousser la ligne suivante (chevauchement vu le 09/09). */
+  #iglhplist { overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; padding-right:2px; }
+  #iglhplist .row { display:grid; grid-template-columns:88px minmax(0,1fr) auto; align-items:center; column-gap:14px;
+    padding:8px 10px 8px 8px; border:1px solid #2b2b30; border-radius:12px; background:#151517; min-height:78px;
+    transition:border-color .15s, background .15s; }
+  #iglhplist .row:hover { border-color:#4a4330; background:#1a1917; }
+  #iglhplist .row img { width:88px; height:62px; object-fit:cover; border-radius:8px; background:#222; display:block; }
+  #iglhplist .row .txt { min-width:0; display:flex; flex-direction:column; gap:5px; }
+  #iglhplist .row .tt { color:#eeeeef; font:500 14.5px/1.3 var(--serif); display:-webkit-box; -webkit-line-clamp:2;
+    -webkit-box-orient:vertical; overflow:hidden; }
+  #iglhplist .row .meta { display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; font:12px/1 var(--sans); color:#8d8d8d; }
+  #iglhplist .row .nb { display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px;
+    font:700 11px/1 var(--sans); background:#26261f; color:#e0bd6a; white-space:nowrap; }
+  #iglhplist .row .nb::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+  #iglhplist .row.maigre .nb { background:#232326; color:#77777c; }
+  #iglhplist .row .deja { display:inline-flex; padding:4px 9px; border-radius:999px; font:600 11px/1 var(--sans);
+    background:#1d2a22; color:#7cc9a0; white-space:nowrap; }
+  #iglhplist .row .act { display:flex; align-items:center; justify-content:flex-end; min-width:96px; }
+  #iglhplist .row button { background:#e0bd6a; color:#111; border:0; border-radius:999px; padding:8px 16px;
+    font:700 12px/1 var(--sans); cursor:pointer; white-space:nowrap; transition:transform .12s, background .12s; }
+  #iglhplist .row button:hover { background:#f0cf82; transform:translateY(-1px); }
+  #iglhplist .row button.refaire { background:transparent; color:#e0bd6a; border:1px solid #6b5a2c; }
+  #iglhplist .row button.refaire:hover { background:#2a2419; }
+  #iglhplist .row button[disabled] { opacity:.55; cursor:default; transform:none; }
+  #iglhplist .row.maigre { opacity:.5; }
+  #iglhplist .row.maigre .act { font:12px/1.3 var(--sans); color:#77777c; text-align:right; }
   #iglhplist .row.maigre button { display:none; }
+  #iglhplist .row.cache { display:none; }
+  #iglhplist .iglh-sep { color:#6f6f74; font:600 11px/1 var(--sans); letter-spacing:.08em; text-transform:uppercase; padding:10px 4px 2px; }
   #iglhpetat { color:#b9b9b9; font-size:12.5px; }
 </style>
 <script>
@@ -2114,7 +2154,9 @@ try {
 // reference livres avec la page, que la file remplace des qu'elle repond.
 (function () {
   const ESC = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const DE  = s => String(s||'').replace(/&#8217;|&rsquo;/g,'\u2019').replace(/&amp;/g,'&').replace(/&nbsp;/g,' ');
+  const DE  = s => String(s||'').replace(/&#(\d+);/g,(m,d)=>String.fromCharCode(+d)).replace(/&#x([0-9a-f]+);/gi,(m,h)=>String.fromCharCode(parseInt(h,16)))
+    .replace(/&rsquo;/g,'\u2019').replace(/&lsquo;/g,'\u2018').replace(/&laquo;/g,'\u00ab').replace(/&raquo;/g,'\u00bb').replace(/&hellip;/g,'\u2026')
+    .replace(/&amp;/g,'&').replace(/&nbsp;/g,' ').replace(/&quot;/g,'"');
   const FD  = iso => iso ? new Date(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Paris'}) : '';
   const SEED = [
     { t:"Deux ch\u00e2teaux de Bourgogne rouvrent en h\u00f4tels, voici ce qu'il y a dedans", id:'bourgogne', n:5,
@@ -2166,7 +2208,7 @@ try {
         + (cover ? '<img src="' + ESC(cover) + '" alt="" loading="lazy">' : '<div class="igph">?</div>')
         + (n ? '<span class="ign">' + n + '</span>' : '') + badge + bouton
         + '<div class="igmeta"><span class="igt">' + ESC(DE(p.coverTitle || p.title || p.id)) + '</span>'
-        + '<span class="igd">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'rendu de r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
+        + '<span class="igd' + (p.scheduledAt ? ' prog' : (seed ? '' : ' pret')) + '">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
     }).join('');
   }
   window.rendreIgLrdh = rendre;
@@ -2438,19 +2480,32 @@ try {
       const r = await fetch(`${WPL}/wp-json/wp/v2/posts?per_page=80&status=publish&_fields=id,title,link,content,date`, { cache: 'no-store' });
       const posts = (await r.json()).filter(p => !/\/(en|es|de|pt)\//.test(p.link)).slice(0, 25);
       const dejaFait = new Set(rows.map(x => String(x.postId)));
-      document.getElementById('iglhpn').textContent = posts.length + ' articles récents';
-      l.innerHTML = posts.map(p => {
-        const html = p.content?.rendered || '';
-        const n = (html.match(/<img\b/gi) || []).length;
-        const vign = (html.match(/<img[^>]+src="([^"]+)"/i) || [])[1] || '';
-        const assez = n >= 4;
-        const vu = dejaFait.has(String(p.id));
-        return '<div class="row' + (assez ? '' : ' maigre') + '" data-url="' + ESC(p.link) + '">'
-          + (vign ? '<img src="' + ESC(vign) + '" alt="" loading="lazy">' : '<img alt="">')
-          + '<span class="tt">' + ESC(DE(p.title.rendered)) + '</span>'
-          + '<span class="nb">' + n + ' photo' + (n > 1 ? 's' : '') + (vu ? ' · déjà fait' : '') + '</span>'
-          + '<button data-gen="' + ESC(p.link) + '">' + (vu ? 'Refaire' : 'Générer') + '</button></div>';
-      }).join('');
+      // Comptage des photos : on ignore les doublons <noscript> des sliders (chaque
+      // visuel y est répété) et on compte les adresses distinctes · « 60 photos »
+      // pour un article qui en a seize, c'était ça.
+      const fiches = posts.map(p => {
+        const html = (p.content?.rendered || '').replace(/<noscript>[\s\S]*?<\/noscript>/gi, '');
+        const srcs = new Set([...html.matchAll(/<img[^>]+src="([^"]+)"/gi)].map(m => m[1].split('?')[0]));
+        const n = srcs.size;
+        return { p, n, vign: [...srcs][0] || '', assez: n >= 4, vu: dejaFait.has(String(p.id)) };
+      });
+      const faisables = fiches.filter(f => f.assez), maigres = fiches.filter(f => !f.assez);
+      document.getElementById('iglhpn').textContent = posts.length + ' articles récents · ' + faisables.length + ' faisable' + (faisables.length > 1 ? 's' : '');
+      const jour = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); };
+      const ligne = (f) => '<div class="row' + (f.assez ? '' : ' maigre') + '" data-url="' + ESC(f.p.link) + '" data-t="' + ESC(DE(f.p.title.rendered).toLowerCase()) + '">'
+          + (f.vign ? '<img src="' + ESC(f.vign) + '" alt="" loading="lazy">' : '<img alt="">')
+          + '<div class="txt"><span class="tt">' + ESC(DE(f.p.title.rendered)) + '</span>'
+          + '<span class="meta"><span>' + jour(f.p.date) + '</span><span class="nb">' + f.n + ' photo' + (f.n > 1 ? 's' : '') + '</span>'
+          + (f.vu ? '<span class="deja">déjà fait</span>' : '') + '</span></div>'
+          + '<div class="act">' + (f.assez
+              ? '<button data-gen="' + ESC(f.p.link) + '"' + (f.vu ? ' class="refaire"' : '') + '>' + (f.vu ? '↻ Refaire' : 'Générer') + '</button>'
+              : 'trop peu<br>illustré') + '</div></div>';
+      l.innerHTML = faisables.map(ligne).join('')
+        + (maigres.length ? '<div class="iglh-sep">Trop peu illustrés · ' + maigres.length + '</div>' + maigres.map(ligne).join('') : '');
+      const q = document.getElementById('iglhpq'); q.value = '';
+      q.oninput = () => { const v = q.value.trim().toLowerCase();
+        l.querySelectorAll('.row').forEach(r => r.classList.toggle('cache', !!v && !(r.dataset.t || '').includes(v)));
+        l.querySelectorAll('.iglh-sep').forEach(r => r.classList.toggle('cache', !!v)); };
     } catch (e) {
       l.innerHTML = '<div class="row"><span class="tt">Impossible de lire les articles : ' + ESC(String(e.message)) + '</span></div>';
     }
@@ -2467,7 +2522,7 @@ try {
       b.textContent = 'lancé';
       etat.textContent = 'Fabrication lancée · le carrousel apparaîtra dans la bande d’ici deux à trois minutes.';
     } catch (err) {
-      b.disabled = false; b.textContent = 'Générer';
+      b.disabled = false; b.textContent = b.classList.contains('refaire') ? '↻ Refaire' : 'Générer';
       etat.textContent = 'échec : ' + String(err.message || err).slice(0, 80);
     }
   });
@@ -2496,7 +2551,9 @@ try {
 <div id="iglhpick"><div class="box">
   <div class="hd"><b>Quel article mettre en carrousel ?</b><span id="iglhpn"></span>
     <span class="x" onclick="document.getElementById('iglhpick').classList.remove('on')">✕</span></div>
-  <p class="aide">La fabrication demande au moins quatre photos dans le corps de l’article. Les articles trop peu illustrés sont grisés.</p>
+  <p class="aide">La fabrication demande au moins quatre photos dans le corps de l’article. Les articles trop peu illustrés sont relégués en bas de liste, grisés.</p>
+  <div class="outils"><input id="iglhpq" type="search" placeholder="Filtrer par titre…" autocomplete="off">
+    <span class="leg"><span><i style="background:#e0bd6a"></i>faisable</span><span><i style="background:#7cc9a0"></i>déjà fait</span><span><i style="background:#77777c"></i>trop peu de photos</span></span></div>
   <div id="iglhplist"></div>
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
