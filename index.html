@@ -2272,13 +2272,24 @@ try {
       if (!window.JSZip) await new Promise((ok, non) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = ok; s.onerror = () => non(new Error('JSZip introuvable')); document.head.appendChild(s); });
       const zip = new JSZip();
       const nom = String(DE(ouvert.coverTitle || ouvert.title || 'carrousel')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'carrousel';
+      // Avec une recette, chaque image est RE-RENDUE ici en 1080x1350 (JPEG 95) :
+      // c'est la pleine definition, quelle que soit la version stockee en ligne.
+      // Sans recette (carrousels d'avant), on prend les fichiers stockes.
+      const rec = aRecette();
+      const ED = rec ? await moduleEdition() : null;
       for (let i = 0; i < slides.length; i++) {
         bouton.textContent = `\u2026 ${i + 1}/${slides.length}`;
-        const video = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(slides[i]) || /\/video\/upload\//.test(slides[i]);
-        const url = video ? slides[i] : slides[i].replace('/upload/f_auto,q_auto/', '/upload/');
-        const r = await fetch(url); if (!r.ok) throw new Error(`visuel ${i + 1} : HTTP ${r.status}`);
-        const blob = await r.blob();
-        const ext = video ? (url.match(/\.(mp4|mov|m4v|webm)/i)?.[1] || 'mp4').toLowerCase() : (blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg');
+        const item = rec ? ouvert.recette[i] : null;
+        const video = item ? ED.estVideo(item) : (/\.(mp4|mov|m4v|webm)(\?|$)/i.test(slides[i]) || /\/video\/upload\//.test(slides[i]));
+        let blob, ext;
+        if (!video && item) {
+          blob = await ED.enJpeg(await ED.rendre(item)); ext = 'jpg';
+        } else {
+          const url = video ? (item ? item.src : slides[i]) : slides[i].replace('/upload/f_auto,q_auto/', '/upload/');
+          const r = await fetch(url); if (!r.ok) throw new Error(`visuel ${i + 1} : HTTP ${r.status}`);
+          blob = await r.blob();
+          ext = video ? (url.match(/\.(mp4|mov|m4v|webm)/i)?.[1] || 'mp4').toLowerCase() : (blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg');
+        }
         zip.file(`${String(i + 1).padStart(2, '0')}-${i === 0 ? 'couverture' : 'slide'}.${ext}`, blob);
       }
       if (ouvert.caption) zip.file('legende.txt', String(ouvert.caption));

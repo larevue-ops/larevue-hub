@@ -16,6 +16,9 @@ const PRESET = 'larevue_articles';
 // Preset sans transformation entrante : `larevue_articles` borne tout a 1200x800,
 // ce qui ramenait une video verticale 720x1280 a 450x800 (constate le 09/09/2026).
 const PRESET_VIDEO = 'larevue_videos';
+// Idem pour les slides re-rendus ici : avec `larevue_articles`, un visuel 1080x1350
+// etait stocke en 640x800 (constate le 09/09/2026 : « qualite bien plus faible »).
+const PRESET_SLIDES = 'larevue_carrousels';
 const BASE = './assets/ig-lrdh';
 
 let _pret = null;
@@ -134,7 +137,8 @@ export async function rendre(item) {
   return c;
 }
 
-const blob = (canvas) => new Promise(ok => canvas.toBlob(ok, 'image/jpeg', 0.92));
+const blob = (canvas) => new Promise(ok => canvas.toBlob(ok, 'image/jpeg', 0.95));
+export { blob as enJpeg };
 
 /**
  * Televerse un visuel re-rendu. On ecrit sous un NOUVEL identifiant horodate
@@ -145,7 +149,7 @@ const blob = (canvas) => new Promise(ok => canvas.toBlob(ok, 'image/jpeg', 0.92)
 export async function televerser(canvas, publicId) {
   const fd = new FormData();
   fd.append('file', await blob(canvas));
-  fd.append('upload_preset', PRESET);
+  fd.append('upload_preset', PRESET_SLIDES);
   if (publicId) fd.append('public_id', publicId);
   const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/image/upload`, { method: 'POST', body: fd });
   const j = await r.json();
