@@ -1185,14 +1185,14 @@ window.enregistrerOrdreIgLrdh = (id, slides) => window.enregistrerCarrouselLrdh(
 // Fabrique le carrousel d'UN article, a la demande. Le jeton GitHub vit dans
 // `app_config/github_dispatch`, deja utilise par le declencheur LinkedIn · on
 // reprend le jeton, mais le depot et le workflow sont ceux du runner social.
-window.fabriquerCarrouselLrdh = async (articleUrl) => {
+window.fabriquerCarrouselLrdh = async (articleUrl, extra = {}) => {
   const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
   if (!snap.exists()) throw new Error('jeton GitHub absent de app_config');
   const { token } = snap.data();
   const r = await fetch('https://api.github.com/repos/larevue-media/larevue-social-runner/actions/workflows/instagram-lrdh.yml/dispatches', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ref: 'main', inputs: { article: String(articleUrl), max: '0' } }),
+    body: JSON.stringify({ ref: 'main', inputs: { article: String(articleUrl || ''), max: '0', ...extra } }),
   });
   if (r.status !== 204) throw new Error(`GitHub a repondu ${r.status}`);
   return true;
@@ -2054,7 +2054,15 @@ try {
   #iglhview .hd .x { margin-left:auto; cursor:pointer; font-size:22px; color:#bbb; line-height:1; }
   #iglhview .sl { display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; scroll-snap-type:x mandatory; }
   #iglhview .sl img { flex:0 0 auto; width:min(300px,64vw); aspect-ratio:4/5; object-fit:cover; border-radius:12px; scroll-snap-align:center; }
-  #iglhview .cap { color:#b9b9b9; font-size:12.5px; margin-top:10px; white-space:pre-wrap; }
+  #iglhview .capbloc { margin-top:14px; background:#141416; border:1px solid #2a2a2d; border-radius:10px; padding:10px 12px 8px; }
+  #iglhview .caphd { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:#8d8d8d; }
+  #iglhview .capact { margin-left:auto; display:flex; gap:6px; }
+  #iglhview .capact button { background:#2a2a2d; color:#e0bd6a; border:1px solid #3a3a3d; border-radius:6px; padding:4px 9px; font:600 11px/1.3 var(--sans); cursor:pointer; letter-spacing:0; text-transform:none; }
+  #iglhview .capact button:hover { background:#e0bd6a; color:#111; }
+  #iglhview .capact button[disabled] { opacity:.45; cursor:default; }
+  #iglhview #iglhvc { width:100%; box-sizing:border-box; resize:vertical; background:#1b1b1d; color:#eee; border:1px solid #333; border-radius:8px; padding:8px 10px; font:13px/1.5 var(--sans); white-space:pre-wrap; }
+  #iglhview #iglhvc:focus { outline:none; border-color:#e0bd6a; }
+  #iglhview .caphint { display:block; font-size:11px; color:#8d8d8d; min-height:13px; margin-top:4px; }
   #iglhview .sl figure { flex:0 0 auto; margin:0; position:relative; }
   #iglhview .sl figure.tire { opacity:.45; }
   #iglhview .sl figure.cible img { outline:2px dashed #e0bd6a; outline-offset:3px; }
@@ -2293,7 +2301,8 @@ try {
         }
         zip.file(`${String(i + 1).padStart(2, '0')}-${i === 0 ? 'couverture' : 'slide'}.${ext}`, blob);
       }
-      if (ouvert.caption) zip.file('legende.txt', String(ouvert.caption));
+      const legende = document.getElementById('iglhvc')?.value || ouvert.caption || '';
+      if (legende) zip.file('legende.txt', legende);
       bouton.textContent = '\u2026 archive';
       const contenu = await zip.generateAsync({ type: 'blob' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(contenu); a.download = `${nom}.zip`; document.body.appendChild(a); a.click(); a.remove();
@@ -2304,6 +2313,35 @@ try {
     } finally { bouton.disabled = false; bouton.textContent = texte; }
   }
   document.addEventListener('click', (e) => { if (e.target.id === 'iglhdl') telechargerCarrousel(e.target); });
+
+  // ── Légende Instagram : éditer, copier, enregistrer, faire réécrire ──────
+  document.addEventListener('input', (e) => {
+    if (e.target.id !== 'iglhvc') return;
+    const t = e.target; document.getElementById('iglhcapsave').disabled = t.value === (t.dataset.init || '');
+    document.getElementById('iglhcaphint').textContent = t.value.length + ' caractères' + (t.value.length > 2200 ? ' · Instagram coupe à 2 200' : '');
+  });
+  document.addEventListener('click', async (e) => {
+    const id = e.target.id; if (!/^iglhcap(copy|save|gen)$/.test(id) || !ouvert) return;
+    const t = document.getElementById('iglhvc'), hint = document.getElementById('iglhcaphint');
+    if (id === 'iglhcapcopy') {
+      try { await navigator.clipboard.writeText(t.value); hint.textContent = 'légende copiée · collez-la dans Instagram'; } catch { t.select(); hint.textContent = 'sélectionnée : ⌘C pour copier'; }
+      return;
+    }
+    if (id === 'iglhcapsave') {
+      if (!ouvert.id) { alert('Rendu de référence : rien à enregistrer.'); return; }
+      e.target.disabled = true;
+      try { await window.enregistrerCarrouselLrdh(ouvert.id, { caption: t.value }); ouvert.caption = t.value; t.dataset.init = t.value; hint.textContent = 'légende enregistrée'; }
+      catch (err) { e.target.disabled = false; hint.textContent = 'échec : ' + String(err.message || err).slice(0, 80); }
+      return;
+    }
+    if (id === 'iglhcapgen') {
+      if (!ouvert.wpUrl || !window.fabriquerCarrouselLrdh) { alert('Base indisponible ou carrousel sans article.'); return; }
+      e.target.disabled = true; e.target.textContent = '…';
+      try { await window.fabriquerCarrouselLrdh(ouvert.wpUrl, { legendes: 'true' }); hint.textContent = 'réécriture lancée · la légende apparaîtra ici dans deux minutes (rouvrez le carrousel)'; }
+      catch (err) { hint.textContent = 'échec : ' + String(err.message || err).slice(0, 80); }
+      finally { e.target.disabled = false; e.target.textContent = '✨ Réécrire par la machine'; }
+    }
+  });
 
   // ── Editer le carrousel ──────────────────────────────────────────────────
   // Le carrousel est fabrique automatiquement : ni la photo qui ouvre, ni le
@@ -2624,7 +2662,9 @@ try {
       ouvert = p;
       travail = initial();
       rendreSlides();
-      document.getElementById('iglhvc').textContent = p.caption || '';
+      const cap = document.getElementById('iglhvc'); cap.value = p.caption || ''; cap.dataset.init = cap.value;
+      document.getElementById('iglhcapsave').disabled = true;
+      document.getElementById('iglhcaphint').textContent = cap.value ? cap.value.length + ' caractères' : '';
       document.getElementById('iglhview').classList.add('on');
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('iglhview').classList.remove('on'); });
@@ -2643,7 +2683,7 @@ try {
 </div></div>
 <div id="iglhview"><div class="box">
   <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
-  <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="cap" id="iglhvc"></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
+  <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="capbloc"><div class="caphd"><span>Légende Instagram</span><span class="capact"><button id="iglhcapcopy" type="button">📋 Copier</button><button id="iglhcapsave" type="button" disabled>💾 Enregistrer la légende</button><button id="iglhcapgen" type="button" title="La machine réécrit la légende (accroche, faits, lien bio, hashtags) · deux minutes">✨ Réécrire par la machine</button></span></div><textarea id="iglhvc" rows="9" spellcheck="true" placeholder="Pas encore de légende : cliquez « Réécrire par la machine »."></textarea><span class="caphint" id="iglhcaphint"></span></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
 </html>
