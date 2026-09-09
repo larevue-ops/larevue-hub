@@ -13,6 +13,9 @@ import * as N from './noyau.js';
 
 const CLOUD = 'dghhiz8ou';
 const PRESET = 'larevue_articles';
+// Preset sans transformation entrante : `larevue_articles` borne tout a 1200x800,
+// ce qui ramenait une video verticale 720x1280 a 450x800 (constate le 09/09/2026).
+const PRESET_VIDEO = 'larevue_videos';
 const BASE = './assets/ig-lrdh';
 
 let _pret = null;
@@ -79,12 +82,13 @@ export async function importer(url) {
   let propre = String(url || '').trim();
   if (!/^https?:\/\//i.test(propre)) throw new Error('Adresse invalide : elle doit commencer par https://');
   propre = await resoudreVideo(propre);
+  const video = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(propre) || /streamable\.com/i.test(String(url));
   const fd = new FormData();
   fd.append('file', propre);
-  fd.append('upload_preset', PRESET);
+  fd.append('upload_preset', video ? PRESET_VIDEO : PRESET);
   let j = null;
   try {
-    const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/auto/upload`, { method: 'POST', body: fd });
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/${video ? 'video' : 'auto'}/upload`, { method: 'POST', body: fd });
     j = await r.json();
   } catch (e) {
     j = { error: { message: String(e.message || e) } };
