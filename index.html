@@ -2327,7 +2327,9 @@ try {
     document.getElementById('iglhetat').textContent = chg ? 'modifié' : '';
     document.getElementById('iglhaide').textContent = rec
       ? 'Modifiez le texte sous chaque visuel, collez une adresse pour remplacer une photo (ou poser une vidéo à la place), échangez les photos entre deux slides, ou glissez une vignette pour la déplacer.'
-      : 'Carrousel produit avant l’éditeur : seul l’ordre est modifiable. Les prochains seront éditables en entier.';
+      : (Array.isArray(ouvert?.recette) && ouvert.recette.length
+          ? 'Recette incomplète (' + ouvert.recette.length + ' entrée' + (ouvert.recette.length > 1 ? 's' : '') + ' pour ' + (ouvert.slides || []).length + ' visuels) : seul l’ordre est modifiable. « ↻ Refaire par la machine » le refabrique avec une recette complète, la version actuelle est conservée.'
+          : 'Ce carrousel n’a pas de recette (fabriqué avant l’éditeur du 26 août) : seul l’ordre est modifiable. « ↻ Refaire par la machine », en haut à droite, le refabrique avec ses textes et photos éditables · la version actuelle est conservée.');
     if (rec) travail.forEach((_, i) => peindre(i));
   }
 
