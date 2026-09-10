@@ -159,7 +159,11 @@
      tient donc pas compte du crenage entre deux mots. Le navigateur, lui,
      faconne la ligne d'un bloc et gagne quelques dixiemes, ce qui suffit a
      faire glisser une coupure. Sans crenage, les deux mesures se rejoignent. */
-  #mcovwys { font-kerning:none; font-variant-ligatures:none; }
+  #mcovwys { font-kerning:none; font-variant-ligatures:none; white-space:pre-wrap; }
+  .msize { display:flex; align-items:center; gap:8px; margin:2px 0 10px }
+  .msize button { padding:4px 12px; font-size:15px; line-height:1; border:1px solid var(--border-2); background:transparent; border-radius:8px; cursor:pointer }
+  .msize input { width:72px; text-align:center }
+  .msize .hint { margin-left:4px }
   #mcovwys .wys-mk { font-size:0 !important; }
   #mcovwys .wys-pill { background:#dc2626; color:#fff; font-style:italic; white-space:nowrap;
     border-radius:2px; padding:0 .04em; }
@@ -566,6 +570,16 @@
                   aria-label="Aperçu du titre tel qu'il sera dessiné sur la cover"></canvas>
           <div class="apercu-note">
             <span id="mcovprevmeta"></span><span id="mcovprevwarn" class="alerte"></span>
+          </div>
+        </div>
+        <div id="msizerow">
+          <label>Taille du titre <span class="hint">· vide = 78 px (66 en test) · Entrée dans le champ = saut de ligne</span></label>
+          <div class="msize">
+            <button type="button" id="msizemoins" title="Réduire le texte">−</button>
+            <input id="msize" type="number" min="40" max="110" step="2" placeholder="auto">
+            <button type="button" id="msizeplus" title="Agrandir le texte">+</button>
+            <button type="button" id="msizereset" title="Revenir au corps du gabarit">auto</button>
+            <span class="hint">px · l'aperçu suit</span>
           </div>
         </div>
         <div id="mbrandrow">
@@ -1653,6 +1667,7 @@ window.openModal = (qkey, id) => {
   document.getElementById('mnote').value = post.linkedinNote || '';
   document.getElementById('minset').value = post.linkedinInsetImage || '';
   document.getElementById('minsetlabel').value = post.linkedinInsetLabel || '';
+  document.getElementById('msize').value = post.linkedinTitleSize ? String(post.linkedinTitleSize) : '';
   const syncStyleUI = () => {
     const isTest = isLrdhStyle && document.getElementById('mstyle').value === 'test';
     document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
@@ -1817,6 +1832,14 @@ function wysInit() {
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); document.execCommand('insertText', false, '\n'); }
     });
+    // Taille du titre : − / + par pas de 4 px, « auto » = corps du gabarit.
+    const msize = document.getElementById('msize');
+    const defaut = () => (document.getElementById('mstyle').value === 'test' ? 66 : 78);
+    const poser = (v) => { msize.value = v ? String(Math.min(110, Math.max(40, v))) : ''; planifierApercuTitre(); };
+    document.getElementById('msizemoins').addEventListener('click', () => poser((+msize.value || defaut()) - 4));
+    document.getElementById('msizeplus').addEventListener('click', () => poser((+msize.value || defaut()) + 4));
+    document.getElementById('msizereset').addEventListener('click', () => poser(0));
+    msize.addEventListener('input', () => planifierApercuTitre());
     el.addEventListener('paste', (e) => {
       e.preventDefault();
       document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text'));
@@ -1890,6 +1913,7 @@ async function dessinerApercuTitre() {
     style: document.getElementById('mstyle').value,
     title: document.getElementById('mcovtitle').value,
     brand: document.getElementById('mbrand').value,
+    size: +document.getElementById('msize').value || 0,
   });
   // Marge haute et basse identiques : on montre le bloc-titre, pas la cover.
   const MARGE = 44;
@@ -1941,6 +1965,8 @@ window.saveEdit = async () => {
       if (style === 'test' && note !== (post.linkedinNote || '')) rr.note = note;
   const _ins=document.getElementById('minset').value.trim(); if(_ins) rr.insetImage=_ins;
   const _insl=document.getElementById('minsetlabel').value.trim(); if(_insl) rr.insetLabel=_insl;
+      const _ts = +document.getElementById('msize').value || 0;
+      if (_ts !== (+post.linkedinTitleSize || 0)) rr.titleSize = _ts;   // 0 = retour au corps du gabarit
       const loc = document.getElementById('mloc').value.trim();
       if (loc !== (post.linkedinLocation || '')) rr.location = loc;
       const cropX = +document.getElementById('mcropx').value;

@@ -224,7 +224,19 @@ export function toCitation(title = '') {
 // Rétrécit le corps jusqu'à tenir dans `maxLines`, puis coupe le surplus —
 // exactement comme le générateur, y compris la coupe silencieuse, que
 // l'appelant peut signaler grâce à `truncated`.
-function ajuster(ctx, segments, g) {
+// [10/09/2026] Corps imposé par la rédaction (demande user : « réduire ou
+// augmenter le texte »). Borné pour rester dessinable ; 0 ou vide = corps du
+// gabarit. Un corps plus petit laisse tenir plus de lignes, à hauteur de bloc
+// constante.
+export const TAILLE_MIN = 40;
+export const TAILLE_MAX = 110;
+export function tailleVoulue(size) {
+  const n = Number(size);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(Math.min(TAILLE_MAX, Math.max(TAILLE_MIN, n)));
+}
+
+function ajuster(ctx, segments, g, sizeVoulu = 0) {
   // ⚠️ Boucle recopiee TELLE QUELLE du generateur, quirk compris : quand le
   // titre ne rentre toujours pas au corps minimum, on sort avec `size` un cran
   // EN DESSOUS du corps qui a servi a la decoupe. Le generateur dessine donc
@@ -232,23 +244,25 @@ function ajuster(ctx, segments, g) {
   // doit montrer ce qui sera dessine, pas ce qui aurait du l'etre. Si on
   // corrige un jour, ce sera ici, et les deux cotes suivront ensemble.
   const blocs = decouperEnBlocs(segments);
-  let size = g.sizeMax;
+  const impose = tailleVoulue(sizeVoulu);
+  let size = impose || g.sizeMax;
+  const maxLines = impose ? Math.min(12, Math.max(g.maxLines, Math.floor(g.maxLines * g.sizeMax / impose))) : g.maxLines;
   let lines = [];
   // Corps FIXE (08/09/2026) : on habille au corps maximal et on s'arrête là,
   // quel que soit le nombre de lignes. La boucle de réduction ci-dessous ne
   // sert plus qu'aux gabarits qui n'ont pas `fixe`.
-  if (g.fixe) {
+  if (g.fixe || impose) {
     lines = blocs.flatMap((b) => wrapEditorialSegments(ctx, b, g.maxWidth, size));
   } else while (size >= g.sizeMin) {
     // Chaque bloc est habille separement, puis les lignes s'enchainent : un
     // saut de ligne force donc une nouvelle ligne, et le corps se reduit sur
     // le TOTAL, comme le ferait un titre d'un seul tenant.
     lines = blocs.flatMap((b) => wrapEditorialSegments(ctx, b, g.maxWidth, size));
-    if (lines.length <= g.maxLines) break;
+    if (lines.length <= maxLines) break;
     size -= g.sizeStep;
   }
-  const truncated = lines.length > g.maxLines;
-  if (truncated) lines = lines.slice(0, g.maxLines);
+  const truncated = lines.length > maxLines;
+  if (truncated) lines = lines.slice(0, maxLines);
   return {
     size,
     lines,
@@ -264,21 +278,21 @@ function ajuster(ctx, segments, g) {
 
 // Gabarit « Actu » · le titre reprend la marque en surligné si l'auteur
 // n'a posé aucun marqueur lui-même.
-export function layoutNewsTitle(ctx, { title = '', brand = '' } = {}) {
+export function layoutNewsTitle(ctx, { title = '', brand = '', size = 0 } = {}) {
   const clean = nettoyerTitre(title);
-  return ajuster(ctx, autoItaliciseBrand(clean, stripHtml(brand)), NEWS);
+  return ajuster(ctx, autoItaliciseBrand(clean, stripHtml(brand)), NEWS, size);
 }
 
 // Gabarit « On a testé » · pas de reprise de marque, mais une mise en citation.
-export function layoutTestTitle(ctx, { title = '' } = {}) {
+export function layoutTestTitle(ctx, { title = '', size = 0 } = {}) {
   const clean = nettoyerTitre(title);
-  return ajuster(ctx, parseItalicMarkers(toCitation(clean)), TEST);
+  return ajuster(ctx, parseItalicMarkers(toCitation(clean)), TEST, size);
 }
 
-export function layoutTitle(ctx, { style = 'news', title = '', brand = '' } = {}) {
+export function layoutTitle(ctx, { style = 'news', title = '', brand = '', size = 0 } = {}) {
   return style === 'test'
-    ? layoutTestTitle(ctx, { title })
-    : layoutNewsTitle(ctx, { title, brand });
+    ? layoutTestTitle(ctx, { title, size })
+    : layoutNewsTitle(ctx, { title, brand, size });
 }
 
 // Dessine UNE ligne deja decoupee : surlignage des *mots*, texte, soulignage
