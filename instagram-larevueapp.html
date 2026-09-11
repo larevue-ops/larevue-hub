@@ -99,7 +99,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as N from './assets/ig-lra/noyau.js?v=20260911';
+import * as N from './assets/ig-lra/noyau.js?v=20260911b';
 
 const app = initializeApp({
   apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
@@ -118,18 +118,6 @@ function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('on'); 
 
 let etat = { photo:null, marque:null, taille:0, article:null };
 
-/** Coupe un titre en 3 lignes à peu près égales, sans casser les mots. */
-function enLignes(t, n = 3) {
-  const mots = t.split(/\s+/); const cible = Math.ceil(t.length / n);
-  const out = []; let cur = '';
-  for (const m of mots) {
-    if (cur && (cur + ' ' + m).length > cible && out.length < n - 1) { out.push(cur); cur = m; }
-    else cur = cur ? cur + ' ' + m : m;
-  }
-  if (cur) out.push(cur);
-  return out.join(' | ');
-}
-
 async function rendre() {
   const cv = $('#cv');
   etat.taille = N.dessiner(cv, {
@@ -143,7 +131,7 @@ async function rendre() {
 
 async function charger(a) {
   etat.article = a;
-  $('#titre').value = enLignes(txt(a.title.rendered));
+  $('#titre').value = N.coupeTitre(a.title.rendered);
   $('#rub').value = a.rubrique || '';
   $('#url').value = a.cover || '';
   etat.forcee = 0;
@@ -158,7 +146,7 @@ async function lister() {
   r.forEach(a => {
     const m = a._embedded?.['wp:featuredmedia']?.[0];
     a.cover = m?.source_url || '';
-    a.rubrique = a._embedded?.['wp:term']?.[0]?.[0]?.name || '';
+    a.rubrique = txt(a._embedded?.['wp:term']?.[0]?.[0]?.name || '');
     const d = document.createElement('div');
     d.className = 'art';
     d.innerHTML = `<img src="${esc(a.cover)}" alt=""><div><div class="ti">${esc(txt(a.title.rendered))}</div>`
