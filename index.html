@@ -2326,8 +2326,15 @@ try {
   #iglhview .sl .vidnote { font-size:11.5px; color:#8d8d8d; line-height:1.35; background:#1b1b1d;
     border:1px solid #333; border-radius:8px; padding:7px 9px; }
   #iglhview .sl .num.vd { background:rgba(224,189,106,.9); color:#111; }
-  #iglhview .sl .rm { position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; border:1px solid rgba(255,255,255,.35);
-    background:rgba(0,0,0,.6); color:#fff; font-size:13px; line-height:1; cursor:pointer; opacity:0; transition:opacity .15s; }
+  /* ⚠️ Le ✕ et les fleches etaient tous deux cales a `top:8px; right:8px`. Les
+     fleches, posees apres et en `z-index:2`, recouvraient le ✕ : le bouton
+     existait, son gestionnaire marchait, mais aucun clic ne l'atteignait.
+     Signale par le user le 11/09/2026. Le ✕ garde le coin, les fleches
+     reculent (voir la regle `.fl` plus bas).
+     Et il ne se montre plus au seul survol : sur un ecran tactile il n'y a pas
+     de survol, et une commande invisible est une commande absente. */
+  #iglhview .sl .rm { position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:1px solid rgba(255,255,255,.4);
+    background:rgba(0,0,0,.62); color:#fff; font-size:13px; line-height:1; cursor:pointer; opacity:.62; transition:opacity .15s, background .15s; z-index:3; }
   #iglhview .sl figure:hover .rm { opacity:1; }
   #iglhview .sl .rm:hover { background:#8a1c1c; border-color:#8a1c1c; }
   #iglhview .sl .cv .vide { color:#8d8d8d; font-size:14px; text-align:center; padding:18px; line-height:1.45; }
@@ -2338,7 +2345,7 @@ try {
   #iglhview .sl .ajout button b { font-size:18px; line-height:1; }
   #iglhview .sl .ajout button:hover { background:#e0bd6a; color:#111; }
   #iglhview .sl .num { z-index:2; }
-  #iglhview .sl .fl { bottom:auto; top:8px; right:8px; left:auto; transform:none; z-index:2; }
+  #iglhview .sl .fl { bottom:auto; top:8px; right:46px; left:auto; transform:none; z-index:2; }
   /* Le choix de l'article. Meme habillage que la fenetre d'edition : c'est la
      meme fonction, choisir puis fabriquer, et deux habillages differents
      feraient croire a deux outils. */
@@ -2664,7 +2671,7 @@ try {
     b.textContent = rec ? 'Enregistrer les modifications' : "Enregistrer l'ordre";
     document.getElementById('iglhetat').textContent = incomplet() ? 'un slide n’a pas encore de visuel' : (chg ? 'modifié' : '');
     document.getElementById('iglhaide').textContent = rec
-      ? 'Modifiez le texte sous chaque visuel (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, ou glissez une vignette pour la déplacer.'
+      ? 'Modifiez le texte sous chaque visuel (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, glissez une vignette pour la déplacer, ou retirez-en une avec le ✕ en haut à droite.'
       : (Array.isArray(ouvert?.recette) && ouvert.recette.length
           ? 'Recette incomplète (' + ouvert.recette.length + ' entrée' + (ouvert.recette.length > 1 ? 's' : '') + ' pour ' + (ouvert.slides || []).length + ' visuels) : seul l’ordre est modifiable. « ↻ Refaire par la machine » le refabrique avec une recette complète, la version actuelle est conservée.'
           : 'Ce carrousel n’a pas de recette (fabriqué avant l’éditeur du 26 août) : seul l’ordre est modifiable. « ↻ Refaire par la machine », en haut à droite, le refabrique avec ses textes et photos éditables · la version actuelle est conservée.');
