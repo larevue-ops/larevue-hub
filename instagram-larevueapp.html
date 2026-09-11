@@ -97,9 +97,9 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, addDoc, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import * as N from './assets/ig-lra/noyau.js?v=20260911b';
+import * as N from './assets/ig-lra/noyau.js?v=20260911c';
 
 const app = initializeApp({
   apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
@@ -178,8 +178,55 @@ $('#dl').onclick = () => {
     a.click(); URL.revokeObjectURL(u);
   }, 'image/png');
 };
+// ─── Reprise d'un visuel deja en file ───────────────────────────────────────
+//
+// Le crayon du hub ouvre cette page sur `#edit=<id>` : on recharge la RECETTE
+// du document, on la remet dans l'editeur, et le bouton n'ajoute plus, il
+// enregistre. Un seul editeur, deux portes d'entree — plutot qu'une deuxieme
+// interface d'edition dans le hub, qui aurait diverge de celle-ci.
+let enEdition = null;
+
+async function reprendre(id) {
+  const ref = doc(db, 'lra_instagram_queue', id);
+  let snap;
+  try { snap = await getDoc(ref); } catch (e) { return toast('lecture refusée : ' + e.message); }
+  if (!snap.exists()) return toast('ce visuel n\'est plus en file');
+  const a = snap.data();
+  if (a.etat === 'publie') return toast('déjà publié · non modifiable');
+  enEdition = id;
+  etat.article = { id: a.postId, link: a.lien };
+  $('#titre').value = a.titreVisuel || '';
+  $('#rub').value = a.rubrique || '';
+  $('#url').value = a.photo || '';
+  $('#theme').value = a.theme || 'jaune';
+  $('#ax').value = Math.round((a.ancrageX === undefined ? .5 : a.ancrageX) * 100);
+  $('#ay').value = Math.round((a.ancrageY === undefined ? .5 : a.ancrageY) * 100);
+  // ⚠️ `taille` est un corps FIGE choisi a la main : le reprendre tel quel,
+  // sinon la reprise change la taille du texte sans que personne l'ait demande.
+  etat.forcee = a.taille || 0;
+  etat.photo = null;
+  if (a.photo) { try { etat.photo = await N.charger(a.photo); } catch (e) { toast('photo illisible'); } }
+  rendre();
+  $('#file').textContent = '✓ Enregistrer les modifications';
+  document.querySelectorAll('.art').forEach(x => x.classList.remove('on'));
+  toast('visuel repris · modifiez puis enregistrez');
+}
+
 $('#file').onclick = async () => {
-  if (!etat.article) return;
+  if (!etat.article && !enEdition) return;
+  const recette = {
+    titreVisuel: $('#titre').value, rubrique: $('#rub').value,
+    theme: $('#theme').value, photo: $('#url').value,
+    ancrageX: +$('#ax').value / 100, ancrageY: +$('#ay').value / 100,
+    taille: etat.forcee || 0,
+  };
+  if (enEdition) {
+    try {
+      await updateDoc(doc(db, 'lra_instagram_queue', enEdition), { ...recette, modifie: new Date().toISOString() });
+      toast('modifications enregistrées');
+    } catch (e) { toast('échec : ' + e.message); }
+    return;
+  }
   try {
     await addDoc(collection(db, 'lra_instagram_queue'), {
       postId: etat.article.id, lien: etat.article.link,
@@ -203,7 +250,9 @@ onAuthStateChanged(auth, async u => {
   $('#appmain').style.display = 'grid';
   const { marque } = await N.pret();
   etat.marque = marque;
-  lister();
+  await lister();
+  const m = location.hash.match(/^#edit=(.+)$/);
+  if (m) reprendre(decodeURIComponent(m[1]));
 });
 </script>
 </body></html>
