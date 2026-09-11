@@ -69,6 +69,12 @@ export function decoder(t) {
     .replace(/\s+/g, ' ').trim();
 }
 
+// L'ecart entre les lignes du titre. Le user l'a trouve trop serre le 11/09 :
+// en capitales tres grasses, 1,06 collait les lignes entre elles. Une seule
+// constante ici, parce que TROIS endroits doivent rester d'accord — la mesure,
+// le choix du corps et le dessin. Trois « 1.06 » en dur, c'etait trois
+// occasions de diverger.
+const INTERLIGNE = 1.18;
 const SKEW = -0.122;                         // ≈ 7° d'inclinaison, comme la référence
 const MARGE = 64, BAS = 86, LARGEUR_MAX = L - MARGE * 2;
 
@@ -82,10 +88,10 @@ function mesurer(ctx, lignes, px) {
 }
 
 /** Cherche le plus grand corps qui tienne dans la zone basse. */
-export function corpsAuto(ctx, lignes, hauteurMax = 520, depart = 118) {
+export function corpsAuto(ctx, lignes, hauteurMax = 566, depart = 118) {
   for (let px = depart; px >= 40; px -= 2) {
     const m = mesurer(ctx, lignes, px);
-    const h = lignes.length * px * 1.06;
+    const h = lignes.length * px * INTERLIGNE;
     if (h <= hauteurMax && m.every(x => x.larg <= LARGEUR_MAX)) return px;
   }
   return 40;
@@ -167,12 +173,12 @@ function equilibrer(ctx, jetons, largeurMax, nLignes) {
 }
 
 /** Le plus gros corps qui tienne, et a corps egal le moins de creux. */
-export function coupeAuto(ctx, titre, hauteurMax = 520, depart = 118) {
+export function coupeAuto(ctx, titre, hauteurMax = 566, depart = 118) {
   const jetons = jetonsDe(decoder(titre));
   let meilleur = null;
   for (let n = 1; n <= 5 && n <= jetons.length; n++) {
     for (let px = depart; px >= 40; px -= 2) {
-      if (n * px * 1.06 > hauteurMax) continue;
+      if (n * px * INTERLIGNE > hauteurMax) continue;
       ctx.font = `${px}px ${POLICE}`;
       const rep = equilibrer(ctx, jetons, LARGEUR_MAX, n);
       if (!rep) continue;
@@ -185,7 +191,7 @@ export function coupeAuto(ctx, titre, hauteurMax = 520, depart = 118) {
 
 let _mesureur = null;
 /** Coupe un titre pour le champ de saisie : « mot mot | mot mot | … ». */
-export function coupeTitre(titre, hauteurMax = 520) {
+export function coupeTitre(titre, hauteurMax = 566) {
   if (!_mesureur) _mesureur = document.createElement('canvas').getContext('2d');
   const r = coupeAuto(_mesureur, titre, hauteurMax);
   return r ? r.lignes.join(' | ') : decoder(titre);
@@ -226,19 +232,19 @@ export function dessiner(cv, o) {
   let lignes, px;
   if (brut.includes('|')) {
     lignes = brut.split('|').map(x => decoder(x)).filter(Boolean);
-    px = o.taille || corpsAuto(ctx, lignes, o.hauteurMax || 520);
+    px = o.taille || corpsAuto(ctx, lignes, o.hauteurMax || 566);
     // ⚠️ `corpsAuto` a un plancher a 40 px : atteint, il rend 40 px MEME si la
     // ligne deborde du cadre. Mieux vaut recouper que deborder.
     if (!o.taille && mesurer(ctx, lignes, px).some(x => x.larg > LARGEUR_MAX)) {
-      const r = coupeAuto(ctx, lignes.join(' '), o.hauteurMax || 520);
+      const r = coupeAuto(ctx, lignes.join(' '), o.hauteurMax || 566);
       if (r) { lignes = r.lignes; px = r.px; }
     }
   } else {
-    const r = coupeAuto(ctx, brut, o.hauteurMax || 520);
+    const r = coupeAuto(ctx, brut, o.hauteurMax || 566);
     lignes = r ? r.lignes : [decoder(brut)];
-    px = o.taille || (r ? r.px : corpsAuto(ctx, [decoder(brut)], o.hauteurMax || 520));
+    px = o.taille || (r ? r.px : corpsAuto(ctx, [decoder(brut)], o.hauteurMax || 566));
   }
-  const interligne = px * 1.06;
+  const interligne = px * INTERLIGNE;
   const mesures = mesurer(ctx, lignes, px);
   let y = H - BAS - (lignes.length - 1) * interligne;
   ctx.textBaseline = 'alphabetic';

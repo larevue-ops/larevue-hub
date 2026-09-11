@@ -416,7 +416,7 @@
     </div>
     <div class="strip insta" id="strip-insta-lra">
       <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#d8232a">📰 La Revue</span> · <span id="iglracount">0</span> en file</span>
-        <button id="iglrago" title="Publier tout de suite, sans attendre le passage de 10h30 ou 18h30">Publier maintenant</button>
+        <button id="iglrago" title="Publier le prochain visuel tout de suite, sans attendre l'heure">Publier maintenant</button>
         <a href="./instagram-larevueapp.html" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#d8232a;text-decoration:none">Page dédiée · fabriquer un visuel →</a></div>
       <div class="list" id="iglralist"></div>
     </div>
@@ -791,14 +791,18 @@ function instantParis(joursApres, h, mn) {
                         - new Date(sonde.toLocaleString('en-US', { timeZone: 'UTC' }))) / 3600000);
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + joursApres, h - dec, mn, 0));
 }
-// Les passages du publieur Instagram : 10h30 et 18h30, heure de Paris.
-const PASSAGES_IG = [[10, 30], [18, 30]];
-const IG_PAR_PASSAGE = 3;
+// Les passages du publieur Instagram : toutes les heures de 10h20 a 20h20,
+// heure de Paris, UN visuel par passage. Doit rester d'accord avec le cron de
+// `.github/workflows/instagram-larevue.yml` — sinon la carte annonce une heure
+// a laquelle rien ne part.
+const IG_HEURES = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+const IG_MINUTE = 20;
+const IG_PAR_PASSAGE = 1;
 function passagesIg(combien) {
   const out = [];
   for (let d = 0; d < 7 && out.length < combien; d++) {
-    for (const [h, mn] of PASSAGES_IG) {
-      const t = instantParis(d, h, mn);
+    for (const h of IG_HEURES) {
+      const t = instantParis(d, h, IG_MINUTE);
       if (t > new Date()) out.push(t);
       if (out.length >= combien) break;
     }
@@ -1329,7 +1333,7 @@ function rendreIgLra(rows) {
     else if (r.etat === 'erreur') badge = `<span class="badge rerr" title="${esc(String(r.erreur || '').slice(0, 240))}">⚠️ échec</span>`;
     else {
       const t = creneaux[Math.floor(rang / IG_PAR_PASSAGE)];
-      badge = `<span class="badge ${rang === 0 ? 'next' : ''}" title="Heure de Paris · le publieur passe à 10h30 et 18h30, trois visuels par passage">${rang === 0 ? '▶ ' : ''}${t ? esc(fdate(t.toISOString())) : 'en file'}</span>`;
+      badge = `<span class="badge ${rang === 0 ? 'next' : ''}" title="Heure de Paris · le publieur passe toutes les heures, un visuel par passage">${rang === 0 ? '▶ ' : ''}${t ? esc(fdate(t.toISOString())) : 'en file'}</span>`;
     }
     // Publie : l'image finale existe sur Cloudinary, inutile de la redessiner.
     // En file : le document ne porte que la RECETTE, on la dessine ici, avec le
@@ -1341,14 +1345,13 @@ function rendreIgLra(rows) {
       : (r.lien ? `<a class="lnk" target="_blank" href="${esc(r.lien)}">📄 Voir l'article →</a>` : '');
     const crayon = r.etat === 'publie' ? ''
       : `<a class="edit" href="./instagram-larevueapp.html#edit=${encodeURIComponent(r.id)}" title="Modifier le titre, le thème ou le cadrage">✏️</a>`;
-    return `<div class="card">${vis}${badge}${crayon}
+    return `<div class="card${r.etat === 'publie' ? ' parti' : ''}">${vis}${badge}${crayon}
       <div class="body"><div class="ti">${titre}</div>
       <div class="cap">${esc(de(r.rubrique || ''))}</div>${lien}</div></div>`;
   };
 
   let rang = 0;
   const html = [...attente.map((r, i) => carte(r, i, rang++)), ...rates.map(r => carte(r, 0, -1)),
-                ...(partis.length && (attente.length || rates.length) ? ['<div class="sep"></div>'] : []),
                 ...partis.map(r => carte(r, 0, -1))].join('');
   boite.innerHTML = html || '<div class="vide">File vide · choisissez des articles sur la page dédiée.</div>';
 
@@ -1383,7 +1386,7 @@ window.publierIgLraMaintenant = async () => {
   const r = await fetch('https://api.github.com/repos/larevue-media/larevue-social-runner/actions/workflows/instagram-larevue.yml/dispatches', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ref: 'main', inputs: { publier: 'true', max: '3' } }),
+    body: JSON.stringify({ ref: 'main', inputs: { publier: 'true', max: '1' } }),
   });
   if (r.status !== 204) throw new Error(`GitHub a repondu ${r.status}`);
   return true;
@@ -2191,7 +2194,17 @@ try {
   #strip-insta-lra { background:color-mix(in srgb, var(--lra) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lra) 22%, var(--border)); }
   #strip-insta-lra .t { color:var(--lra); }
   #strip-insta-lra .list { display:grid; grid-template-columns:repeat(auto-fill,minmax(186px,1fr)); gap:14px; max-height:none; overflow:visible; }
-  #strip-insta-lra .card { position:relative; }
+  #strip-insta-lra .card { position:relative; display:flex; flex-direction:column; border-radius:12px; overflow:hidden; }
+  #strip-insta-lra .card .body { padding:8px 10px 10px; }
+  #strip-insta-lra .card .ti { font-size:12px; line-height:1.35; }
+  #strip-insta-lra .card .cap { font-size:10.5px; letter-spacing:.8px; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+  #strip-insta-lra .card .lnk { font-size:11px; margin-top:6px; display:inline-block; }
+  #strip-insta-lra .card .badge { top:8px; left:8px; }
+  #strip-insta-lra .card .edit { top:8px; right:8px; }
+  /* Les publies passent au second plan : ce sont des archives, pas des
+     decisions a prendre. */
+  #strip-insta-lra .card.parti { opacity:.62; }
+  #strip-insta-lra .card.parti:hover { opacity:1; }
   #strip-insta-lra .cover { width:100%; aspect-ratio:4/5; object-fit:cover; display:block; background:#0b0b0b; border-radius:10px 10px 0 0; }
   #strip-insta-lra .line { border-bottom:1px solid color-mix(in srgb, var(--lra) 10%, transparent); align-items:baseline; }
   #strip-insta-lra .line span:last-child { font-size:10.5px; letter-spacing:.6px; text-transform:uppercase; }
