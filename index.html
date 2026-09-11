@@ -414,6 +414,12 @@
         <span id="iglhsrc" style="font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
       <div class="list" id="iglhlist"></div>
     </div>
+    <div class="strip insta" id="strip-insta-lra">
+      <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#d8232a">📰 La Revue</span> · <span id="iglracount">0</span> en file</span>
+        <button id="iglrago" title="Publier tout de suite, sans attendre le passage de 10h30 ou 18h30">Publier maintenant</button>
+        <a href="./instagram-larevueapp.html" style="margin-left:auto;font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#d8232a;text-decoration:none">Page dédiée · fabriquer un visuel →</a></div>
+      <div class="list" id="iglralist"></div>
+    </div>
     <div class="note">Style « exqz » : photo plein cadre, credit discret, titre serif centre. Les carrousels reprennent la selection LinkedIn ·
       ils restent en <b>prets</b> jusqu'a ce que vous les programmiez, rien ne part seul sur le compte.</div>
     <div class="note">Édition complète : caption, horaire, photo et textes de la cover (catégorie, titre, marque). Un visuel modifié est régénéré par GitHub Actions (~2 min, sinon automatiquement avant le prochain créneau).</div>
@@ -1253,6 +1259,76 @@ try {
   }, 'lrdh');
 } catch (e) { console.warn('Instagram LRDH : file illisible, rendus de reference conserves', e); }
 
+// ─── Instagram · La Revue (@larevueapp) ─────────────────────────────────────
+//
+// La file `lra_instagram_queue` est remplie par la page dediee et videe par le
+// workflow `instagram-larevue.yml` du runner, deux fois par jour. Cette bande
+// ne fabrique rien : elle montre ce qui attend, ce qui est parti, ce qui a
+// echoue. Une file vide est l'etat NORMAL, pas une panne — c'est le user qui
+// choisit les articles.
+const ETATS_IG_LRA = {
+  a_publier: { txt: 'en file',  cl: 'ok' },
+  publie:    { txt: 'publié',   cl: 'ok' },
+  erreur:    { txt: 'échec',    cl: 'ko' },
+};
+
+function rendreIgLra(rows) {
+  const boite = document.getElementById('iglralist');
+  const cpt = document.getElementById('iglracount');
+  if (!boite) return;
+  const propre = (t) => de(String(t || '').replace(/[=|]/g, ' ')).replace(/\s+/g, ' ').trim();
+  const attente = rows.filter(r => r.etat === 'a_publier');
+  const rates = rows.filter(r => r.etat === 'erreur');
+  // Les publies ne servent qu'a montrer que la chaine tourne : les six derniers
+  // suffisent, le reste allongerait la bande sans rien apprendre.
+  const partis = rows.filter(r => r.etat === 'publie')
+    .sort((a, b) => String(b.publieLe || '').localeCompare(String(a.publieLe || ''))).slice(0, 6);
+  if (cpt) cpt.textContent = attente.length;
+  const ligne = (r) => {
+    const e = ETATS_IG_LRA[r.etat] || { txt: r.etat || '?', cl: '' };
+    const titre = esc(propre(r.titreVisuel).slice(0, 78)) || '(sans titre)';
+    const droite = r.permalink
+      ? `<a href="${esc(r.permalink)}" target="_blank" rel="noopener">${e.txt} ↗</a>`
+      : (r.etat === 'erreur' ? `<span title="${esc(String(r.erreur || '').slice(0, 200))}">${e.txt}</span>` : e.txt);
+    return `<div class="line"><span>${titre}</span><span>${droite}</span></div>`;
+  };
+  const html = [...attente, ...rates, ...partis].map(ligne).join('');
+  boite.innerHTML = html || '<div class="vide">File vide · choisissez des articles sur la page dédiée.</div>';
+}
+
+// Declenche le workflow tout de suite. Le jeton vit dans `app_config/github_dispatch`,
+// le meme que pour les carrousels LRDH.
+window.publierIgLraMaintenant = async () => {
+  const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
+  if (!snap.exists()) throw new Error('jeton GitHub absent de app_config');
+  const { token } = snap.data();
+  const r = await fetch('https://api.github.com/repos/larevue-media/larevue-social-runner/actions/workflows/instagram-larevue.yml/dispatches', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: 'main', inputs: { publier: 'true', max: '3' } }),
+  });
+  if (r.status !== 204) throw new Error(`GitHub a repondu ${r.status}`);
+  return true;
+};
+
+{
+  const b = document.getElementById('iglrago');
+  if (b) b.onclick = async () => {
+    const attente = document.getElementById('iglracount');
+    if (attente && attente.textContent === '0') { b.textContent = 'file vide'; setTimeout(() => b.textContent = 'Publier maintenant', 2500); return; }
+    b.disabled = true; b.textContent = 'envoi…';
+    try { await window.publierIgLraMaintenant(); b.textContent = 'parti ✓'; }
+    catch (e) { b.textContent = 'échec'; console.error('[hub] Instagram La Revue', e); }
+    setTimeout(() => { b.disabled = false; b.textContent = 'Publier maintenant'; }, 4000);
+  };
+}
+
+try {
+  cachedListen(query(collection(dbPour('lra_instagram_queue'), 'lra_instagram_queue')), 'iglra',
+    (x) => ({ id: x.id, etat: x.etat, titreVisuel: x.titreVisuel, permalink: x.permalink, publieLe: x.publieLe, erreur: x.erreur }),
+    rows => rendreIgLra(rows));
+} catch (e) { console.warn('Instagram La Revue : file illisible', e); }
+
 // Brouillons en attente · requête filtrée (ne lit plus publiés/archivés · quota Firestore)
 cachedListen(query(collection(db, 'news_drafts_auto'), where('status','==','ai_draft_auto'), limit(150)), 'drafts', trimDraft, rows => {
   drafts = rows;
@@ -1419,7 +1495,7 @@ const BLOCS_MEDIA = {
   lrdh: ['#strip-lrdh', '#strip-insta-lrdh'],
   lrdl: ['#strip-lrdl', '#strip-insta', '#drafts-sec'],
   lrdv: ['#strip-lrdv'],
-  lra:  ['#strip-lra'],
+  lra:  ['#strip-lra', '#strip-insta-lra'],
 };
 // ─── Sélecteur de média · divulgation progressive ───────────────────────────
 //
@@ -2029,6 +2105,17 @@ try {
      grille, et notre bande ne portait pas la classe `insta` · sans ces regles,
      une seule carte occupait toute la largeur. On garde en revanche l'ambre
      LRDH plutot que le rose Instagram, pour distinguer les deux files. */
+  /* La bande Instagram de La Revue montre une FILE, pas des vignettes : on
+     annule la grille heritee de `.strip.insta` et on retombe sur des lignes. */
+  #strip-insta-lra { background:color-mix(in srgb, var(--lra) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lra) 22%, var(--border)); }
+  #strip-insta-lra .t { color:var(--lra); }
+  #strip-insta-lra .list { display:block; max-height:none; overflow:visible; }
+  #strip-insta-lra .line { border-bottom:1px solid color-mix(in srgb, var(--lra) 10%, transparent); align-items:baseline; }
+  #strip-insta-lra .line span:last-child { font-size:10.5px; letter-spacing:.6px; text-transform:uppercase; }
+  #strip-insta-lra .line a { color:var(--lra); text-decoration:none; }
+  #strip-insta-lra .line a:hover { text-decoration:underline; }
+  #strip-insta-lra .vide { font-size:12px; color:var(--muted); padding:6px 0; }
+  #strip-insta-lra button { font-size:11.5px; }
   #strip-insta-lrdh { background:color-mix(in srgb, var(--lrdh) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lrdh) 22%, var(--border)); }
   #strip-insta-lrdh .t { color:var(--lrdh); }
   #strip-insta-lrdh .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(164px,1fr)); gap:14px; }
