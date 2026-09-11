@@ -242,6 +242,22 @@ export function dessiner(cv, o) {
   const mesures = mesurer(ctx, lignes, px);
   let y = H - BAS - (lignes.length - 1) * interligne;
   ctx.textBaseline = 'alphabetic';
+  // ⚠️ Les capitales accentuees (É, À, Ê) montent plus haut que les autres :
+  // un bloc de surlignage cale a 0,80 em leur coupe l'accent. Vu sur la
+  // premiere publication reelle, le 11/09 (« MENACE DE DECAPITER » au lieu de
+  // « MENACÉ DE DÉCAPITER »). On mesure l'encre reelle de TOUS les passages
+  // surlignes et on retient la meme hauteur pour tous : une hauteur par ligne
+  // desalignerait les bandes entre elles, ce qui se verrait davantage.
+  ctx.font = `${px}px ${POLICE}`;
+  let monte = px * 0.80;
+  for (const { morceaux } of mesures) {
+    for (const m of morceaux) {
+      if (!m.s) continue;
+      const encre = ctx.measureText(m.t.toUpperCase()).actualBoundingBoxAscent;
+      if (encre) monte = Math.max(monte, encre + px * 0.06);
+    }
+  }
+
   for (const { morceaux } of mesures) {
     let x = MARGE;
     ctx.save();
@@ -251,7 +267,7 @@ export function dessiner(cv, o) {
       const w = ctx.measureText(txt).width;
       if (m.s) {
         ctx.fillStyle = th.accent;
-        ctx.fillRect(x - px * 0.055, y - px * 0.80, w + px * 0.11, px * 0.99);
+        ctx.fillRect(x - px * 0.055, y - monte, w + px * 0.11, monte + px * 0.19);
         ctx.fillStyle = th.encre;
       } else {
         ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = px * 0.28; ctx.shadowOffsetY = px * 0.03;
