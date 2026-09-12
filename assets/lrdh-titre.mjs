@@ -206,6 +206,16 @@ function uniteInsecables(ctx, segments, maxW, size) {
   return unites;
 }
 
+// [12/09/2026] Le coussin de sécurité de la colonne.
+// `maxWidth` vaut 940 alors que la marge physique laisse 960 : il reste 20 px
+// de réserve. Un passage surligné étant INSÉCABLE, il suffit qu'il dépasse de
+// quelques pixels pour basculer en entier à la ligne suivante et laisser un
+// grand trou derrière lui (relevé par le user : « Le groupe » seul sur sa
+// ligne à 36 % de la colonne, parce que le pavé manquait de 10 px).
+// On autorise donc un passage marqué — et lui seul — à mordre sur cette
+// réserve. Le texte ordinaire, lui, continue de s'arrêter à 940.
+const RESERVE_INSECABLE = 20;
+
 export function wrapEditorialSegments(ctx, segments, maxW, size) {
   const tokens = uniteInsecables(ctx, segments, maxW, size);
   const lines = [];
@@ -213,7 +223,9 @@ export function wrapEditorialSegments(ctx, segments, maxW, size) {
   for (const tok of tokens) {
     const test = [...curLine, tok];
     const w = measureEditorialSegments(ctx, test, size);
-    if (w > maxW && curLine.length > 0) {
+    const marque = tok.italic || tok.underline || tok.circle;
+    const plafond = marque && /\S/.test(tok.text) ? maxW + RESERVE_INSECABLE : maxW;
+    if (w > plafond && curLine.length > 0) {
       lines.push(curLine);
       curLine = /^\s+$/.test(tok.text) ? [] : [tok];
     } else {
