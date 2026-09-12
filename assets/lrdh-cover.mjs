@@ -11,7 +11,7 @@
 // Style « Actu · éditorial » seulement. Le style « On a testé » garde l'image
 // déjà générée : sa carte, son sceau et sa plaque de note ne sont pas portés.
 
-import * as TITRE from './lrdh-titre.mjs?v=20260912b';
+import * as TITRE from './lrdh-titre.mjs?v=20260912c';
 
 export const W = 1080;
 export const H = 1350;
