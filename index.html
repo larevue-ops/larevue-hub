@@ -105,6 +105,9 @@
   .modal .mh { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border); font-family:var(--serif); font-size:14px; font-weight:600; position:sticky; top:0; background:var(--surface); }
   .modal .mb { padding:18px; display:flex; gap:16px; flex-wrap:wrap; }
   .modal img { width:200px; border-radius:12px; border:1px solid var(--border); align-self:flex-start; }
+  #mvignette { align-self:flex-start; width:200px; }
+  #mvignette img, #mvignette canvas { width:200px; height:auto; display:block; border-radius:12px; border:1px solid var(--border); }
+  #mlivenote { font-size:10.5px; margin-top:5px; line-height:1.35; }
   .modal .fields { flex:1; min-width:260px; }
   .modal label { display:block; font-size:11px; font-weight:600; color:var(--muted); margin:12px 0 5px; letter-spacing:.01em; }
   .modal textarea, .modal input { width:100%; border:1px solid var(--border-2); border-radius:9px; padding:9px 10px; font-size:12.5px; font-family:inherit; background:var(--surface-2); color:var(--ink); transition:border-color .15s, box-shadow .15s; }
@@ -545,7 +548,12 @@
   <div class="modal">
     <div class="mh"><span id="mtitle">✏️ Modifier le post</span><button class="mclose" onclick="closeModal()">✕</button></div>
     <div class="mb">
-      <img id="mimg" alt="">
+      <div id="mvignette">
+        <img id="mimg" alt="">
+        <canvas id="mlive" width="1080" height="1350" style="display:none"
+                aria-label="Aperçu direct de la cover, redessiné pendant la saisie"></canvas>
+        <div id="mlivenote" class="hint" style="display:none">Aperçu direct · <a href="#" id="mlivetoggle">voir l'image générée</a></div>
+      </div>
       <div class="fields">
         <div id="mpost" style="font-size:12px;font-weight:600;"></div>
         <div id="mstylerow" style="display:none">
@@ -1834,12 +1842,20 @@ window.openModal = (qkey, id) => {
     document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
     document.getElementById('mstylehint').style.display = isTest ? 'block' : 'none';
   };
-  document.getElementById('mstyle').onchange = () => { syncStyleUI(); dessinerApercuTitre(); };
+  document.getElementById('mstyle').onchange = () => { syncStyleUI(); dessinerApercuTitre(); dessinerApercuCover(); };
   syncStyleUI();
   // L'aperçu suit le titre, la marque (reprise en surligné) et le gabarit.
   document.getElementById('mcovtitle').oninput = planifierApercuTitre;
   document.getElementById('mbrand').oninput = planifierApercuTitre;
+  // Tout ce qui se voit sur la cover redessine l'aperçu direct.
+  for (const id of ['mcat', 'mloc', 'minset', 'minsetlabel']) {
+    document.getElementById(id).oninput = planifierApercuCover;
+  }
+  apercuForce = true;
+  document.getElementById('mlivetoggle').onclick = basculerApercuCover;
+  document.getElementById('mlivetoggle').textContent = "voir l'image générée";
   dessinerApercuTitre();
+  dessinerApercuCover();
   document.getElementById('mdate').value = toLocal(post.scheduledAt);
   // vignettes : photos candidates de l'article, l'actuelle en surbrillance
   const current = post.selectedImage || post.linkedinSelectedImage || '';
@@ -1853,6 +1869,7 @@ window.openModal = (qkey, id) => {
     editing.pickedImage = im.dataset.u === current ? null : im.dataset.u;
     document.getElementById('mcustomimg').value = '';
     if (editing.refreshCropImg) editing.refreshCropImg();
+    planifierApercuCover();
   });
   // ── cadrage photo (LRDH uniquement : seul son générateur gère le crop) ──
   const cropRow = document.getElementById('mcroprow');
@@ -1879,9 +1896,10 @@ window.openModal = (qkey, id) => {
     };
     editing.refreshCropImg = () => { const u = effImg(); if (u) cimg.src = u; };
     editing.refreshCropImg(); applyCrop();
-    cx.oninput = applyCrop; cy.oninput = applyCrop; cz.oninput = applyCrop;
-    document.getElementById('mcustomimg').oninput = editing.refreshCropImg;
-    document.getElementById('mcropreset').onclick = () => { cx.value = 50; cy.value = 50; cz.value = 100; applyCrop(); };
+    const applyCropEtApercu = () => { applyCrop(); planifierApercuCover(); };
+    cx.oninput = applyCropEtApercu; cy.oninput = applyCropEtApercu; cz.oninput = applyCropEtApercu;
+    document.getElementById('mcustomimg').oninput = () => { editing.refreshCropImg(); planifierApercuCover(); };
+    document.getElementById('mcropreset').onclick = () => { cx.value = 50; cy.value = 50; cz.value = 100; applyCropEtApercu(); };
   }
   document.getElementById('overlay').classList.add('on');
 };
@@ -2050,7 +2068,88 @@ function chargerPolicesTitre() {
 let minuteurApercu = null;
 function planifierApercuTitre() {
   clearTimeout(minuteurApercu);
-  minuteurApercu = setTimeout(dessinerApercuTitre, 120);
+  minuteurApercu = setTimeout(() => { dessinerApercuTitre(); dessinerApercuCover(); }, 120);
+}
+
+// ─── Aperçu DIRECT de la cover (12/09/2026, demande user) ──────────────────
+//
+// La vignette de gauche montrait l'image DÉJÀ générée : elle ne bougeait pas
+// tant qu'on n'avait pas enregistré et attendu le worker. On la remplace par
+// un canevas redessiné à chaque frappe, avec le module de cover.
+//
+// ⚠️ Style « Actu » uniquement : la cover « On a testé » (carte blanche, sceau,
+// plaque de note) n'est pas portée côté navigateur, on y garde donc l'image
+// générée plutôt qu'un aperçu approximatif.
+let COVER = null;
+let minuteurCover = null;
+async function dessinerApercuCover() {
+  const img = document.getElementById('mimg');
+  const cv = document.getElementById('mlive');
+  const note = document.getElementById('mlivenote');
+  if (!img || !cv) return;
+
+  const estActu = editing && editing.qkey === 'lrdh'
+    && (document.getElementById('mstyle').value || 'news') === 'news';
+  if (!estActu) {
+    cv.style.display = 'none'; note.style.display = 'none'; img.style.display = '';
+    return;
+  }
+  if (!(await chargerPolicesTitre())) return;   // sans Playfair, on ne triche pas
+  if (!COVER) {
+    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260912'); }
+    catch (e) { console.error('[hub] module cover indisponible', e); return; }
+  }
+  if (!editing) return;                          // modale refermée entre-temps
+
+  const crop = {
+    x: +(document.getElementById('mcropx') || {}).value || 50,
+    y: +(document.getElementById('mcropy') || {}).value || 50,
+    zoom: +(document.getElementById('mcropz') || {}).value || 100,
+  };
+  const photo = (editing.pickedImage
+    || document.getElementById('mcustomimg').value.trim()
+    || (editing.post && (editing.post.selectedImage || editing.post.linkedinSelectedImage))
+    || '');
+  try {
+    await COVER.dessinerCoverActu(cv.getContext('2d'), {
+      imageUrl: photo,
+      category: document.getElementById('mcat').value,
+      title: document.getElementById('mcovtitle').value,
+      brand: document.getElementById('mbrand').value,
+      location: document.getElementById('mloc').value,
+      crop,
+      insetImage: document.getElementById('minset').value.trim(),
+      insetLabel: document.getElementById('minsetlabel').value.trim(),
+      titleSize: +document.getElementById('msize').value || 0,
+    });
+    note.style.display = 'block';
+    if (apercuForce) { cv.style.display = 'block'; img.style.display = 'none'; }
+  } catch (e) {
+    console.error('[hub] aperçu cover', e);
+    cv.style.display = 'none'; img.style.display = ''; note.style.display = 'none';
+  }
+}
+// Soupape : si l'aperçu venait un jour à diverger du générateur, on doit
+// pouvoir revenir à l'image réellement produite sans quitter la modale.
+let apercuForce = true;
+function basculerApercuCover(e) {
+  if (e) e.preventDefault();
+  apercuForce = !apercuForce;
+  const img = document.getElementById('mimg');
+  const cv = document.getElementById('mlive');
+  const lien = document.getElementById('mlivetoggle');
+  if (apercuForce) {
+    cv.style.display = 'block'; img.style.display = 'none';
+    lien.textContent = "voir l'image générée";
+  } else {
+    cv.style.display = 'none'; img.style.display = '';
+    lien.textContent = "revenir à l'aperçu direct";
+  }
+}
+
+function planifierApercuCover() {
+  clearTimeout(minuteurCover);
+  minuteurCover = setTimeout(dessinerApercuCover, 140);
 }
 
 async function dessinerApercuTitre() {
