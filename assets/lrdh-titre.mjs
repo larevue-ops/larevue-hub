@@ -36,7 +36,15 @@ export const NEWS = {
   // 08/09/2026 (demande user) : le corps ne se réduit PLUS avec la longueur du
   // titre · un titre long prend plus de lignes, à la même taille.
   fixe: true,
-  maxLines: 6,
+  // [12/09/2026] Le plafond n'est plus un nombre de lignes arbitraire mais la
+  // place RÉELLE dans la cover (demande user : « enlève la limite »).
+  // Bloc ancré en bas à y=1179 ; au-dessus il faut loger le badge de rubrique
+  // (66 px) + ses 84 px de respiration + le bandeau blanc du haut (88 px) et
+  // 24 px de marge : 1179 − (88+24+66+84) = 917.
+  // À 78 px, cela fait 11 lignes au lieu de 6.
+  hauteurDispo: 917,
+  ancrage: 'lignes',        // le bloc occupe n × interligne
+  maxLines: 6,              // conservé pour compatibilité, n'est plus une limite
   lineHeightRatio: 1.06,
   markerBg: '#dc2626',
   markerText: '#ffffff',
@@ -51,7 +59,14 @@ export const TEST = {
   sizeMin: 34,
   sizeStep: 2,
   fixe: true,
-  maxLines: 5,
+  // La citation est ancrée sur sa DERNIÈRE ligne de base (y=1218) et ne doit
+  // pas monter sur la plaque de note, dont le bas est à 846 : 1218 − 846 − 10
+  // de respiration = 362. À 66 px cela redonne exactement les 5 lignes
+  // d'aujourd'hui ; une citation plus longue descend en corps au lieu d'être
+  // coupée.
+  hauteurDispo: 362,
+  ancrage: 'baselines',     // (n − 1) × interligne + corps
+  maxLines: 5,              // conservé pour compatibilité, n'est plus une limite
   lineHeightRatio: 1.12,
   markerBg: GOLD,
   markerText: '#141414',
@@ -228,6 +243,24 @@ export function toCitation(title = '') {
 // augmenter le texte »). Borné pour rester dessinable ; 0 ou vide = corps du
 // gabarit. Un corps plus petit laisse tenir plus de lignes, à hauteur de bloc
 // constante.
+// Hauteur réellement occupée par le bloc-titre. Les deux gabarits ne s'ancrent
+// pas pareil : l'éditorial cale le BAS du bloc, la citation cale sa dernière
+// ligne de base. La formule doit suivre, sinon le calcul de place est faux
+// d'une ligne.
+export function hauteurBloc(g, n, lineHeight, size) {
+  if (n <= 0) return 0;
+  return g.ancrage === 'baselines' ? (n - 1) * lineHeight + size : n * lineHeight;
+}
+
+// Combien de lignes tiennent dans la cover, à ce corps-là.
+export function lignesTenables(g, size) {
+  const dispo = g.hauteurDispo || (g.maxLines * Math.round(size * g.lineHeightRatio));
+  const lh = Math.round(size * g.lineHeightRatio);
+  let n = 1;
+  while (hauteurBloc(g, n + 1, lh, size) <= dispo) n += 1;
+  return n;
+}
+
 export const TAILLE_MIN = 40;
 export const TAILLE_MAX = 110;
 export function tailleVoulue(size) {
@@ -237,36 +270,39 @@ export function tailleVoulue(size) {
 }
 
 function ajuster(ctx, segments, g, sizeVoulu = 0) {
-  // ⚠️ Boucle recopiee TELLE QUELLE du generateur, quirk compris : quand le
-  // titre ne rentre toujours pas au corps minimum, on sort avec `size` un cran
-  // EN DESSOUS du corps qui a servi a la decoupe. Le generateur dessine donc
-  // ces titres-la un peu plus petits que la mesure. C'est bancal, mais l'apercu
-  // doit montrer ce qui sera dessine, pas ce qui aurait du l'etre. Si on
-  // corrige un jour, ce sera ici, et les deux cotes suivront ensemble.
+  // [12/09/2026] Plus de coupe. Le titre est habillé au corps voulu et prend
+  // autant de lignes qu'il lui en faut ; le corps ne baisse QUE si le bloc
+  // dépasserait la place disponible dans la cover. La règle du 08/09 tient
+  // donc toujours (un titre long ne rapetisse pas tant qu'il rentre), mais un
+  // titre très long descend d'un ou deux crans au lieu de perdre sa fin.
+  //
+  // L'ancien quirk est tombé du même coup : la boucle sortait avec un corps
+  // un cran EN DESSOUS de celui qui avait servi à la découpe, et le générateur
+  // dessinait donc plus petit que la mesure. Ici `size` et `lines` sont
+  // toujours du même essai.
   const blocs = decouperEnBlocs(segments);
   const impose = tailleVoulue(sizeVoulu);
-  let size = impose || g.sizeMax;
-  const maxLines = impose ? Math.min(12, Math.max(g.maxLines, Math.floor(g.maxLines * g.sizeMax / impose))) : g.maxLines;
+  const corpsVoulu = impose || g.sizeMax;
+  let size = corpsVoulu;
   let lines = [];
-  // Corps FIXE (08/09/2026) : on habille au corps maximal et on s'arrête là,
-  // quel que soit le nombre de lignes. La boucle de réduction ci-dessous ne
-  // sert plus qu'aux gabarits qui n'ont pas `fixe`.
-  if (g.fixe || impose) {
+  for (;;) {
     lines = blocs.flatMap((b) => wrapEditorialSegments(ctx, b, g.maxWidth, size));
-  } else while (size >= g.sizeMin) {
-    // Chaque bloc est habille separement, puis les lignes s'enchainent : un
-    // saut de ligne force donc une nouvelle ligne, et le corps se reduit sur
-    // le TOTAL, comme le ferait un titre d'un seul tenant.
-    lines = blocs.flatMap((b) => wrapEditorialSegments(ctx, b, g.maxWidth, size));
-    if (lines.length <= maxLines) break;
+    if (lines.length <= lignesTenables(g, size)) break;
+    if (size - g.sizeStep < g.sizeMin) break;
     size -= g.sizeStep;
   }
-  const truncated = lines.length > maxLines;
-  if (truncated) lines = lines.slice(0, maxLines);
+  const tenables = lignesTenables(g, size);
+  // Il reste un cas, très rare : même au corps minimum le bloc déborde. Là
+  // seulement on coupe, et l'appelant peut le dire.
+  const truncated = lines.length > tenables;
+  if (truncated) lines = lines.slice(0, tenables);
   return {
     size,
     lines,
     truncated,
+    reduit: size < corpsVoulu,
+    corpsVoulu,
+    lignesTenables: tenables,
     lineHeight: Math.round(size * g.lineHeightRatio),
     marginX: g.marginX,
     maxWidth: g.maxWidth,

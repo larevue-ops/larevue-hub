@@ -640,7 +640,7 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from
 // Découpe du bloc-titre : copie CONFORME de lib/shared/lrdh-titre.mjs du
 // générateur (larevue-social-runner). Ne pas la modifier ici · modifier là-bas
 // puis `npm run titre:diffuser`. `npm run titre:verifier` signale une dérive.
-import * as TITRE from './assets/lrdh-titre.mjs?v=20260910';
+import * as TITRE from './assets/lrdh-titre.mjs?v=20260912';
 
 const app = initializeApp({
   apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
@@ -2090,10 +2090,16 @@ async function dessinerApercuTitre() {
   }
   const n = mise.lines.length;
   let accord; try { accord = wysAccorder(mise); } catch (e) { console.error('[hub] accord champ/apercu', e); }
-  meta.textContent = `${n} ligne${n > 1 ? 's' : ''} · corps ${mise.size} px · aperçu à l'échelle réelle (1080 px)`
+  // [12/09/2026] Il n'y a plus de plafond en nombre de lignes : le module
+  // remplit la place disponible dans la cover et ne descend en corps qu'en
+  // dernier recours. On montre donc la place restante plutôt qu'une menace.
+  const tenables = mise.lignesTenables || n;
+  meta.textContent = `${n} ligne${n > 1 ? 's' : ''} sur ${tenables} · corps ${mise.size} px · aperçu à l'échelle réelle (1080 px)`
     + (accord === false ? ' · le champ ne coupe pas ici, l’aperçu fait foi' : '');
   if (mise.truncated) {
-    alerte.textContent = "✂️ Trop long · le générateur coupera tout ce qui dépasse.";
+    alerte.textContent = `✂️ Hors gabarit · même à ${mise.size} px la fin dépasse et sera coupée.`;
+  } else if (mise.reduit) {
+    alerte.textContent = `↕️ Titre long · corps ramené de ${mise.corpsVoulu} à ${mise.size} px pour tout faire tenir. Rien n'est coupé.`;
   }
 }
 
