@@ -1834,8 +1834,14 @@ window.openModal = (qkey, id) => {
   document.getElementById('mstylerow').style.display = isLrdhStyle ? 'block' : 'none';
   document.getElementById('mstyle').value = post.linkedinStyle || 'news';
   document.getElementById('mnote').value = post.linkedinNote || '';
-  document.getElementById('minset').value = post.linkedinInsetImage || '';
-  document.getElementById('minsetlabel').value = post.linkedinInsetLabel || '';
+  // ⚠️ Repli sur la derniere demande de regeneration : les posts edites AVANT le
+  //    correctif du 14/09 n'ont pas le champ sur le post, seulement dans regenRequest.
+  //    Sans ce repli, on rouvrait le formulaire vide alors que la vignette porte le rond.
+  const _rr = post.regenRequest || {};
+  editing.insetBase = post.linkedinInsetImage || _rr.insetImage || '';
+  editing.insetLabelBase = post.linkedinInsetLabel || _rr.insetLabel || '';
+  document.getElementById('minset').value = editing.insetBase;
+  document.getElementById('minsetlabel').value = editing.insetLabelBase;
   document.getElementById('msize').value = post.linkedinTitleSize ? String(post.linkedinTitleSize) : '';
   const syncStyleUI = () => {
     const isTest = isLrdhStyle && document.getElementById('mstyle').value === 'test';
@@ -2215,6 +2221,14 @@ window.saveEdit = async () => {
       linkedinCaption: document.getElementById('mcaption').value,
       ...(dt ? { scheduledAt: new Date(dt).toISOString(), status: 'scheduled' } : {}),
     };
+    // ⚠️ 14/09/2026 · l'image ronde n'etait ecrite QUE dans regenRequest, jamais
+    //    sur le post. Le worker la persiste bien apres coup, mais entre-temps
+    //    l'editeur relisait un champ vide : on voyait le rond sur la vignette et
+    //    le champ vide dans le formulaire. On l'ecrit donc ici, tout de suite.
+    if (editing.qkey === 'lrdh') {
+      upd.linkedinInsetImage = document.getElementById('minset').value.trim() || null;
+      upd.linkedinInsetLabel = document.getElementById('minsetlabel').value.trim() || null;
+    }
     // ── détection des changements visuels → demande de régénération ──
     const rr = {};
     const cat = document.getElementById('mcat').value.trim();
@@ -2229,8 +2243,13 @@ window.saveEdit = async () => {
       const note = document.getElementById('mnote').value.trim();
       if (style !== (post.linkedinStyle || 'news')) rr.style = style;
       if (style === 'test' && note !== (post.linkedinNote || '')) rr.note = note;
-  const _ins=document.getElementById('minset').value.trim(); if(_ins) rr.insetImage=_ins;
-  const _insl=document.getElementById('minsetlabel').value.trim(); if(_insl) rr.insetLabel=_insl;
+      const _ins = document.getElementById('minset').value.trim();
+      const _insl = document.getElementById('minsetlabel').value.trim();
+      // on compare a la valeur REELLEMENT chargee dans le champ (post ou repli
+      // regenRequest), sinon un post ancien redemanderait une regeneration a chaque
+      // sauvegarde sans que rien n'ait change.
+      if (_ins !== (editing.insetBase || '')) rr.insetImage = _ins;
+      if (_insl !== (editing.insetLabelBase || '')) rr.insetLabel = _insl;
       const _ts = +document.getElementById('msize').value || 0;
       if (_ts !== (+post.linkedinTitleSize || 0)) rr.titleSize = _ts;   // 0 = retour au corps du gabarit
       const loc = document.getElementById('mloc').value.trim();
