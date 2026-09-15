@@ -269,11 +269,12 @@ function renderArts() {
             <option value="chiffre">Style : 📊 Le Chiffre · une donnée en grand</option>
           </select>
           <div class="chiffref" data-cf="${esc(a.id)}" style="display:none;grid-template-columns:1fr 1fr;gap:6px">
-            <input class="cf-chiffre" placeholder="Le chiffre · ex 98 %, +18 %, 1 milliard $" style="${iSt}">
-            <input class="cf-exergue" placeholder="Exergue au-dessus du chiffre · vide = rubrique de l'article" style="${iSt}">
-            <input class="cf-legende" placeholder="Ce que le chiffre mesure · une phrase, sans le répéter" style="${iSt};grid-column:1/-1">
-            <input class="cf-source" placeholder="Source · ex Étude Deloitte, juin 2026 — obligatoire" style="${iSt};grid-column:1/-1">
-            <input class="cf-chiffre2" placeholder="2e chiffre (option) · ex 59 % → duel en deux colonnes" style="${iSt}">
+            <div style="grid-column:1/-1;font-size:11px;opacity:.75;line-height:1.5">Laisse tout vide : les chiffres sont <b>lus dans l'article</b> à la génération. Un chiffre introuvable dans le texte est rejeté, et l'article repart alors en cover Actu. Ne remplis ci-dessous que pour imposer ta valeur.</div>
+            <input class="cf-chiffre" placeholder="Le chiffre · vide = trouvé dans l'article" style="${iSt}">
+            <input class="cf-exergue" placeholder="Exergue · vide = rubrique de l'article" style="${iSt}">
+            <input class="cf-legende" placeholder="Ce que le chiffre mesure · vide = trouvé dans l'article" style="${iSt};grid-column:1/-1">
+            <input class="cf-source" placeholder="Source · vide = celle citée par l'article" style="${iSt};grid-column:1/-1">
+            <input class="cf-chiffre2" placeholder="2e chiffre · vide = duel détecté tout seul" style="${iSt}">
             <input class="cf-legende2" placeholder="Ce que le 2e chiffre mesure" style="${iSt}">
           </div>
           <div class="testf" data-tf="${esc(a.id)}" style="display:none;grid-template-columns:1fr 1fr;gap:6px">
@@ -310,17 +311,15 @@ function renderArts() {
     if (style === 'chiffre') {
       const cf = root.querySelector(`.chiffref[data-cf="${CSS.escape(b.dataset.gen)}"]`);
       const g = c => (cf?.querySelector(c)?.value || '').trim();
+      // [15/09/2026] Plus rien n'est obligatoire : le générateur lit les chiffres
+      // dans l'article. Ces champs ne servent plus qu'à IMPOSER une valeur.
       const chiffre = g('.cf-chiffre'), legende = g('.cf-legende'), source = g('.cf-source');
-      // La source n'est pas un ornement : c'est elle qui rend le chiffre citable
-      // et qui nous distingue d'une image d'agence. Sans elle, on ne génère pas.
-      if (!chiffre || !legende) { alert('Pour « Le Chiffre », renseigne au moins le chiffre et ce qu’il mesure.'); return; }
-      if (!source) { alert('Pour « Le Chiffre », la source est obligatoire.'); return; }
       const chiffre2 = g('.cf-chiffre2'), legende2 = g('.cf-legende2');
+      if (chiffre && !legende) { alert('Si tu imposes un chiffre, dis aussi ce qu’il mesure.'); return; }
       if (chiffre2 && !legende2) { alert('Le 2e chiffre a besoin de sa légende, sinon on ne sait pas ce qu’il mesure.'); return; }
       regen.style = 'chiffre';
-      regen.chiffre = chiffre;
-      regen.chiffreLegende = legende;
-      regen.chiffreSource = source;
+      if (chiffre) { regen.chiffre = chiffre; regen.chiffreLegende = legende; }
+      if (source) regen.chiffreSource = source;
       if (chiffre2) { regen.chiffre2 = chiffre2; regen.chiffreLegende2 = legende2; }
       const exergue = g('.cf-exergue');
       if (exergue) regen.chiffreExergue = exergue;
