@@ -561,8 +561,24 @@
           <select id="mstyle">
             <option value="news">Actu · éditorial (par défaut)</option>
             <option value="test">On a testé · test d'hôtel</option>
+            <option value="chiffre">Le Chiffre · une donnée en grand</option>
           </select>
           <div id="mstylehint" class="hint" style="display:none;font-size:11px;margin:2px 0 4px">Mode test : « Titre » = <b>citation du bas</b> (guillemets « » et majuscule ajoutés automatiquement) · « Marque » = nom de l'hôtel · « Localisation » = ex. « En Sologne, près de Chambord ».</div>
+          <div id="mchiffrerow" style="display:none">
+            <div class="hint" style="font-size:11px;margin:2px 0 4px">Mode Le Chiffre : la cover ne porte <b>ni</b> le titre de l'article <b>ni</b> le bandeau hôtel · lieu (un chiffre de marché n'a pas d'adresse). Elle porte une donnée, ce qu'elle mesure et sa source · c'est la source qui rend le chiffre citable. Si le chiffre concerne une maison, nomme-la dans la légende.</div>
+            <label>Le chiffre <span class="hint">· ex « 98 % », « +18 % », « 1 milliard $ »</span></label>
+            <input id="mchiffre" placeholder="98 %">
+            <label>Ce qu'il mesure <span class="hint">· une phrase, sans répéter le chiffre</span></label>
+            <input id="mchiffrelegende" placeholder="des hôteliers utilisent déjà l'intelligence artificielle">
+            <label>Source <span class="hint">· obligatoire</span></label>
+            <input id="mchiffresource" placeholder="Enquête Hospitality Net, mai 2026">
+            <label>Exergue <span class="hint">· au-dessus du chiffre · vide = la rubrique de l'article (« TENDANCES » devient « TENDANCES & ANALYSES ») · le bandeau du haut dit « Le Chiffre », jamais un hôtel ni un lieu</span></label>
+            <input id="mchiffreexergue" placeholder="TENDANCES & ANALYSES">
+            <label>2<sup>e</sup> chiffre <span class="hint">· option · s'il est rempli, la cover passe en DUEL : deux colonnes, chacune sa légende courte</span></label>
+            <input id="mchiffre2" placeholder="59 %">
+            <label>Ce que le 2<sup>e</sup> chiffre mesure</label>
+            <input id="mchiffrelegende2" placeholder="des clients veulent un humain à la réception">
+          </div>
         </div>
         <div id="minsetrow">
           <label>Image ronde incrustée <span class="hint">· URL d'une photo (bord rouge) · <b>vide = automatique</b> : la 2<sup>e</sup> image de l'article est reprise · écrire <b>none</b> pour n'en mettre aucune</span></label>
@@ -1843,10 +1859,27 @@ window.openModal = (qkey, id) => {
   document.getElementById('minset').value = editing.insetBase;
   document.getElementById('minsetlabel').value = editing.insetLabelBase;
   document.getElementById('msize').value = post.linkedinTitleSize ? String(post.linkedinTitleSize) : '';
+  editing.chiffreBase = {
+    chiffre: post.linkedinChiffre || _rr.chiffre || '',
+    legende: post.linkedinChiffreLegende || _rr.chiffreLegende || '',
+    source: post.linkedinChiffreSource || _rr.chiffreSource || '',
+    exergue: post.linkedinChiffreExergue || _rr.chiffreExergue || '',
+    chiffre2: post.linkedinChiffre2 || _rr.chiffre2 || '',
+    legende2: post.linkedinChiffreLegende2 || _rr.chiffreLegende2 || '',
+  };
+  document.getElementById('mchiffre2').value = editing.chiffreBase.chiffre2;
+  document.getElementById('mchiffrelegende2').value = editing.chiffreBase.legende2;
+  document.getElementById('mchiffre').value = editing.chiffreBase.chiffre;
+  document.getElementById('mchiffrelegende').value = editing.chiffreBase.legende;
+  document.getElementById('mchiffresource').value = editing.chiffreBase.source;
+  document.getElementById('mchiffreexergue').value = editing.chiffreBase.exergue;
   const syncStyleUI = () => {
-    const isTest = isLrdhStyle && document.getElementById('mstyle').value === 'test';
+    const styleCourant = document.getElementById('mstyle').value;
+    const isTest = isLrdhStyle && styleCourant === 'test';
+    const isChiffre = isLrdhStyle && styleCourant === 'chiffre';
     document.getElementById('mnoterow').style.display = isTest ? 'block' : 'none';
     document.getElementById('mstylehint').style.display = isTest ? 'block' : 'none';
+    document.getElementById('mchiffrerow').style.display = isChiffre ? 'block' : 'none';
   };
   document.getElementById('mstyle').onchange = () => { syncStyleUI(); dessinerApercuTitre(); dessinerApercuCover(); };
   syncStyleUI();
@@ -2243,6 +2276,16 @@ window.saveEdit = async () => {
       const note = document.getElementById('mnote').value.trim();
       if (style !== (post.linkedinStyle || 'news')) rr.style = style;
       if (style === 'test' && note !== (post.linkedinNote || '')) rr.note = note;
+      if (style === 'chiffre') {
+        const cb = editing.chiffreBase || { chiffre: '', legende: '', source: '', exergue: '', chiffre2: '', legende2: '' };
+        const gc = (id) => document.getElementById(id).value.trim();
+        if (gc('mchiffre') !== cb.chiffre) rr.chiffre = gc('mchiffre');
+        if (gc('mchiffrelegende') !== cb.legende) rr.chiffreLegende = gc('mchiffrelegende');
+        if (gc('mchiffresource') !== cb.source) rr.chiffreSource = gc('mchiffresource');
+        if (gc('mchiffreexergue') !== cb.exergue) rr.chiffreExergue = gc('mchiffreexergue');
+        if (gc('mchiffre2') !== (cb.chiffre2 || '')) rr.chiffre2 = gc('mchiffre2');
+        if (gc('mchiffrelegende2') !== (cb.legende2 || '')) rr.chiffreLegende2 = gc('mchiffrelegende2');
+      }
       const _ins = document.getElementById('minset').value.trim();
       const _insl = document.getElementById('minsetlabel').value.trim();
       // on compare a la valeur REELLEMENT chargee dans le champ (post ou repli
