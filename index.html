@@ -2413,6 +2413,7 @@ try {
   #strip-insta-lrdh .igcard.regen img { filter:saturate(.4) brightness(.8); }
   @keyframes igre-pulse { 50% { opacity:.55; } }
   #iglhview .hd .iglhlis { margin-left:auto; font:600 11px/1 var(--sans); letter-spacing:.4px; color:#ddd; display:inline-flex; align-items:center; gap:6px; }
+  #iglhview .tl.lis select { flex:1; min-width:0; font:12px var(--sans); background:#1c1c1e; color:#eee; border:1px solid rgba(255,255,255,.3); border-radius:8px; padding:3px 6px; }
   #iglhview .hd .iglhlis select { font:12px var(--sans); background:#1c1c1e; color:#eee; border:1px solid rgba(255,255,255,.3); border-radius:8px; padding:4px 6px; }
   #iglhview .hd .igre.hd { margin-left:10px; border:1px solid rgba(255,255,255,.35); background:transparent; color:#eee;
     border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; }
@@ -2805,6 +2806,7 @@ try {
     }
   }
 
+  const LISIB_OPTS = [["auto", "auto · dégradé si la photo est claire"], ["degrade", "dégradé"], ["ombre", "un peu de sombre derrière le texte"], ["plaque", "plaque"], ["bandeau", "bandeau"], ["aucune", "aucune"]];
   function rendreSlides() {
     const rec = aRecette();
     document.getElementById('iglhvsl').innerHTML = travail.map((it, i) => {
@@ -2821,7 +2823,10 @@ try {
             + '<button type="button" data-tl="' + i + '" data-d="-1" title="Réduire le texte">A−</button>'
             + '<b data-tlv="' + i + '">' + Math.round((it.taille || 1) * 100) + ' %</b>'
             + '<button type="button" data-tl="' + i + '" data-d="1" title="Agrandir le texte">A+</button>'
-            + '<span class="tl-h">*mots* surligné · =mots= encerclé</span></div>')
+            + '<span class="tl-h">*mots* surligné · =mots= encerclé</span></div>'
+            + '<div class="tl lis"><span class="tl-l">Fond</span><select data-lis="' + i + '" title="Traitement du fond derrière le texte, pour ce slide">'
+            + LISIB_OPTS.map(([v, l]) => '<option value="' + v + '"' + ((it.lisibilite || 'auto') === v ? ' selected' : '') + '>' + l + '</option>').join('')
+            + '</select></div>')
         + '<div class="src"><input data-url="' + i + '" type="url" spellcheck="false" placeholder="Coller l’adresse d’une image, d’une vidéo ou d’une page Streamable">'
         + '<button data-go="' + i + '">Remplacer</button></div>'
         + '<span class="etatsrc" data-es="' + i + '"></span>'
@@ -2871,9 +2876,18 @@ try {
     bouger(+b.dataset.mv, +b.dataset.mv + (+b.dataset.sens));
   });
   document.addEventListener('change', (e) => {
+    const s1 = e.target.closest('#iglhvsl [data-lis]');
+    if (s1 && aRecette()) {
+      const i = +s1.dataset.lis; if (!travail[i]) return;
+      travail[i].lisibilite = s1.value;
+      majSauvegarde();
+      peindre(i);
+      return;
+    }
     if (e.target.id !== 'iglhlis' || !aRecette()) return;
-    const v = e.target.value;
+    const v = e.target.value; if (!v) return;
     travail.forEach(it => { if (it && it.type !== 'video') it.lisibilite = v; });
+    e.target.value = '';
     rendreSlides();
   });
   document.addEventListener('input', (e) => {
@@ -3090,7 +3104,7 @@ try {
         + (p.wpUrl ? ' \u00b7 ' + String(p.wpUrl).replace(/^https?:\/\//,'').slice(0,60) : '');
       ouvert = p;
       travail = initial();
-    { const sel = document.getElementById('iglhlis'); if (sel) { sel.value = (aRecette() && travail[0] && travail[0].lisibilite) || 'auto'; sel.disabled = !aRecette(); } }
+    { const sel = document.getElementById('iglhlis'); if (sel) { sel.value = ''; sel.disabled = !aRecette(); } }
       rendreSlides();
       const cap = document.getElementById('iglhvc'); cap.value = p.caption || ''; cap.dataset.init = cap.value;
       document.getElementById('iglhcapsave').disabled = true;
@@ -3113,7 +3127,7 @@ try {
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
 <div id="iglhview"><div class="box">
-  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><label class="iglhlis" title="Traitement du fond derrière le texte, pour tous les visuels de ce carrousel">Lisibilité <select id="iglhlis"><option value="auto">auto · dégradé si la photo est claire</option><option value="degrade">dégradé</option><option value="ombre">un peu de sombre derrière le texte</option><option value="plaque">plaque</option><option value="bandeau">bandeau</option><option value="aucune">aucune</option></select></label><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
+  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><label class="iglhlis" title="Applique le même traitement du fond à tous les slides · chaque slide garde ensuite son propre réglage sous sa vignette"><select id="iglhlis"><option value="">Fond · toutes les slides…</option><option value="auto">auto · dégradé si la photo est claire</option><option value="degrade">dégradé</option><option value="ombre">un peu de sombre derrière le texte</option><option value="plaque">plaque</option><option value="bandeau">bandeau</option><option value="aucune">aucune</option></select></label><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
   <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="capbloc"><div class="caphd"><span>Légende Instagram</span><span class="capact"><button id="iglhcapcopy" type="button">📋 Copier</button><button id="iglhcapsave" type="button" disabled>💾 Enregistrer la légende</button><button id="iglhcapgen" type="button" title="La machine réécrit la légende (accroche, faits, lien bio, hashtags) · deux minutes">✨ Réécrire par la machine</button></span></div><textarea id="iglhvc" rows="9" spellcheck="true" placeholder="Pas encore de légende : cliquez « Réécrire par la machine »."></textarea><span class="caphint" id="iglhcaphint"></span></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
