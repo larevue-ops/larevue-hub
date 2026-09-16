@@ -347,7 +347,9 @@ export function dessinerCouvertureV2(ctx, { img, logo, titre, credit: cr, kicker
   degradeBas(ctx, Math.round(H * 0.40), 0.84);
   marqueHautV2(ctx, logo);
   credit(ctx, cr, 19, 0.70, H - 38);
-  const { size, lignes } = fitTitle(ctx, titre, W - 2 * V2.MARGE, 4, 92, 54, taille);
+  // 3 lignes au plus : à 4 lignes de 92 px, l'habillage laissait des lignes courtes au milieu
+  // (« 84 / villas sur / pilotis en 2027 ? » sur le premier rendu réel du 16/09).
+  const { size, lignes } = fitTitle(ctx, titre, W - 2 * V2.MARGE, 3, 84, 50, taille);
   const lh = Math.round(size * 1.10);
   const bas = H - 172;
   const haut = bas - (lignes.length - 1) * lh;
