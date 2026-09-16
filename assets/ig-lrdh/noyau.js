@@ -231,7 +231,70 @@ function credit(ctx, texte, taille, alpha, y) {
 
 // ─── les trois gabarits ─────────────────────────────────────────────────────
 // `taille` : facteur de corps choisi dans le hub (défaut 1).
-export function dessinerCouverture(ctx, { img, logo, titre, credit: cr, taille = 1 }) {
+// ─── Lisibilité du texte sur la photo (16/09/2026 soir, retour user) ─────────
+// Le style exqz pose le texte à nu sur la photo ; sur un fond clair ou chargé
+// (la nef cuivrée de Sous Sous), il ne se lit plus. `lisibilite`, porté par la
+// recette, choisit le traitement :
+//   'auto'    → un dégradé sombre sous le texte si le bas de la photo est clair
+//               (clarté > 0,42), rien sinon · le défaut
+//   'degrade' → toujours le dégradé (celui de la V2)
+//   'plaque'  → une plaque sombre translucide derrière le bloc (logo compris)
+//   'bandeau' → la photo en haut, le texte dans un bandeau plein en bas
+//   'ombre'   → juste un peu de sombre derrière le texte : un halo doux, sans bord
+//   'aucune'  → le rendu exqz d'origine
+export const LISIBILITES = ['auto', 'degrade', 'plaque', 'bandeau', 'ombre', 'aucune'];
+function modeLisibilite(lisibilite, clarte) {
+  const m = LISIBILITES.includes(lisibilite) ? lisibilite : 'auto';
+  return m === 'auto' ? (clarte > 0.42 ? 'degrade' : 'aucune') : m;
+}
+// `bloc` = { haut, bas, gauche, droite } : la zone couverte par le logo et le texte
+function traiterFond(ctx, mode, bloc) {
+  if (mode === 'degrade') degradeBas(ctx, Math.max(0, bloc.haut - 200), 0.80);
+  else if (mode === 'plaque') {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.52)';
+    ctx.beginPath();
+    ctx.roundRect(bloc.gauche, bloc.haut, bloc.droite - bloc.gauche, bloc.bas - bloc.haut, 26);
+    ctx.fill();
+    ctx.restore();
+  } else if (mode === 'ombre') {
+    // un halo sombre aux bords fondus : trois passes d'un rectangle très flou,
+    // rien de net, juste assez pour poser le texte
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.62)';
+    ctx.shadowBlur = 110;
+    ctx.fillStyle = 'rgba(0,0,0,0.001)';
+    const m = 40;
+    for (let k = 0; k < 3; k++) {
+      ctx.beginPath();
+      ctx.roundRect(bloc.gauche + m, bloc.haut + m, bloc.droite - bloc.gauche - 2 * m, bloc.bas - bloc.haut - 2 * m, 40);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+const largeurLignes = (ctx, lignes, size) => { ctx.font = `${size}px "${SERIF}"`; return Math.max(...lignes.map(l => ctx.measureText(texteDe(l)).width)); };
+// Bandeau plein : la photo occupe le haut, le texte (et le logo) un bandeau INK en bas.
+function dessinerEnBandeau(ctx, { img, logo, texte, credit: cr, taille, hi, lo, maxLignes, logoLarge }) {
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  const { size, lignes } = fitTitle(ctx, texte, W - 132, maxLignes, hi, lo, taille);
+  const lh = Math.round(size * 1.17);
+  const hLogo = logo ? Math.round(logo.height * logoLarge / logo.width) : 0;
+  const bande = 56 + hLogo + 30 + size + (lignes.length - 1) * lh + 64;
+  const hPhoto = H - bande;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, hPhoto); ctx.clip();
+  coverDraw(ctx, img, W, hPhoto);
+  ctx.restore();
+  ctx.textBaseline = 'alphabetic';
+  credit(ctx, cr, 19, 0.78, 60);
+  ctx.fillStyle = INK; ctx.fillRect(0, hPhoto, W, bande);
+  marque(ctx, logo, hPhoto + 56, logoLarge);
+  const haut = hPhoto + 56 + hLogo + 30 + size;
+  ecrireLignes(ctx, lignes, W / 2, haut, lh, 0.1, size);
+}
+
+export function dessinerCouverture(ctx, { img, logo, titre, credit: cr, taille = 1, lisibilite = 'auto' }) {
+  if (lisibilite === 'bandeau') return dessinerEnBandeau(ctx, { img, logo, texte: titre, credit: cr, taille, hi: 74, lo: 46, maxLignes: 3, logoLarge: LOGO_LARGE_SUITE });
   ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
   coverDraw(ctx, img);
   ctx.textBaseline = 'alphabetic';
@@ -240,12 +303,20 @@ export function dessinerCouverture(ctx, { img, logo, titre, credit: cr, taille =
   const lh = Math.round(size * 1.17);
   const bas = H - 196;
   const haut = bas - (lignes.length - 1) * lh;
-  const clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
+  let clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
+  const hLogo = logo ? Math.round(logo.height * LOGO_LARGE_COUV / logo.width) : 0;
+  const mode = modeLisibilite(lisibilite, clarte);
+  if (mode !== 'aucune') {
+    const demi = largeurLignes(ctx, lignes, size) / 2 + 40;
+    traiterFond(ctx, mode, { haut: haut - size - 30 - hLogo - 26, bas: haut + (lignes.length - 1) * lh + size * 0.34 + 26, gauche: Math.max(30, W / 2 - demi), droite: Math.min(W - 30, W / 2 + demi) });
+    clarte = 0.2;
+  }
   marque(ctx, logo, haut - size - 30 - LOGO_LARGE_COUV, LOGO_LARGE_COUV);
   ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte, size);
 }
 
-export function dessinerPhoto(ctx, { img, logo, legende, credit: cr, taille = 1 }) {
+export function dessinerPhoto(ctx, { img, logo, legende, credit: cr, taille = 1, lisibilite = 'auto' }) {
+  if (lisibilite === 'bandeau' && String(legende || '').trim()) { dessinerEnBandeau(ctx, { img, logo, texte: legende, credit: cr, taille, hi: 46, lo: 32, maxLignes: 3, logoLarge: LOGO_LARGE_SUITE }); return { legendeRetiree: false }; }
   ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
   coverDraw(ctx, img);
   ctx.textBaseline = 'alphabetic';
@@ -253,30 +324,45 @@ export function dessinerPhoto(ctx, { img, logo, legende, credit: cr, taille = 1 
   let leg = legende;
   // ⚠️ Seuil volontairement haut : a 0,72 il retirait la legende qui NOMMAIT
   // l'Hotel Martinez, et le visuel devenait muet. Une legende qui porte
-  // l'information vaut mieux qu'un peu de contraste en moins.
-  if (leg && clarteDuBas(ctx, H * 0.70, H * 0.22) > 0.82) leg = '';
+  // l'information vaut mieux qu'un peu de contraste en moins. Avec un
+  // traitement de fond (16/09), on ne retire plus rien.
+  if (leg && lisibilite === 'aucune' && clarteDuBas(ctx, H * 0.70, H * 0.22) > 0.82) leg = '';
   if (leg) {
     const { size, lignes } = fitTitle(ctx, leg, W - 150, 3, 46, 32, taille);
     const lh = Math.round(size * 1.25);
     const haut = H - 172 - (lignes.length - 1) * lh;
-    const clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
+    let clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
+    const mode = modeLisibilite(lisibilite, clarte);
+    if (mode !== 'aucune') {
+      const demi = largeurLignes(ctx, lignes, size) / 2 + 36;
+      traiterFond(ctx, mode, { haut: haut - size - 24, bas: H - 40, gauche: Math.max(30, W / 2 - demi), droite: Math.min(W - 30, W / 2 + demi) });
+      clarte = 0.2;
+    }
     ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte, size);
   }
   signer(ctx, logo);
   return { legendeRetiree: Boolean(legende) && !leg };
 }
 
-export function dessinerChute(ctx, { img, logo, texte, credit: cr, taille = 1 }) {
+export function dessinerChute(ctx, { img, logo, texte, credit: cr, taille = 1, lisibilite = 'auto' }) {
+  const t = String(texte || CTA_DEFAUT).trim() || CTA_DEFAUT;
+  if (lisibilite === 'bandeau') return dessinerEnBandeau(ctx, { img, logo, texte: t, credit: cr, taille, hi: 54, lo: 38, maxLignes: 3, logoLarge: LOGO_LARGE_COUV });
   ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
   coverDraw(ctx, img);
   ctx.textBaseline = 'alphabetic';
   credit(ctx, cr, 19, 0.78, 60);
-  const t = String(texte || CTA_DEFAUT).trim() || CTA_DEFAUT;
   const { size, lignes } = fitTitle(ctx, t, W - 300, 3, 54, 38, taille);
   const lh = Math.round(size * 1.24);
   const hBloc = LOGO_LARGE_COUV + 30 + size + (lignes.length - 1) * lh;
   const haut = Math.round((H - hBloc) / 2) + LOGO_LARGE_COUV + 30 + size;
-  const clarte = clarteDuBas(ctx, haut - size - LOGO_LARGE_COUV - 30, hBloc + size * 0.4);
+  let clarte = clarteDuBas(ctx, haut - size - LOGO_LARGE_COUV - 30, hBloc + size * 0.4);
+  const mode = modeLisibilite(lisibilite, clarte);
+  if (mode !== 'aucune') {
+    // au milieu de l'image, un dégradé bas ne couvrirait pas le texte : on voile toute la photo
+    if (mode === 'degrade') { ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(0, 0, W, H); }
+    else { const demi = largeurLignes(ctx, lignes, size) / 2 + 44; traiterFond(ctx, mode, { haut: haut - size - 30 - LOGO_LARGE_COUV - 30, bas: haut + (lignes.length - 1) * lh + size * 0.34 + 30, gauche: Math.max(30, W / 2 - demi), droite: Math.min(W - 30, W / 2 + demi) }); }
+    clarte = 0.2;
+  }
   marque(ctx, logo, haut - size - 30 - LOGO_LARGE_COUV, LOGO_LARGE_COUV);
   ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte, size);
 }
@@ -426,7 +512,8 @@ export function dessinerChuteV2(ctx, { img, logo, texte, credit: cr, taille = 1,
 export function dessiner(ctx, item, extra = {}) {
   const v2 = (item.variante || extra.variante) === 'v2';
   const base = { img: extra.img, logo: extra.logo, credit: item.credit, taille: item.taille ?? extra.taille ?? 1,
-                 index: item.index ?? extra.index ?? 0, total: item.total ?? extra.total ?? 0 };
+                 index: item.index ?? extra.index ?? 0, total: item.total ?? extra.total ?? 0,
+                 lisibilite: item.lisibilite ?? extra.lisibilite ?? 'auto' };
   if (item.type === 'couverture') return v2
     ? dessinerCouvertureV2(ctx, { ...base, titre: item.texte, kicker: item.kicker || extra.kicker || '' })
     : dessinerCouverture(ctx, { ...base, titre: item.texte });
@@ -436,4 +523,4 @@ export function dessiner(ctx, item, extra = {}) {
   return v2 ? dessinerPhotoV2(ctx, { ...base, legende: item.texte }) : dessinerPhoto(ctx, { ...base, legende: item.texte });
 }
 
-export default { dessinerCouverture, dessinerPhoto, dessinerChute, dessinerCouvertureV2, dessinerPhotoV2, dessinerChuteV2, dessiner, clarteDuBas, parseMarqueurs, W, H, CTA_DEFAUT, V2 };
+export default { dessinerCouverture, dessinerPhoto, dessinerChute, dessinerCouvertureV2, dessinerPhotoV2, dessinerChuteV2, dessiner, clarteDuBas, parseMarqueurs, W, H, CTA_DEFAUT, V2, LISIBILITES };

@@ -2412,7 +2412,9 @@ try {
   #strip-insta-lrdh .igcard .igre-badge.err { background:#8a1c1c; }
   #strip-insta-lrdh .igcard.regen img { filter:saturate(.4) brightness(.8); }
   @keyframes igre-pulse { 50% { opacity:.55; } }
-  #iglhview .hd .igre.hd { margin-left:auto; border:1px solid rgba(255,255,255,.35); background:transparent; color:#eee;
+  #iglhview .hd .iglhlis { margin-left:auto; font:600 11px/1 var(--sans); letter-spacing:.4px; color:#ddd; display:inline-flex; align-items:center; gap:6px; }
+  #iglhview .hd .iglhlis select { font:12px var(--sans); background:#1c1c1e; color:#eee; border:1px solid rgba(255,255,255,.3); border-radius:8px; padding:4px 6px; }
+  #iglhview .hd .igre.hd { margin-left:10px; border:1px solid rgba(255,255,255,.35); background:transparent; color:#eee;
     border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; }
   #iglhview .hd .igre.hd:hover { background:rgba(255,255,255,.12); }
   #iglhview .hd .x { margin-left:8px; }
@@ -2753,13 +2755,15 @@ try {
   async function moduleEdition() {
     // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
     // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609162130');
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609162200');
     return EDIT;
   }
 
   function initial() {
     return aRecette()
-      ? ouvert.recette.map(r => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1 }))
+      ? ouvert.recette.map(r => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1,
+          ...(r.variante ? { variante: r.variante } : {}), ...(r.index ? { index: r.index } : {}), ...(r.total ? { total: r.total } : {}),
+          ...(r.kicker ? { kicker: r.kicker } : {}), lisibilite: r.lisibilite || 'auto' }))
       : (ouvert.slides || []).slice();
   }
 
@@ -2865,6 +2869,12 @@ try {
   document.addEventListener('click', (e) => {
     const b = e.target.closest('#iglhvsl [data-mv]'); if (!b) return;
     bouger(+b.dataset.mv, +b.dataset.mv + (+b.dataset.sens));
+  });
+  document.addEventListener('change', (e) => {
+    if (e.target.id !== 'iglhlis' || !aRecette()) return;
+    const v = e.target.value;
+    travail.forEach(it => { if (it && it.type !== 'video') it.lisibilite = v; });
+    rendreSlides();
   });
   document.addEventListener('input', (e) => {
     const t = e.target.closest('#iglhvsl [data-tx]'); if (!t) return;
@@ -3080,6 +3090,7 @@ try {
         + (p.wpUrl ? ' \u00b7 ' + String(p.wpUrl).replace(/^https?:\/\//,'').slice(0,60) : '');
       ouvert = p;
       travail = initial();
+    { const sel = document.getElementById('iglhlis'); if (sel) { sel.value = (aRecette() && travail[0] && travail[0].lisibilite) || 'auto'; sel.disabled = !aRecette(); } }
       rendreSlides();
       const cap = document.getElementById('iglhvc'); cap.value = p.caption || ''; cap.dataset.init = cap.value;
       document.getElementById('iglhcapsave').disabled = true;
@@ -3102,7 +3113,7 @@ try {
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
 <div id="iglhview"><div class="box">
-  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
+  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><label class="iglhlis" title="Traitement du fond derrière le texte, pour tous les visuels de ce carrousel">Lisibilité <select id="iglhlis"><option value="auto">auto · dégradé si la photo est claire</option><option value="degrade">dégradé</option><option value="ombre">un peu de sombre derrière le texte</option><option value="plaque">plaque</option><option value="bandeau">bandeau</option><option value="aucune">aucune</option></select></label><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
   <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="capbloc"><div class="caphd"><span>Légende Instagram</span><span class="capact"><button id="iglhcapcopy" type="button">📋 Copier</button><button id="iglhcapsave" type="button" disabled>💾 Enregistrer la légende</button><button id="iglhcapgen" type="button" title="La machine réécrit la légende (accroche, faits, lien bio, hashtags) · deux minutes">✨ Réécrire par la machine</button></span></div><textarea id="iglhvc" rows="9" spellcheck="true" placeholder="Pas encore de légende : cliquez « Réécrire par la machine »."></textarea><span class="caphint" id="iglhcaphint"></span></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
