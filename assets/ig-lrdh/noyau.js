@@ -426,11 +426,20 @@ function ecrireLignesGauche(ctx, lignes, x, haut, lh, clarte, size) {
   });
 }
 
-export function dessinerCouvertureV2(ctx, { img, logo, titre, credit: cr, kicker = '', taille = 1, index = 1, total = 0 }) {
+// En V2 le dégradé fait partie du gabarit : 'auto' et 'degrade' le gardent,
+// 'aucune' l'enlève, 'ombre' et 'plaque' le remplacent par un fond posé sur le
+// seul bloc de texte (aligné à gauche), 'bandeau' bascule sur le bandeau plein.
+function modeV2(lisibilite) {
+  const m = LISIBILITES.includes(lisibilite) ? lisibilite : 'auto';
+  return m === 'auto' ? 'degrade' : m;
+}
+export function dessinerCouvertureV2(ctx, { img, logo, titre, credit: cr, kicker = '', taille = 1, index = 1, total = 0, lisibilite = 'auto' }) {
+  if (lisibilite === 'bandeau') { dessinerEnBandeau(ctx, { img, logo, texte: titre, credit: cr, taille, hi: 74, lo: 46, maxLignes: 3, logoLarge: LOGO_LARGE_COUV }); compteurV2(ctx, index, total); return; }
+  const mode = modeV2(lisibilite);
   ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
   coverDraw(ctx, img);
   ctx.textBaseline = 'alphabetic';
-  degradeBas(ctx, Math.round(H * 0.40), 0.84);
+  if (mode === 'degrade') degradeBas(ctx, Math.round(H * 0.40), 0.84);
   marqueHautV2(ctx, logo);
   credit(ctx, cr, 19, 0.70, H - 38);
   // 3 lignes au plus : à 4 lignes de 92 px, l'habillage laissait des lignes courtes au milieu
@@ -439,25 +448,39 @@ export function dessinerCouvertureV2(ctx, { img, logo, titre, credit: cr, kicker
   const lh = Math.round(size * 1.10);
   const bas = H - 172;
   const haut = bas - (lignes.length - 1) * lh;
-  ecrireLignesGauche(ctx, lignes, V2.MARGE, haut, lh, 0.2, size);
   const yK = haut - size - 30;
+  if (mode === 'ombre' || mode === 'plaque') {
+    const large = largeurLignes(ctx, lignes, size);
+    traiterFond(ctx, mode, { haut: yK - 44 - 34, bas: bas + Math.round(size * 0.34) + 30, gauche: V2.MARGE - 36, droite: Math.min(W - 24, V2.MARGE + large + 36) });
+  }
+  ecrireLignesGauche(ctx, lignes, V2.MARGE, haut, lh, 0.2, size);
   ctx.fillStyle = ROUGE; ctx.fillRect(V2.MARGE, yK - 44, 46, 5);
   if (kicker) capsEspacees(ctx, kicker, V2.MARGE, yK, 22, 4.5);
   compteurV2(ctx, index, total);
 }
 
-export function dessinerPhotoV2(ctx, { img, logo, legende, credit: cr, taille = 1, index = 0, total = 0 }) {
+export function dessinerPhotoV2(ctx, { img, logo, legende, credit: cr, taille = 1, index = 0, total = 0, lisibilite = 'auto' }) {
+  const leg = String(legende || '').trim();
+  if (lisibilite === 'bandeau' && leg) {
+    dessinerEnBandeau(ctx, { img, logo, texte: leg, credit: cr, taille, hi: 46, lo: 32, maxLignes: 3, logoLarge: V2.LOGO });
+    compteurV2(ctx, index, total);
+    return { legendeRetiree: false };
+  }
+  const mode = modeV2(lisibilite);
   ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
   coverDraw(ctx, img);
   ctx.textBaseline = 'alphabetic';
-  const leg = String(legende || '').trim();
-  degradeBas(ctx, Math.round(H * (leg ? 0.52 : 0.74)), leg ? 0.80 : 0.45);
+  if (mode === 'degrade') degradeBas(ctx, Math.round(H * (leg ? 0.52 : 0.74)), leg ? 0.80 : 0.45);
   marqueHautV2(ctx, logo);
   credit(ctx, cr, 19, 0.70, H - 38);
   if (leg) {
     const { size, lignes } = fitTitle(ctx, leg, W - 2 * V2.MARGE, 3, 52, 36, taille);
     const lh = Math.round(size * 1.18);
     const haut = H - 150 - (lignes.length - 1) * lh;
+    if (mode === 'ombre' || mode === 'plaque') {
+      const large = largeurLignes(ctx, lignes, size);
+      traiterFond(ctx, mode, { haut: haut - size - 30, bas: H - 150 + Math.round(size * 0.34) + 28, gauche: V2.MARGE - 36, droite: Math.min(W - 24, V2.MARGE + large + 36) });
+    }
     ecrireLignesGauche(ctx, lignes, V2.MARGE, haut, lh, 0.2, size);
   }
   compteurV2(ctx, index, total);

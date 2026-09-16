@@ -9,7 +9,7 @@
 // recette : les sources sont sur Cloudinary (entetes CORS, sans quoi
 // `toBlob` refuserait un canvas contamine), les fontes sont servies par le hub,
 // et la marque aussi.
-import * as N from './noyau.js?v=202609162200';
+import * as N from './noyau.js?v=202609162300';
 
 const CLOUD = 'dghhiz8ou';
 const PRESET = 'larevue_articles';
