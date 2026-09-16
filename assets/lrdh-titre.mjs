@@ -59,12 +59,13 @@ export const TEST = {
   sizeMin: 34,
   sizeStep: 2,
   fixe: true,
-  // La citation est ancrée sur sa DERNIÈRE ligne de base (y=1218) et ne doit
-  // pas monter sur la plaque de note, dont le bas est à 846 : 1218 − 846 − 10
-  // de respiration = 362. À 66 px cela redonne exactement les 5 lignes
-  // d'aujourd'hui ; une citation plus longue descend en corps au lieu d'être
+  // La citation est ancrée sur sa DERNIÈRE ligne de base (y=1188 depuis le
+  // 16/09/2026 : 30 px plus haut, pour loger la phrase du bloc « + Suis-nous »
+  // au-dessus de la pastille) et ne doit pas monter sur la plaque de note, dont
+  // le bas est à 846 : 1188 − 846 − 10 de respiration = 332. À 66 px cela
+  // laisse 5 lignes ; une citation plus longue descend en corps au lieu d'être
   // coupée.
-  hauteurDispo: 362,
+  hauteurDispo: 332,
   ancrage: 'baselines',     // (n − 1) × interligne + corps
   maxLines: 5,              // conservé pour compatibilité, n'est plus une limite
   lineHeightRatio: 1.12,

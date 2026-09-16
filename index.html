@@ -2135,7 +2135,7 @@ async function dessinerApercuCover() {
   }
   if (!(await chargerPolicesTitre())) return;   // sans Playfair, on ne triche pas
   if (!COVER) {
-    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260916'); }
+    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260916c'); }
     catch (e) { console.error('[hub] module cover indisponible', e); return; }
   }
   if (!editing) return;                          // modale refermée entre-temps

@@ -189,7 +189,7 @@ function pastilleBas(ctx) {
   const pillH = 60;
   const padX = Math.round((pillH - taille) / 2);
   const pillW = larg + padX * 2;
-  const pillX = (W - pillW) / 2, pillY = H - pillH - 36;
+  const pillX = FOLLOW_MARGIN, pillY = H - pillH - 36;   // 16/09/2026 : à gauche, le bloc « + Suis-nous » prend la droite
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
   cheminPastille(ctx, pillX, pillY, pillW, pillH);
@@ -206,35 +206,73 @@ function pastilleBas(ctx) {
   ctx.restore();
 }
 
-// ── Le bouton « + Suivre » (16/09/2026) ─────────────────────────────────
-// Portage de drawFollowPill du générateur : pastille blanche, texte bleu
-// LinkedIn, en haut à droite. Sur la ligne du bandeau s'il reste la place,
-// sinon juste dessous. Mêmes constantes que le générateur.
+// ── Le bloc « + Suis-nous » (16/09/2026) ────────────────────────────────
+// Portage de drawFollowBlock du générateur : en bas à droite, sur la ligne de
+// la pastille (passée à gauche). Bouton blanc bleu LinkedIn, une phrase sur deux
+// en italique Playfair au-dessus (choisie par le titre), main qui tape sur le
+// bouton. Mêmes constantes que le générateur.
 const FOLLOW_BLUE = '#0a66c2';
-function boutonSuivre(ctx, { occupe = 0, cyLigne = 44, basLigne = 88 } = {}) {
-  const label = 'Suivre';
-  const H_PILL = 56, PAD_X = 24, PLUS = 20, GAP = 11, RIGHT = W - 22, ESPACE = 18;
-  ctx.save();
-  ctx.font = `bold 30px ${SANS}`;
-  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  const textW = ctx.measureText(label).width;
-  const w = PAD_X + PLUS + GAP + textW + PAD_X;
-  const x = RIGHT - w;
-  const cy = (x - ESPACE >= occupe) ? cyLigne : basLigne + 14 + H_PILL / 2;
-  const y = cy - H_PILL / 2;
-  ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
-  cheminArrondi(ctx, x, y, w, H_PILL, H_PILL / 2);
+const FOLLOW_MARGIN = 60;
+const FOLLOW_CY = H - 36 - 30;
+const PLAYFAIR_ITALIC = '"EditorialPlayfairItalic", "EditorialPlayfairItalicFallback", Georgia, serif';
+function plus(ctx, cx, cy, size, color, width = 4) {
+  ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - size / 2, cy); ctx.lineTo(cx + size / 2, cy);
+  ctx.moveTo(cx, cy - size / 2); ctx.lineTo(cx, cy + size / 2);
+  ctx.stroke();
+}
+const PHRASES = ['Pour ne rater aucune news sur les hôtels…', 'Rejoins le média numéro 1 sur les hôtels de luxe…'];
+function phraseSuivre(key = '') {
+  let h = 0;
+  for (const ch of String(key)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PHRASES[h % 2];
+}
+// main qui tape (index tendu, onde de contact), bout du doigt en (x, y)
+function main(ctx, x, y, s = 52) {
+  const k = s / 46;
+  ctx.save(); ctx.translate(x - 13 * k, y); ctx.scale(k, k);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(10,102,194,0.9)'; ctx.lineWidth = 2.6;
+  ctx.beginPath(); ctx.arc(13, 5, 13, Math.PI * 1.12, Math.PI * 1.88); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(7, 22); ctx.lineTo(7, 6); ctx.quadraticCurveTo(7, 0, 13, 0); ctx.quadraticCurveTo(19, 0, 19, 6);
+  ctx.lineTo(19, 18); ctx.lineTo(30, 20); ctx.quadraticCurveTo(36, 21, 36, 27); ctx.lineTo(36, 38);
+  ctx.quadraticCurveTo(36, 46, 28, 46); ctx.lineTo(14, 46); ctx.quadraticCurveTo(6, 46, 6, 38); ctx.lineTo(6, 30);
+  ctx.quadraticCurveTo(6, 26, 7, 22); ctx.closePath();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 2;
   ctx.fillStyle = '#ffffff'; ctx.fill();
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-  const pcx = x + PAD_X + PLUS / 2;
-  ctx.strokeStyle = FOLLOW_BLUE; ctx.lineWidth = 4; ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pcx - PLUS / 2, cy); ctx.lineTo(pcx + PLUS / 2, cy);
-  ctx.moveTo(pcx, cy - PLUS / 2); ctx.lineTo(pcx, cy + PLUS / 2);
-  ctx.stroke();
-  ctx.fillStyle = FOLLOW_BLUE; ctx.fillText(label, x + PAD_X + PLUS + GAP, cy + 1);
+  ctx.strokeStyle = '#111111'; ctx.lineWidth = 2.2; ctx.stroke();
+  ctx.lineWidth = 1.8; ctx.beginPath();
+  ctx.moveTo(24, 24); ctx.lineTo(24, 31); ctx.moveTo(30, 25); ctx.lineTo(30, 32); ctx.stroke();
   ctx.restore();
-  return { x, y, w, h: H_PILL };
+}
+function blocSuivre(ctx, key = '') {
+  const label = 'Suis-nous', phrase = phraseSuivre(key);
+  const RIGHT = W - FOLLOW_MARGIN, cy = FOLLOW_CY;
+  const H_PILL = 58, PAD_X = 26, PLUS = 20, GAP = 12;
+  ctx.save();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.font = `bold 30px ${SANS}`;
+  const labelW = ctx.measureText(label).width;
+  const pillW = PAD_X + PLUS + GAP + labelW + PAD_X;
+  const x = RIGHT - pillW, y = cy - H_PILL / 2;
+  ctx.shadowColor = 'rgba(0,0,0,0.38)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 5;
+  cheminArrondi(ctx, x, y, pillW, H_PILL, H_PILL / 2);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  plus(ctx, x + PAD_X + PLUS / 2, cy, PLUS, FOLLOW_BLUE, 5);
+  ctx.fillStyle = FOLLOW_BLUE; ctx.fillText(label, x + PAD_X + PLUS + GAP, cy + 1);
+  ctx.font = `italic 24px ${PLAYFAIR_ITALIC}`;
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(0,0,0,0.85)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 2;
+  ctx.textAlign = 'right';
+  ctx.fillText(phrase, RIGHT - 2, y - 26);
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  main(ctx, x + pillW - 8, cy + 4, 58);
+  ctx.restore();
+  return { x, y, w: pillW, h: H_PILL };
 }
 
 // ── La photo ronde incrustée ────────────────────────────────────────────────
@@ -340,6 +378,7 @@ export async function dessinerCoverActu(ctx, {
 
   if (insetImage) photoRonde(ctx, incruste, insetLabel);
   pastilleBas(ctx);
+  blocSuivre(ctx, title);
 
   // Bandeau du haut + médaillons logo / drapeau
   const hauteurBandeau = 32 + 28 * 2;
@@ -355,14 +394,11 @@ export async function dessinerCoverActu(ctx, {
   const tag = bandeauBlanc(ctx, libelle, cyBandeau, { maxTagW: W - 2 * Math.max(reserveG, reserveD) });
   const borner = (cx, demi) => Math.max(demi + MARGE, Math.min(W - demi - MARGE, cx));
   medaillon(ctx, logo, borner(tag.x - tag.h / 2 + IMBRIC, tag.h / 2), cyBandeau, tag.h);
-  let occupe = tag.x + tag.w;   // bord droit de ce qui occupe la ligne du bandeau
   if (drapeau) {
     const cw = tag.h * ratioDrapeau;
-    const cxDrapeau = borner(tag.x + tag.w + cw / 2 - IMBRIC, cw / 2);
-    medaillon(ctx, drapeau, cxDrapeau, cyBandeau, tag.h, { fond: '#ffffff', ratio: ratioDrapeau });
-    occupe = cxDrapeau + cw / 2;
+    medaillon(ctx, drapeau, borner(tag.x + tag.w + cw / 2 - IMBRIC, cw / 2), cyBandeau, tag.h,
+      { fond: '#ffffff', ratio: ratioDrapeau });
   }
-  boutonSuivre(ctx, { occupe, cyLigne: cyBandeau, basLigne: hauteurBandeau });
 
   // Badge de rubrique + titre
   const hauteurTitre = mise.lines.length * mise.lineHeight;
