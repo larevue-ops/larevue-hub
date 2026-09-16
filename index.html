@@ -1284,12 +1284,12 @@ window.fabriquerCarrouselLrdh = async (articleUrl, extra = {}) => {
 // un drapeau `regenRequest` pour que la bande montre l'attente, puis on
 // declenche. Si GitHub refuse, on solde le drapeau tout de suite : sinon la
 // carte resterait « en cours » sur un travail qui n'a jamais commence.
-window.regenererCarrouselLrdh = async (id, wpUrl) => {
+window.regenererCarrouselLrdh = async (id, wpUrl, version = 'v1') => {
   if (!id || !wpUrl) throw new Error('carrousel sans identifiant ou sans article');
   const ref = doc(dbPour('lrdh_instagram_queue'), 'lrdh_instagram_queue', id);
   const requestedAt = new Date().toISOString();
   await updateDoc(ref, { regenRequest: { pending: true, requestedAt, type: 'carrousel' } });
-  try { await window.fabriquerCarrouselLrdh(wpUrl); }
+  try { await window.fabriquerCarrouselLrdh(wpUrl, { version }); }
   catch (e) {
     await updateDoc(ref, { regenRequest: { pending: false, requestedAt, error: String(e.message || e).slice(0, 120) } }).catch(() => {});
     throw e;
@@ -2404,6 +2404,7 @@ try {
     padding:0; cursor:pointer; opacity:0; transition:opacity .15s; }
   #strip-insta-lrdh .igcard:hover .igre, #strip-insta-lrdh .igcard .igre:disabled { opacity:1; }
   #strip-insta-lrdh .igcard .igre:hover { background:var(--lrdh); border-color:var(--lrdh); }
+  #strip-insta-lrdh .igcard .igv2 { position:absolute; top:6px; left:36px; background:#dc2626; color:#fff; font:700 9px/1 var(--sans); letter-spacing:.6px; padding:4px 6px; border-radius:6px; }
   #strip-insta-lrdh .igcard .igre-badge { position:absolute; top:34px; right:6px; font-size:9px; font-weight:700; letter-spacing:.5px;
     padding:2px 7px; border-radius:20px; background:rgba(0,0,0,.72); color:#fff; }
   #strip-insta-lrdh .igcard .igre-badge.on { background:color-mix(in srgb, var(--lrdh) 85%, #000); animation:igre-pulse 1.4s ease-in-out infinite; }
@@ -2624,7 +2625,7 @@ try {
         ? '<button class="igre" data-re="' + i + '" title="Refaire ce carrousel par la machine (nouvelles photos et nouveaux textes · la version actuelle est conserv\u00e9e)">\u21bb</button>' : '';
       return '<div class="igcard' + (re === 'active' ? ' regen' : '') + '" data-iglh="' + i + '" title="Voir le carrousel">'
         + (cover ? '<img src="' + ESC(cover) + '" alt="" loading="lazy">' : '<div class="igph">?</div>')
-        + (n ? '<span class="ign">' + n + '</span>' : '') + badge + bouton
+        + (n ? '<span class="ign">' + n + '</span>' : '') + (p.variante === 'v2' ? '<span class="igv2" title="Version 2 des visuels">V2</span>' : '') + badge + bouton
         + '<div class="igmeta"><span class="igt">' + ESC(DE(p.coverTitle || p.title || p.id)) + '</span>'
         + '<span class="igd' + (p.scheduledAt ? ' prog' : (seed ? '' : ' pret')) + '">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
     }).join('');
@@ -2641,7 +2642,7 @@ try {
     if (!ok) return;
     (boutons || []).forEach(b => { b.disabled = true; b.textContent = '\u2026'; });
     try {
-      const requestedAt = await window.regenererCarrouselLrdh(p.id, p.wpUrl);
+      const requestedAt = await window.regenererCarrouselLrdh(p.id, p.wpUrl, p.variante === 'v2' ? 'v2' : 'v1');
       p.regenRequest = { pending: true, requestedAt, type: 'carrousel' };
       rendre(rows, false);
       const etat = document.getElementById('iglhetat'); if (etat && ouvert && ouvert.id === p.id) etat.textContent = 'r\u00e9g\u00e9n\u00e9ration lanc\u00e9e · deux \u00e0 trois minutes';
@@ -2752,7 +2753,7 @@ try {
   async function moduleEdition() {
     // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
     // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609091431');
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609162100');
     return EDIT;
   }
 
@@ -3057,7 +3058,8 @@ try {
     if (!window.fabriquerCarrouselLrdh) { etat.textContent = 'base indisponible'; return; }
     b.disabled = true; b.textContent = '…';
     try {
-      await window.fabriquerCarrouselLrdh(b.dataset.gen);
+      const version = document.getElementById('iglhver')?.value === 'v2' ? 'v2' : 'v1';
+      await window.fabriquerCarrouselLrdh(b.dataset.gen, { version });
       b.textContent = 'lancé';
       etat.textContent = 'Fabrication lancée · le carrousel apparaîtra dans la bande d’ici deux à trois minutes.';
     } catch (err) {
@@ -3094,6 +3096,7 @@ try {
     <span class="x" onclick="document.getElementById('iglhpick').classList.remove('on')">✕</span></div>
   <p class="aide">La fabrication demande au moins quatre photos dans le corps de l’article. Les articles trop peu illustrés sont relégués en bas de liste, grisés.</p>
   <div class="outils"><input id="iglhpq" type="search" placeholder="Filtrer par titre…" autocomplete="off">
+    <select id="iglhver" title="Version des visuels"><option value="v1">Visuels V1 · exqz</option><option value="v2">Visuels V2 · éditorial</option></select>
     <span class="leg"><span><i style="background:#e0bd6a"></i>faisable</span><span><i style="background:#7cc9a0"></i>déjà fait</span><span><i style="background:#77777c"></i>trop peu de photos</span></span></div>
   <div id="iglhplist"></div>
   <div class="enreg"><span id="iglhpetat"></span></div>

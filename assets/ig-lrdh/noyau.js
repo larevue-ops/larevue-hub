@@ -281,4 +281,157 @@ export function dessinerChute(ctx, { img, logo, texte, credit: cr, taille = 1 })
   ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte, size);
 }
 
-export default { dessinerCouverture, dessinerPhoto, dessinerChute, clarteDuBas, parseMarqueurs, W, H, CTA_DEFAUT };
+// ─── Version 2 (16/09/2026, demande user : « une V2 qu'on choisit à la génération ») ─
+// Même grammaire (photo plein cadre 4:5, serif Playfair, marque LRDH), mais ce que
+// le diagnostic du 16/09 reprochait à la V1 est corrigé :
+//  · un dégradé sombre sous le texte sur CHAQUE visuel : lisible sur mobile, sans
+//    dépendre de la clarté de la photo ni retirer de légende ;
+//  · la marque à la MÊME place partout, en haut au centre ;
+//  · titre et légendes alignés à GAUCHE, un surtitre en capitales espacées
+//    (rubrique · lieu) sous un filet rouge maison sur la couverture ;
+//  · un compteur « 2/8 » en bas à droite, qui dit qu'il y a une suite ;
+//  · une chute qui sert à quelque chose : la promesse du média, un bouton
+//    « + Suis @larevuedeshotels », puis l'appel à la bio en petit.
+// Le choix se porte dans la recette (`variante: 'v2'`) : le hub re-rend à l'identique.
+export const V2 = { MARGE: 72, LOGO: 62, HANDLE: '@larevuedeshotels', PROMESSE: 'Pour ne rater aucune news sur les hôtels' };
+
+function degradeBas(ctx, depuis, alpha = 0.78) {
+  const g = ctx.createLinearGradient(0, depuis, 0, H);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(0.55, `rgba(0,0,0,${(alpha * 0.62).toFixed(3)})`);
+  g.addColorStop(1, `rgba(0,0,0,${alpha})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, depuis, W, H - depuis);
+}
+function marqueHautV2(ctx, logo) { return marque(ctx, logo, 52, V2.LOGO); }
+function compteurV2(ctx, index, total) {
+  if (!index || !total) return;
+  ctx.save();
+  ctx.font = `26px "${SERIF_REG}"`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ombreTexte(ctx, 0.6);
+  ctx.fillText(`${index}/${total}`, W - V2.MARGE, H - 62);
+  ctx.restore();
+  sansOmbre(ctx);
+}
+// capitales espacées, dessinées lettre à lettre (pas de letterSpacing canvas à espérer partout)
+function capsEspacees(ctx, texte, x, y, size, tracking, alpha = 0.92) {
+  ctx.save();
+  ctx.font = `${size}px "${SERIF_REG}"`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+  ombreTexte(ctx, 0.6);
+  let cx = x;
+  for (const ch of String(texte).toUpperCase()) { ctx.fillText(ch, cx, y); cx += ctx.measureText(ch).width + tracking; }
+  ctx.restore();
+  sansOmbre(ctx);
+  return cx - tracking - x;
+}
+// lignes de MOTS alignées à gauche : ecrireLignes (centrée) ligne par ligne, chaque ligne
+// centrée sur sa propre largeur · les marqueurs *mots* et =mots= restent actifs.
+function ecrireLignesGauche(ctx, lignes, x, haut, lh, clarte, size) {
+  ctx.font = `${size}px "${SERIF}"`;
+  lignes.forEach((mots, i) => {
+    const w = ctx.measureText(texteDe(mots)).width;
+    ecrireLignes(ctx, [mots], x + w / 2, haut + i * lh, lh, clarte, size);
+  });
+}
+
+export function dessinerCouvertureV2(ctx, { img, logo, titre, credit: cr, kicker = '', taille = 1, index = 1, total = 0 }) {
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  coverDraw(ctx, img);
+  ctx.textBaseline = 'alphabetic';
+  degradeBas(ctx, Math.round(H * 0.40), 0.84);
+  marqueHautV2(ctx, logo);
+  credit(ctx, cr, 19, 0.70, H - 38);
+  const { size, lignes } = fitTitle(ctx, titre, W - 2 * V2.MARGE, 4, 92, 54, taille);
+  const lh = Math.round(size * 1.10);
+  const bas = H - 172;
+  const haut = bas - (lignes.length - 1) * lh;
+  ecrireLignesGauche(ctx, lignes, V2.MARGE, haut, lh, 0.2, size);
+  const yK = haut - size - 30;
+  ctx.fillStyle = ROUGE; ctx.fillRect(V2.MARGE, yK - 44, 46, 5);
+  if (kicker) capsEspacees(ctx, kicker, V2.MARGE, yK, 22, 4.5);
+  compteurV2(ctx, index, total);
+}
+
+export function dessinerPhotoV2(ctx, { img, logo, legende, credit: cr, taille = 1, index = 0, total = 0 }) {
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  coverDraw(ctx, img);
+  ctx.textBaseline = 'alphabetic';
+  const leg = String(legende || '').trim();
+  degradeBas(ctx, Math.round(H * (leg ? 0.52 : 0.74)), leg ? 0.80 : 0.45);
+  marqueHautV2(ctx, logo);
+  credit(ctx, cr, 19, 0.70, H - 38);
+  if (leg) {
+    const { size, lignes } = fitTitle(ctx, leg, W - 2 * V2.MARGE, 3, 52, 36, taille);
+    const lh = Math.round(size * 1.18);
+    const haut = H - 150 - (lignes.length - 1) * lh;
+    ecrireLignesGauche(ctx, lignes, V2.MARGE, haut, lh, 0.2, size);
+  }
+  compteurV2(ctx, index, total);
+  return { legendeRetiree: false };
+}
+
+export function dessinerChuteV2(ctx, { img, logo, texte, credit: cr, taille = 1, index = 0, total = 0 }) {
+  ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+  coverDraw(ctx, img);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(0,0,0,0.58)'; ctx.fillRect(0, 0, W, H);
+  degradeBas(ctx, Math.round(H * 0.5), 0.5);
+  credit(ctx, cr, 19, 0.6, H - 38);
+  const yLogo = Math.round(H * 0.24);
+  const hl = marque(ctx, logo, yLogo, 120);
+  const { size, lignes } = fitTitle(ctx, V2.PROMESSE, W - 2 * V2.MARGE - 40, 3, 64, 44, taille);
+  const lh = Math.round(size * 1.12);
+  let y = yLogo + hl + 64 + size;
+  ecrireLignes(ctx, lignes, W / 2, y, lh, 0.2, size);
+  y += (lignes.length - 1) * lh;
+  // le bouton « + Suis @larevuedeshotels »
+  const label = `Suis ${V2.HANDLE}`;
+  ctx.font = `38px "${SERIF}"`;
+  const tw = ctx.measureText(label).width;
+  const plus = 22, gap = 14, padX = 36, h = 92, w = padX + plus + gap + tw + padX;
+  const x = (W - w) / 2, yb = y + 58;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
+  ctx.beginPath(); ctx.roundRect(x, yb, w, h, h / 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  const pcx = x + padX + plus / 2, pcy = yb + h / 2;
+  ctx.beginPath();
+  ctx.moveTo(pcx - plus / 2, pcy); ctx.lineTo(pcx + plus / 2, pcy);
+  ctx.moveTo(pcx, pcy - plus / 2); ctx.lineTo(pcx, pcy + plus / 2);
+  ctx.stroke();
+  ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = `38px "${SERIF}"`;
+  ctx.fillText(label, x + padX + plus + gap, pcy + 2);
+  ctx.textBaseline = 'alphabetic';
+  // l'appel à la bio, en petit
+  const t = String(texte || CTA_DEFAUT).trim() || CTA_DEFAUT;
+  const petit = fitTitle(ctx, t, W - 2 * V2.MARGE, 2, 32, 26, 1);
+  const lhp = Math.round(petit.size * 1.25);
+  ctx.globalAlpha = 0.9;
+  ecrireLignes(ctx, petit.lignes, W / 2, yb + h + 74 + petit.size, lhp, 0.2, petit.size);
+  ctx.globalAlpha = 1;
+  compteurV2(ctx, index, total);
+}
+
+// Aiguillage unique, serveur et navigateur : une entrée de recette, une image et
+// un logo déjà chargés → le bon gabarit, dans la bonne variante.
+export function dessiner(ctx, item, extra = {}) {
+  const v2 = (item.variante || extra.variante) === 'v2';
+  const base = { img: extra.img, logo: extra.logo, credit: item.credit, taille: item.taille ?? extra.taille ?? 1,
+                 index: item.index ?? extra.index ?? 0, total: item.total ?? extra.total ?? 0 };
+  if (item.type === 'couverture') return v2
+    ? dessinerCouvertureV2(ctx, { ...base, titre: item.texte, kicker: item.kicker || extra.kicker || '' })
+    : dessinerCouverture(ctx, { ...base, titre: item.texte });
+  if (item.type === 'chute') return v2
+    ? dessinerChuteV2(ctx, { ...base, texte: item.texte })
+    : dessinerChute(ctx, { ...base, texte: item.texte });
+  return v2 ? dessinerPhotoV2(ctx, { ...base, legende: item.texte }) : dessinerPhoto(ctx, { ...base, legende: item.texte });
+}
+
+export default { dessinerCouverture, dessinerPhoto, dessinerChute, dessinerCouvertureV2, dessinerPhotoV2, dessinerChuteV2, dessiner, clarteDuBas, parseMarqueurs, W, H, CTA_DEFAUT, V2 };

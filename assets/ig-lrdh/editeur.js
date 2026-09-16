@@ -9,7 +9,7 @@
 // recette : les sources sont sur Cloudinary (entetes CORS, sans quoi
 // `toBlob` refuserait un canvas contamine), les fontes sont servies par le hub,
 // et la marque aussi.
-import * as N from './noyau.js?v=202609091247';
+import * as N from './noyau.js?v=202609162100';
 
 const CLOUD = 'dghhiz8ou';
 const PRESET = 'larevue_articles';
@@ -136,9 +136,9 @@ export async function rendre(item) {
   c.width = N.W; c.height = N.H;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   const taille = Number(item.taille) || 1;
-  if (item.type === 'couverture') N.dessinerCouverture(ctx, { img, logo, titre: item.texte, credit: item.credit, taille });
-  else if (item.type === 'chute')  N.dessinerChute(ctx, { img, logo, texte: item.texte, credit: item.credit, taille });
-  else                             N.dessinerPhoto(ctx, { img, logo, legende: item.texte, credit: item.credit, taille });
+  // 16/09/2026 : l'aiguillage vit dans le noyau (variante v1/v2, surtitre, compteur) ·
+  // une recette V2 se re-rend donc ici exactement comme sur le serveur.
+  N.dessiner(ctx, { ...item, taille }, { img, logo });
   return c;
 }
 
