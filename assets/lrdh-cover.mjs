@@ -206,6 +206,37 @@ function pastilleBas(ctx) {
   ctx.restore();
 }
 
+// ── Le bouton « + Suivre » (16/09/2026) ─────────────────────────────────
+// Portage de drawFollowPill du générateur : pastille blanche, texte bleu
+// LinkedIn, en haut à droite. Sur la ligne du bandeau s'il reste la place,
+// sinon juste dessous. Mêmes constantes que le générateur.
+const FOLLOW_BLUE = '#0a66c2';
+function boutonSuivre(ctx, { occupe = 0, cyLigne = 44, basLigne = 88 } = {}) {
+  const label = 'Suivre';
+  const H_PILL = 56, PAD_X = 24, PLUS = 20, GAP = 11, RIGHT = W - 22, ESPACE = 18;
+  ctx.save();
+  ctx.font = `bold 30px ${SANS}`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  const textW = ctx.measureText(label).width;
+  const w = PAD_X + PLUS + GAP + textW + PAD_X;
+  const x = RIGHT - w;
+  const cy = (x - ESPACE >= occupe) ? cyLigne : basLigne + 14 + H_PILL / 2;
+  const y = cy - H_PILL / 2;
+  ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 4;
+  cheminArrondi(ctx, x, y, w, H_PILL, H_PILL / 2);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+  const pcx = x + PAD_X + PLUS / 2;
+  ctx.strokeStyle = FOLLOW_BLUE; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pcx - PLUS / 2, cy); ctx.lineTo(pcx + PLUS / 2, cy);
+  ctx.moveTo(pcx, cy - PLUS / 2); ctx.lineTo(pcx, cy + PLUS / 2);
+  ctx.stroke();
+  ctx.fillStyle = FOLLOW_BLUE; ctx.fillText(label, x + PAD_X + PLUS + GAP, cy + 1);
+  ctx.restore();
+  return { x, y, w, h: H_PILL };
+}
+
 // ── La photo ronde incrustée ────────────────────────────────────────────────
 function photoRonde(ctx, img, legende) {
   const D = 300;
@@ -324,11 +355,14 @@ export async function dessinerCoverActu(ctx, {
   const tag = bandeauBlanc(ctx, libelle, cyBandeau, { maxTagW: W - 2 * Math.max(reserveG, reserveD) });
   const borner = (cx, demi) => Math.max(demi + MARGE, Math.min(W - demi - MARGE, cx));
   medaillon(ctx, logo, borner(tag.x - tag.h / 2 + IMBRIC, tag.h / 2), cyBandeau, tag.h);
+  let occupe = tag.x + tag.w;   // bord droit de ce qui occupe la ligne du bandeau
   if (drapeau) {
     const cw = tag.h * ratioDrapeau;
-    medaillon(ctx, drapeau, borner(tag.x + tag.w + cw / 2 - IMBRIC, cw / 2), cyBandeau, tag.h,
-      { fond: '#ffffff', ratio: ratioDrapeau });
+    const cxDrapeau = borner(tag.x + tag.w + cw / 2 - IMBRIC, cw / 2);
+    medaillon(ctx, drapeau, cxDrapeau, cyBandeau, tag.h, { fond: '#ffffff', ratio: ratioDrapeau });
+    occupe = cxDrapeau + cw / 2;
   }
+  boutonSuivre(ctx, { occupe, cyLigne: cyBandeau, basLigne: hauteurBandeau });
 
   // Badge de rubrique + titre
   const hauteurTitre = mise.lines.length * mise.lineHeight;
