@@ -412,7 +412,7 @@
       <div class="list" id="iglist"></div>
     </div>
     <div class="strip instalrdh" id="strip-insta-lrdh">
-      <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#b8860b">🏨 La Revue des Hôtels</span> · <span id="iglhcount">0</span> carrousels</span>
+      <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#b8860b">🏨 La Revue des Hôtels</span> · <span id="iglhcount">0</span> carrousels · <a class="igprofil" href="https://www.instagram.com/larevuedeshotels/" target="_blank" rel="noopener" title="Le compte où partent les carrousels">@larevuedeshotels ↗</a></span>
         <button id="iglhnew" title="Choisir un article et fabriquer son carrousel">+ Générer un carrousel</button>
         <span id="iglhsrc" style="font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
       <div class="list" id="iglhlist"></div>
@@ -1284,6 +1284,32 @@ window.fabriquerCarrouselLrdh = async (articleUrl, extra = {}) => {
 // un drapeau `regenRequest` pour que la bande montre l'attente, puis on
 // declenche. Si GitHub refuse, on solde le drapeau tout de suite : sinon la
 // carte resterait « en cours » sur un travail qui n'a jamais commence.
+// Publie un carrousel sur @larevuedeshotels, au clic du user (16/09/2026).
+// Le hub n'a pas le jeton Instagram : il pose la demande sur le document, puis
+// reveille le workflow `instagram-publier-lrdh.yml` du runner, qui publie par
+// l'API Meta et solde la demande. Si GitHub ne repond pas, la demande reste
+// posee et le passage de repli du runner la rattrape dans le quart d'heure.
+window.publierCarrouselLrdh = async (id) => {
+  if (!id) throw new Error('carrousel sans identifiant');
+  const ref = doc(dbPour('lrdh_instagram_queue'), 'lrdh_instagram_queue', id);
+  const demandeLe = new Date().toISOString();
+  await updateDoc(ref, { publication: { etat: 'demande', demandeLe, compte: 'larevuedeshotels' } });
+  let direct = false;
+  try {
+    const snap = await getDoc(doc(db, 'app_config', 'github_dispatch'));
+    if (snap.exists()) {
+      const { token } = snap.data();
+      const r = await fetch('https://api.github.com/repos/larevue-media/larevue-social-runner/actions/workflows/instagram-publier-lrdh.yml/dispatches', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: 'main', inputs: { id: String(id), publier: 'true' } }),
+      });
+      direct = r.status === 204;
+    }
+  } catch (e) { console.warn('publication : reveil GitHub impossible, le cron prendra le relais', e); }
+  return { demandeLe, direct };
+};
+
 window.regenererCarrouselLrdh = async (id, wpUrl, version = 'v1') => {
   if (!id || !wpUrl) throw new Error('carrousel sans identifiant ou sans article');
   const ref = doc(dbPour('lrdh_instagram_queue'), 'lrdh_instagram_queue', id);
@@ -2409,6 +2435,14 @@ try {
     padding:2px 7px; border-radius:20px; background:rgba(0,0,0,.72); color:#fff; }
   #strip-insta-lrdh .igcard .igre-badge.on { background:color-mix(in srgb, var(--lrdh) 85%, #000); animation:igre-pulse 1.4s ease-in-out infinite; }
   #strip-insta-lrdh .igcard .igre-badge.wait { background:#7a5a00; }
+  #strip-insta-lrdh .igcard .igpub { position:absolute; top:6px; left:36px; width:24px; height:24px; border-radius:50%; border:1px solid rgba(255,255,255,.55);
+    background:rgba(0,0,0,.55); color:#fff; font-size:12px; line-height:22px; padding:0; cursor:pointer; opacity:0; transition:opacity .15s, background .15s; }
+  #strip-insta-lrdh .igcard:hover .igpub, #strip-insta-lrdh .igcard .igpub:disabled { opacity:1; }
+  #strip-insta-lrdh .igcard .igpub:hover { background:#c13584; border-color:#c13584; }
+  #strip-insta-lrdh .igprofil { color:#e0bd6a; text-decoration:none; font-weight:600; font-size:13px; }
+  #strip-insta-lrdh .igprofil:hover { text-decoration:underline; }
+  #iglhview .hd .igre.hd.pub { background:#c13584; border-color:#c13584; color:#fff; }
+  #iglhview .hd .igre.hd.pub:disabled { opacity:.45; cursor:not-allowed; }
   #strip-insta-lrdh .igcard .igre-badge.err { background:#8a1c1c; }
   #strip-insta-lrdh .igcard.regen img { filter:saturate(.4) brightness(.8); }
   @keyframes igre-pulse { 50% { opacity:.55; } }
@@ -2626,9 +2660,15 @@ try {
         : re === 'error' ? '<span class="igre-badge err" title="' + ESC(String(p.regenRequest.error || '')) + '">\u26a0\ufe0f \u00e9chec</span>' : '';
       const bouton = peutRefaire && re !== 'active'
         ? '<button class="igre" data-re="' + i + '" title="Refaire ce carrousel par la machine (nouvelles photos et nouveaux textes · la version actuelle est conserv\u00e9e)">\u21bb</button>' : '';
+      const pub = seed ? null : (p.publication || null); const pe = pub && pub.etat;
+      const badgePub = pe === 'demande' ? '<span class="igre-badge on">\ud83d\udce4 envoi\u2026</span>'
+        : pe === 'en_cours' ? '<span class="igre-badge on">\ud83d\udce4 publication\u2026</span>'
+        : pe === 'erreur' ? '<span class="igre-badge err" title="' + ESC(String(pub.erreur || '')) + '">\u26a0\ufe0f publication \u00e9chou\u00e9e</span>' : '';
+      const boutonPub = !seed && p.id && !['demande', 'en_cours', 'publie'].includes(pe)
+        ? '<button class="igpub" data-pub="' + i + '" title="Publier ce carrousel sur Instagram (@larevuedeshotels) · part tout de suite">\ud83d\udce4</button>' : '';
       return '<div class="igcard' + (re === 'active' ? ' regen' : '') + '" data-iglh="' + i + '" title="Voir le carrousel">'
         + (cover ? '<img src="' + ESC(cover) + '" alt="" loading="lazy">' : '<div class="igph">?</div>')
-        + (n ? '<span class="ign">' + n + '</span>' : '') + (p.variante === 'v2' ? '<span class="igv2" title="Version 2 des visuels">V2</span>' : '') + badge + bouton
+        + (n ? '<span class="ign">' + n + '</span>' : '') + (p.variante === 'v2' ? '<span class="igv2" title="Version 2 des visuels">V2</span>' : '') + (badgePub || badge) + bouton + boutonPub
         + '<div class="igmeta"><span class="igt">' + ESC(DE(p.coverTitle || p.title || p.id)) + '</span>'
         + '<span class="igd' + (p.scheduledAt ? ' prog' : (seed ? '' : ' pret')) + '">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
     }).join('');
@@ -2659,6 +2699,45 @@ try {
     e.stopPropagation(); e.preventDefault();
     regenerer(rows[+b.dataset.re], [b]);
   }, true);
+
+  // ── Publier sur Instagram ────────────────────────────────────────────────
+  // Le user publie lui-meme, carrousel par carrousel (16/09/2026). On verifie
+  // ici ce que l'API refuserait de toute facon (2 a 10 images, une legende),
+  // on demande confirmation, puis le runner fait le reste.
+  async function publierDepuisHub(p, boutons) {
+    if (!p || !p.id) return;
+    if (!window.publierCarrouselLrdh) { alert('Base indisponible : connectez-vous d\u2019abord.'); return; }
+    const n = (p.slides || []).length;
+    const legende = String(p.caption || '').trim();
+    if (n < 2 || n > 10) { alert('Instagram accepte de 2 \u00e0 10 visuels par carrousel \u00b7 celui-ci en a ' + n + '.'); return; }
+    if (!legende) { alert('Pas de l\u00e9gende : \u00e9crivez-la (ou \u00ab R\u00e9\u00e9crire par la machine \u00bb) dans la fiche, puis enregistrez-la.'); return; }
+    if ((p.recette || []).some(x => x && x.type === 'video')) { alert('Ce carrousel contient une vid\u00e9o : la publication directe ne prend pour l\u2019instant que des images.'); return; }
+    const ok = confirm('Publier sur Instagram (@larevuedeshotels) ?\n\n\u00ab ' + DE(p.coverTitle || p.title || '') + ' \u00bb\n' + n + ' slides \u00b7 l\u00e9gende : ' + legende.replace(/\s+/g, ' ').slice(0, 90) + (legende.length > 90 ? '\u2026' : '') + '\n\nLa publication part tout de suite. Elle ne se retire pas depuis le hub.');
+    if (!ok) return;
+    (boutons || []).forEach(b => { b.disabled = true; });
+    try {
+      const r = await window.publierCarrouselLrdh(p.id);
+      p.publication = { etat: 'demande', demandeLe: r.demandeLe, compte: 'larevuedeshotels' };
+      rendre(rows, false);
+      const etat = document.getElementById('iglhetat');
+      if (etat && ouvert && ouvert.id === p.id) etat.textContent = r.direct ? 'publication lanc\u00e9e \u00b7 en ligne dans une minute environ, le carrousel quitte alors la bande' : 'demande pos\u00e9e \u00b7 le runner la prend dans le quart d\u2019heure';
+      if (typeof rendreSlides === 'function' && ouvert && ouvert.id === p.id) rendreSlides();
+      if (!r.direct) alert('Demande pos\u00e9e. GitHub n\u2019a pas pu \u00eatre r\u00e9veill\u00e9 tout de suite : le runner publiera dans le quart d\u2019heure.');
+    } catch (err) {
+      (boutons || []).forEach(b => { b.disabled = false; });
+      alert('\u00c9chec : ' + String(err.message || err).slice(0, 120));
+    }
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#iglhlist button.igpub'); if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    publierDepuisHub(rows[+b.dataset.pub], [b]);
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (e.target.id !== 'iglhpub' || !ouvert) return;
+    if (modifie()) { alert('Enregistrez d\u2019abord les modifications de la fiche.'); return; }
+    publierDepuisHub(ouvert, [e.target]);
+  });
   document.addEventListener('click', (e) => {
     if (e.target.id !== 'iglhregen' || !ouvert) return;
     regenerer(ouvert, [e.target]);
@@ -2846,6 +2925,16 @@ try {
     const b = document.getElementById('iglhsave');
     b.disabled = !chg || incomplet();
     b.textContent = rec ? 'Enregistrer les modifications' : "Enregistrer l'ordre";
+    const pb = document.getElementById('iglhpub');
+    if (pb) {
+      const pe = ouvert && ouvert.publication && ouvert.publication.etat;
+      pb.disabled = !ouvert || !ouvert.id || chg || incomplet() || ['demande', 'en_cours', 'publie'].includes(pe);
+      pb.title = !ouvert || !ouvert.id ? 'Rendu de r\u00e9f\u00e9rence : rien \u00e0 publier'
+        : chg ? 'Enregistrez d\u2019abord les modifications'
+        : pe === 'demande' || pe === 'en_cours' ? 'Publication en cours'
+        : pe === 'publie' ? 'D\u00e9j\u00e0 publi\u00e9'
+        : 'Publier ce carrousel sur Instagram (@larevuedeshotels) \u00b7 part tout de suite';
+    }
     document.getElementById('iglhetat').textContent = incomplet() ? 'un slide n’a pas encore de visuel' : (chg ? 'modifié' : '');
     document.getElementById('iglhaide').textContent = rec
       ? 'Modifiez le texte sous chaque visuel (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, glissez une vignette pour la déplacer, ou retirez-en une avec le ✕ en haut à droite.'
@@ -3127,7 +3216,7 @@ try {
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
 <div id="iglhview"><div class="box">
-  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><label class="iglhlis" title="Applique le même traitement du fond à tous les slides · chaque slide garde ensuite son propre réglage sous sa vignette"><select id="iglhlis"><option value="">Fond · toutes les slides…</option><option value="auto">auto · dégradé si la photo est claire</option><option value="degrade">dégradé</option><option value="ombre">un peu de sombre derrière le texte</option><option value="plaque">plaque</option><option value="bandeau">bandeau</option><option value="aucune">aucune</option></select></label><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
+  <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><label class="iglhlis" title="Applique le même traitement du fond à tous les slides · chaque slide garde ensuite son propre réglage sous sa vignette"><select id="iglhlis"><option value="">Fond · toutes les slides…</option><option value="auto">auto · dégradé si la photo est claire</option><option value="degrade">dégradé</option><option value="ombre">un peu de sombre derrière le texte</option><option value="plaque">plaque</option><option value="bandeau">bandeau</option><option value="aucune">aucune</option></select></label><button id="iglhpub" class="igre hd pub" title="Publier ce carrousel sur Instagram (@larevuedeshotels) · part tout de suite">📤 Publier sur Instagram</button><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
   <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="capbloc"><div class="caphd"><span>Légende Instagram</span><span class="capact"><button id="iglhcapcopy" type="button">📋 Copier</button><button id="iglhcapsave" type="button" disabled>💾 Enregistrer la légende</button><button id="iglhcapgen" type="button" title="La machine réécrit la légende (accroche, faits, lien bio, hashtags) · deux minutes">✨ Réécrire par la machine</button></span></div><textarea id="iglhvc" rows="9" spellcheck="true" placeholder="Pas encore de légende : cliquez « Réécrire par la machine »."></textarea><span class="caphint" id="iglhcaphint"></span></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
