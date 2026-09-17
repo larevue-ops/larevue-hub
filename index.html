@@ -587,6 +587,15 @@
           <label>Légende de la photo ronde <span class="hint">· texte + flèche vers le rond (option)</span></label>
           <input id="minsetlabel" placeholder="ex : La piscine face aux dunes (vide = pas de légende)">
         </div>
+        <div id="mgradrow" style="display:none">
+          <label>Dégradé sombre du bas <span class="hint">· le voile noir sous le titre · <b>auto</b> = celui du gabarit · <b>aucun</b> quand la photo est déjà sombre ou que le texte reste lisible</span></label>
+          <select id="mgradient">
+            <option value="auto">Auto · dégradé du gabarit (par défaut)</option>
+            <option value="leger">Léger · voile discret</option>
+            <option value="fort">Fort · photo claire ou chargée</option>
+            <option value="aucun">Aucun · pas de voile</option>
+          </select>
+        </div>
         <div id="mnoterow" style="display:none">
           <label>Note finale <span class="hint">· sur le sceau et au centre (ex : 9,7/10)</span></label>
           <input id="mnote" placeholder="9,7/10">
@@ -1888,6 +1897,10 @@ window.openModal = (qkey, id) => {
   editing.insetLabelBase = post.linkedinInsetLabel || _rr.insetLabel || '';
   document.getElementById('minset').value = editing.insetBase;
   document.getElementById('minsetlabel').value = editing.insetLabelBase;
+  editing.gradientBase = post.linkedinGradient || _rr.gradient || 'auto';
+  document.getElementById('mgradrow').style.display = isLrdhStyle ? 'block' : 'none';
+  document.getElementById('mgradient').value = editing.gradientBase;
+  document.getElementById('mgradient').onchange = planifierApercuCover;
   document.getElementById('msize').value = post.linkedinTitleSize ? String(post.linkedinTitleSize) : '';
   editing.chiffreBase = {
     chiffre: post.linkedinChiffre || _rr.chiffre || '',
@@ -2237,7 +2250,7 @@ async function dessinerApercuCover() {
   }
   if (!(await chargerPolicesTitre())) return;   // sans Playfair, on ne triche pas
   if (!COVER) {
-    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260916c'); }
+    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260917a'); }
     catch (e) { console.error('[hub] module cover indisponible', e); return; }
   }
   if (!editing) return;                          // modale refermée entre-temps
@@ -2262,6 +2275,7 @@ async function dessinerApercuCover() {
       insetImage: document.getElementById('minset').value.trim(),
       insetLabel: document.getElementById('minsetlabel').value.trim(),
       titleSize: +document.getElementById('msize').value || 0,
+      gradient: document.getElementById('mgradient').value || 'auto',
     });
     note.style.display = 'block';
     if (apercuForce) { cv.style.display = 'block'; img.style.display = 'none'; }
@@ -2363,6 +2377,7 @@ window.saveEdit = async () => {
     if (editing.qkey === 'lrdh') {
       upd.linkedinInsetImage = document.getElementById('minset').value.trim() || null;
       upd.linkedinInsetLabel = document.getElementById('minsetlabel').value.trim() || null;
+      upd.linkedinGradient = document.getElementById('mgradient').value || 'auto';
     }
     // ── détection des changements visuels → demande de régénération ──
     const rr = {};
@@ -2395,6 +2410,8 @@ window.saveEdit = async () => {
       // sauvegarde sans que rien n'ait change.
       if (_ins !== (editing.insetBase || '')) rr.insetImage = _ins;
       if (_insl !== (editing.insetLabelBase || '')) rr.insetLabel = _insl;
+      const _gr = document.getElementById('mgradient').value || 'auto';
+      if (_gr !== (editing.gradientBase || 'auto')) rr.gradient = _gr;
       const _ts = +document.getElementById('msize').value || 0;
       if (_ts !== (+post.linkedinTitleSize || 0)) rr.titleSize = _ts;   // 0 = retour au corps du gabarit
       const loc = document.getElementById('mloc').value.trim();

@@ -353,7 +353,7 @@ function cadrer(ctx, img, { x = 50, y = 50, zoom = 100 } = {}) {
 // ── L'aperçu complet ────────────────────────────────────────────────────────
 export async function dessinerCoverActu(ctx, {
   imageUrl = '', category = '', title = '', brand = '', location = '',
-  crop = { x: 50, y: 50, zoom: 100 }, insetImage = '', insetLabel = '', titleSize = 0,
+  crop = { x: 50, y: 50, zoom: 100 }, insetImage = '', insetLabel = '', titleSize = 0, gradient = 'auto',
 } = {}) {
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#1a1a1a';
@@ -369,12 +369,19 @@ export async function dessinerCoverActu(ctx, {
   const mise = TITRE.layoutNewsTitle(ctx, { title, brand, size: titleSize });
   const hautBloc = (H - 60 - 36 - 75) - mise.lines.length * mise.lineHeight - 84 - 70;
   const depart = Math.min(Math.round(H * 0.45), hautBloc - 160);
-  const grad = ctx.createLinearGradient(0, depart, 0, H);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(0.45, 'rgba(0,0,0,0.55)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.92)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, depart, W, H - depart);
+  // [17/09/2026] Même réglage que le générateur (DEGRADES dans lrdh.js) :
+  // auto · leger · fort · aucun. Modifier les deux côtés ensemble.
+  const DEGRADES = { auto: { mi: 0.55, bas: 0.92, haut: 0 }, leger: { mi: 0.30, bas: 0.62, haut: 80 }, fort: { mi: 0.72, bas: 0.97, haut: -140 }, aucun: null };
+  const d = DEGRADES[String(gradient || 'auto').toLowerCase()] === undefined ? DEGRADES.auto : DEGRADES[String(gradient || 'auto').toLowerCase()];
+  if (d) {
+    const s0 = Math.max(0, Math.min(H - 200, depart + d.haut));
+    const grad = ctx.createLinearGradient(0, s0, 0, H);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.45, `rgba(0,0,0,${d.mi})`);
+    grad.addColorStop(1, `rgba(0,0,0,${d.bas})`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, s0, W, H - s0);
+  }
 
   if (insetImage) photoRonde(ctx, incruste, insetLabel);
   pastilleBas(ctx);
