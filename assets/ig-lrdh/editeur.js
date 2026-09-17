@@ -9,7 +9,7 @@
 // recette : les sources sont sur Cloudinary (entetes CORS, sans quoi
 // `toBlob` refuserait un canvas contamine), les fontes sont servies par le hub,
 // et la marque aussi.
-import * as N from './noyau.js?v=202609170930';
+import * as N from './noyau.js?v=202609171200';
 
 const CLOUD = 'dghhiz8ou';
 const PRESET = 'larevue_articles';
@@ -28,6 +28,7 @@ export function pret() {
     const fontes = [
       [N.SERIF, `${BASE}/fonts/PlayfairDisplay-Titre.ttf`],
       [N.SERIF_REG, `${BASE}/fonts/PlayfairDisplay-Legende.ttf`],
+      [N.SANS, `${BASE}/fonts/Inter-Bold.ttf`],   // le bouton « Suivre » (17/09/2026)
     ];
     await Promise.all(fontes.map(async ([nom, url]) => {
       const f = new FontFace(nom, `url(${url})`);
@@ -135,14 +136,16 @@ export async function rendre(item, extra = {}) {
   const calque = Boolean(extra.calque) || estVideo(item);
   const img = calque ? null : await source(item.src);
   const c = document.createElement('canvas');
-  c.width = N.W; c.height = N.H;
+  // Instagram 1080x1350, TikTok 1080x1920 (17/09/2026) : la recette porte la plateforme
+  const dim = N.dimensions(item.plateforme || extra.plateforme);
+  c.width = dim.W; c.height = dim.H;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   const taille = Number(item.taille) || 1;
   // une video se dessine comme une photo (ou comme une couverture en 1re position)
   const type = estVideo(item) ? ((extra.index || item.index) === 1 ? 'couverture' : 'photo') : item.type;
   // 16/09/2026 : l'aiguillage vit dans le noyau (variante v1/v2, surtitre, compteur) ·
   // une recette V2 se re-rend donc ici exactement comme sur le serveur.
-  N.dessiner(ctx, { ...item, type, taille }, { img, logo, calque, index: extra.index, total: extra.total });
+  N.dessiner(ctx, { ...item, type, taille }, { img, logo, calque, index: extra.index, total: extra.total, plateforme: item.plateforme || extra.plateforme });
   return c;
 }
 export const rendreCalque = (item, extra = {}) => rendre(item, { ...extra, calque: true });
@@ -168,12 +171,13 @@ export async function televerserCalque(canvas, publicId) {
  * cadrage 4:5 en 1080x1350, calque a la meme taille par-dessus, mp4.
  * Ne vaut que pour une video hebergee chez Cloudinary (sinon null).
  */
-export function urlVideoCalque(src, publicId) {
+export function urlVideoCalque(src, publicId, plateforme) {
   const m = String(src || '').match(/^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.*)$/);
   if (!m || !publicId) return null;
   const reste = m[2].replace(/^(?:[a-z]{1,2}_[^/]+\/)+/, '').replace(/\.(mov|m4v|webm)(\?.*)?$/i, '.mp4');
   const id = String(publicId).replace(/\//g, ':');
-  return `${m[1]}c_fill,w_${N.W},h_${N.H}/l_${id},c_scale,w_${N.W},h_${N.H}/fl_layer_apply/${reste}`;
+  const { W, H } = N.dimensions(plateforme);
+  return `${m[1]}c_fill,w_${W},h_${H}/l_${id},c_scale,w_${W},h_${H}/fl_layer_apply/${reste}`;
 }
 
 const blob = (canvas) => new Promise(ok => canvas.toBlob(ok, 'image/jpeg', 0.95));
@@ -212,7 +216,7 @@ export async function publier(recette, postId, surAvancement) {
       if (!texte || !/\/video\/upload\//.test(String(it.src))) { delete it.calque; urls.push(it.src); continue; }
       const cv = await rendreCalque(it, { index: i + 1, total: recette.length });
       it.calque = await televerserCalque(cv, `lrdh_instagram/calques/${postId || 'edit'}-${i + 1}-${stamp}`);
-      urls.push(urlVideoCalque(it.src, it.calque) || it.src);
+      urls.push(urlVideoCalque(it.src, it.calque, it.plateforme) || it.src);
       continue;
     }
     const c = await rendre(it, { index: i + 1, total: recette.length });
@@ -221,5 +225,5 @@ export async function publier(recette, postId, surAvancement) {
   return urls;
 }
 
-export const W = N.W, H = N.H, CTA_DEFAUT = N.CTA_DEFAUT;
+export const W = N.W, H = N.H, CTA_DEFAUT = N.CTA_DEFAUT, dimensions = N.dimensions;
 export default { pret, rendre, rendreCalque, televerser, televerserCalque, urlVideoCalque, publier, importer, estVideo, W, H };

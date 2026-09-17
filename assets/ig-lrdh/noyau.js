@@ -11,8 +11,21 @@
 // porte un en-tete « genere ». Ne jamais editer la copie : on a deja paye le
 // prix d'un fichier qualite.mjs en trois exemplaires divergents.
 
-export const W = 1080;
-export const H = 1350;                  // 4:5, le plus haut format tolere par Instagram
+// ─── Formats (17/09/2026) : Instagram 4:5, TikTok 9:16 ───────────────────────
+// `dessiner()` bascule W/H (liaisons vivantes) le temps d'un rendu. TikTok pose
+// ses propres commandes par-dessus l'image : onglets en haut (~200 px), icônes
+// à droite (~130 px), pseudo et légende en bas (~260 px) · les marges FMT
+// écartent le texte de ces zones. Instagram n'en a pas besoin.
+export const FORMATS = {
+  instagram: { W: 1080, H: 1350, haut: 0, bas: 0, droite: 0 },
+  tiktok:    { W: 1080, H: 1920, haut: 200, bas: 260, droite: 130 },
+};
+export let W = FORMATS.instagram.W;
+export let H = FORMATS.instagram.H;     // 4:5, le plus haut format tolere par Instagram
+let FMT = FORMATS.instagram;
+export const dimensions = (plateforme) => { const f = FORMATS[plateforme] || FORMATS.instagram; return { W: f.W, H: f.H }; };
+export const SANS = 'ExqzSans';         // Inter Bold · le bouton « Suivre » d'Instagram
+export const COMPTES = { instagram: '@larevuedeshotels', tiktok: '@larevuedeshotels' };
 export const LARGEUR_MINI = 900;        // en deca, l'image serait etiree
 export const INK = '#0d0d0c';
 export const CTA_DEFAUT = "Plus d'infos via le lien dans la bio.";
@@ -67,7 +80,7 @@ function marque(ctx, logo, y, large, echo = 0) {
 function signer(ctx, logo, echo = 0) {
   if (!logo) return;
   const h = Math.round(logo.height * LOGO_LARGE_SUITE / logo.width);
-  marque(ctx, logo, H - h - 54, LOGO_LARGE_SUITE, echo);
+  marque(ctx, logo, H - h - 54 - FMT.bas, LOGO_LARGE_SUITE, echo);
 }
 
 // Calque (17/09/2026) : dessiner SANS la photo, sur fond transparent. Pour poser
@@ -254,6 +267,7 @@ function ecrireLignes(ctx, lignes, cx, haut, lh, clarte, size) {
 }
 
 function credit(ctx, texte, taille, alpha, y) {
+  y = y < H / 2 ? y + FMT.haut : y - FMT.bas;
   if (!texte) return;
   ctx.fillStyle = `rgba(255,255,255,${alpha})`;
   ctx.font = `${taille}px "${SERIF_REG}"`;
@@ -315,7 +329,7 @@ function dessinerEnBandeau(ctx, { img, logo, texte, credit: cr, taille, hi, lo, 
   const lh = Math.round(size * 1.17);
   const hLogo = logo ? Math.round(logo.height * logoLarge / logo.width) : 0;
   const bande = 56 + hLogo + 30 + size + (lignes.length - 1) * lh + 64;
-  const hPhoto = H - bande;
+  const hPhoto = H - bande - FMT.bas;
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W, hPhoto); ctx.clip();
   if (!CALQUE) coverDraw(ctx, img, W, hPhoto);
   ctx.restore();
@@ -332,9 +346,9 @@ export function dessinerCouverture(ctx, { img, logo, titre, credit: cr, taille =
   fond(ctx, img);
   ctx.textBaseline = 'alphabetic';
   credit(ctx, cr, 20, 0.80, 62);
-  const { size, lignes } = fitTitle(ctx, titre, W - 132, 3, 82, 52, taille);
+  const { size, lignes } = fitTitle(ctx, titre, W - 132 - 2 * FMT.droite, 3, 82, 52, taille);
   const lh = Math.round(size * 1.17);
-  const bas = H - 196;
+  const bas = H - 196 - FMT.bas;
   const haut = bas - (lignes.length - 1) * lh;
   let clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
   const hLogo = logo ? Math.round(logo.height * LOGO_LARGE_COUV / logo.width) : 0;
@@ -360,14 +374,14 @@ export function dessinerPhoto(ctx, { img, logo, legende, credit: cr, taille = 1,
   // traitement de fond (16/09), on ne retire plus rien.
   if (leg && lisibilite === 'aucune' && clarteDuBas(ctx, H * 0.70, H * 0.22) > 0.82) leg = '';
   if (leg) {
-    const { size, lignes } = fitTitle(ctx, leg, W - 150, 3, 46, 32, taille);
+    const { size, lignes } = fitTitle(ctx, leg, W - 150 - 2 * FMT.droite, 3, 46, 32, taille);
     const lh = Math.round(size * 1.25);
-    const haut = H - 172 - (lignes.length - 1) * lh;
+    const haut = H - 172 - FMT.bas - (lignes.length - 1) * lh;
     let clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
     const mode = modeLisibilite(lisibilite, clarte);
     if (mode !== 'aucune') {
       const demi = largeurLignes(ctx, lignes, size) / 2 + 36;
-      traiterFond(ctx, mode, { haut: haut - size - 24, bas: H - 40, gauche: Math.max(30, W / 2 - demi), droite: Math.min(W - 30, W / 2 + demi) });
+      traiterFond(ctx, mode, { haut: haut - size - 24, bas: H - 40 - FMT.bas, gauche: Math.max(30, W / 2 - demi), droite: Math.min(W - 30, W / 2 + demi) });
       clarte = 0.2;
     }
     ecrireLignes(ctx, lignes, W / 2, haut, lh, clarte, size);
@@ -420,7 +434,7 @@ function degradeBas(ctx, depuis, alpha = 0.78) {
   ctx.fillStyle = g;
   ctx.fillRect(0, depuis, W, H - depuis);
 }
-function marqueHautV2(ctx, logo, index = 0) { return marque(ctx, logo, 52, V2.LOGO, echoDe(index)); }
+function marqueHautV2(ctx, logo, index = 0) { return marque(ctx, logo, 52 + FMT.haut, V2.LOGO, echoDe(index)); }
 function compteurV2(ctx, index, total) {
   if (!index || !total) return;
   ctx.save();
@@ -429,7 +443,7 @@ function compteurV2(ctx, index, total) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
   ombreTexte(ctx, 0.6);
-  ctx.fillText(`${index}/${total}`, W - V2.MARGE, H - 62);
+  ctx.fillText(`${index}/${total}`, W - V2.MARGE - FMT.droite, H - 62 - FMT.bas);
   ctx.restore();
   sansOmbre(ctx);
 }
@@ -474,9 +488,9 @@ export function dessinerCouvertureV2(ctx, { img, logo, titre, credit: cr, kicker
   credit(ctx, cr, 19, 0.70, H - 38);
   // 3 lignes au plus : à 4 lignes de 92 px, l'habillage laissait des lignes courtes au milieu
   // (« 84 / villas sur / pilotis en 2027 ? » sur le premier rendu réel du 16/09).
-  const { size, lignes } = fitTitle(ctx, titre, W - 2 * V2.MARGE, 3, 84, 50, taille);
+  const { size, lignes } = fitTitle(ctx, titre, W - 2 * V2.MARGE - FMT.droite, 3, 84, 50, taille);
   const lh = Math.round(size * 1.10);
-  const bas = H - 172;
+  const bas = H - 172 - FMT.bas;
   const haut = bas - (lignes.length - 1) * lh;
   const yK = haut - size - 30;
   if (mode === 'ombre' || mode === 'plaque') {
@@ -503,12 +517,12 @@ export function dessinerPhotoV2(ctx, { img, logo, legende, credit: cr, taille = 
   marqueHautV2(ctx, logo, index);
   credit(ctx, cr, 19, 0.70, H - 38);
   if (leg) {
-    const { size, lignes } = fitTitle(ctx, leg, W - 2 * V2.MARGE, 3, 52, 36, taille);
+    const { size, lignes } = fitTitle(ctx, leg, W - 2 * V2.MARGE - FMT.droite, 3, 52, 36, taille);
     const lh = Math.round(size * 1.18);
-    const haut = H - 150 - (lignes.length - 1) * lh;
+    const haut = H - 150 - FMT.bas - (lignes.length - 1) * lh;
     if (mode === 'ombre' || mode === 'plaque') {
       const large = largeurLignes(ctx, lignes, size);
-      traiterFond(ctx, mode, { haut: haut - size - 30, bas: H - 150 + Math.round(size * 0.34) + 28, gauche: V2.MARGE - 36, droite: Math.min(W - 24, V2.MARGE + large + 36) });
+      traiterFond(ctx, mode, { haut: haut - size - 30, bas: H - 150 - FMT.bas + Math.round(size * 0.34) + 28, gauche: V2.MARGE - 36, droite: Math.min(W - 24, V2.MARGE + large + 36) });
     }
     ecrireLignesGauche(ctx, lignes, V2.MARGE, haut, lh, 0.2, size);
   }
@@ -529,33 +543,67 @@ export function dessinerChuteV2(ctx, { img, logo, texte, credit: cr, taille = 1,
   let y = yLogo + hl + 64 + size;
   ecrireLignes(ctx, lignes, W / 2, y, lh, 0.2, size);
   y += (lignes.length - 1) * lh;
-  // le bouton « + Suis @larevuedeshotels »
-  const label = `Suis ${V2.HANDLE}`;
-  ctx.font = `38px "${SERIF}"`;
-  const tw = ctx.measureText(label).width;
-  const plus = 22, gap = 14, padX = 36, h = 92, w = padX + plus + gap + tw + padX;
-  const x = (W - w) / 2, yb = y + 58;
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
-  ctx.beginPath(); ctx.roundRect(x, yb, w, h, h / 2); ctx.fillStyle = '#ffffff'; ctx.fill();
-  ctx.restore();
-  ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.lineCap = 'round';
-  const pcx = x + padX + plus / 2, pcy = yb + h / 2;
-  ctx.beginPath();
-  ctx.moveTo(pcx - plus / 2, pcy); ctx.lineTo(pcx + plus / 2, pcy);
-  ctx.moveTo(pcx, pcy - plus / 2); ctx.lineTo(pcx, pcy + plus / 2);
-  ctx.stroke();
-  ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = `38px "${SERIF}"`;
-  ctx.fillText(label, x + padX + plus + gap, pcy + 2);
-  ctx.textBaseline = 'alphabetic';
+  // le bouton « Suivre » de la plateforme, tel que l'abonné le connaît (17/09/2026)
+  const finBouton = FMT === FORMATS.tiktok ? suivreTikTok(ctx, logo, y + 58) : suivreInstagram(ctx, y + 58);
   // l'appel à la bio, en petit
   const t = String(texte || CTA_DEFAUT).trim() || CTA_DEFAUT;
   const petit = fitTitle(ctx, t, W - 2 * V2.MARGE, 2, 32, 26, 1);
   const lhp = Math.round(petit.size * 1.25);
   ctx.globalAlpha = 0.9;
-  ecrireLignes(ctx, petit.lignes, W / 2, yb + h + 74 + petit.size, lhp, 0.2, petit.size);
+  ecrireLignes(ctx, petit.lignes, W / 2, finBouton + 74 + petit.size, lhp, 0.2, petit.size);
   ctx.globalAlpha = 1;
   compteurV2(ctx, index, total);
+}
+
+// Le bouton « Suivre » d'Instagram (bleu, sans, coins arrondis), précédé du pseudo.
+// Renvoie le bas du bloc.
+function suivreInstagram(ctx, y) {
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.font = `34px "${SERIF_REG}"`; ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ombreTexte(ctx, 0.6);
+  ctx.fillText(COMPTES.instagram, W / 2, y + 34);
+  ctx.restore(); sansOmbre(ctx);
+  const w = 400, h = 96, x = (W - w) / 2, yb = y + 34 + 28;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
+  ctx.beginPath(); ctx.roundRect(x, yb, w, h, 26); ctx.fillStyle = '#4b5df5'; ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `700 40px "${SANS}", "Helvetica Neue", Arial, sans-serif`;
+  ctx.fillText('Suivre', W / 2, yb + h / 2 + 2);
+  ctx.textBaseline = 'alphabetic';
+  return yb + h;
+}
+
+// Le suivi de TikTok : l'avatar rond cerclé de blanc, la pastille rouge « + »
+// en dessous, puis le pseudo. Renvoie le bas du bloc.
+function suivreTikTok(ctx, logo, y) {
+  const d = 200, cx = W / 2, cy = y + d / 2;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 6;
+  ctx.beginPath(); ctx.arc(cx, cy, d / 2 + 5, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, d / 2, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = INK; ctx.fillRect(cx - d / 2, cy - d / 2, d, d);
+  if (logo) ctx.drawImage(logo, cx - d / 2, cy - d / 2, d, d);
+  ctx.restore();
+  const r = 32, py = cy + d / 2;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, py, r + 4, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx, py, r, 0, Math.PI * 2); ctx.fillStyle = '#fe2c55'; ctx.fill();
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(cx - 15, py); ctx.lineTo(cx + 15, py); ctx.moveTo(cx, py - 15); ctx.lineTo(cx, py + 15); ctx.stroke();
+  ctx.restore();
+  const yt = py + r + 4 + 66;
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.font = `44px "${SERIF}"`; ctx.fillStyle = '#ffffff';
+  ombreTexte(ctx, 0.8);
+  ctx.fillText(`Suis ${COMPTES.tiktok}`, cx, yt);
+  ctx.restore(); sansOmbre(ctx);
+  return yt + 12;
 }
 
 // Aiguillage unique, serveur et navigateur : une entrée de recette, une image et
@@ -564,6 +612,8 @@ export function dessiner(ctx, item, extra = {}) {
   // `extra.calque` : calque transparent pour une vidéo (pas de fond, pas de photo).
   // On n'y mesure pas la clarté d'une image absente : 'auto' devient 'degrade'.
   CALQUE = Boolean(extra.calque);
+  const f = FORMATS[item.plateforme || extra.plateforme] || FORMATS.instagram;
+  W = f.W; H = f.H; FMT = f;
   try {
     const v2 = (item.variante || extra.variante) === 'v2';
     let lisibilite = item.lisibilite ?? extra.lisibilite ?? 'auto';
@@ -577,7 +627,7 @@ export function dessiner(ctx, item, extra = {}) {
       ? dessinerChuteV2(ctx, { ...base, texte: item.texte })
       : dessinerChute(ctx, { ...base, texte: item.texte });
     return v2 ? dessinerPhotoV2(ctx, { ...base, legende: item.texte }) : dessinerPhoto(ctx, { ...base, legende: item.texte });
-  } finally { CALQUE = false; }
+  } finally { CALQUE = false; W = FORMATS.instagram.W; H = FORMATS.instagram.H; FMT = FORMATS.instagram; }
 }
 
-export default { dessinerCouverture, dessinerPhoto, dessinerChute, dessinerCouvertureV2, dessinerPhotoV2, dessinerChuteV2, dessiner, clarteDuBas, parseMarqueurs, W, H, CTA_DEFAUT, V2, LISIBILITES, ECHO_MAX };
+export default { dessinerCouverture, dessinerPhoto, dessinerChute, dessinerCouvertureV2, dessinerPhotoV2, dessinerChuteV2, dessiner, clarteDuBas, parseMarqueurs, dimensions, FORMATS, SANS, COMPTES, W, H, CTA_DEFAUT, V2, LISIBILITES, ECHO_MAX };

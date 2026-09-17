@@ -412,7 +412,7 @@
       <div class="list" id="iglist"></div>
     </div>
     <div class="strip instalrdh" id="strip-insta-lrdh">
-      <div class="head"><span class="t">📸 Instagram <span class="pmed" style="--pc:#b8860b">🏨 La Revue des Hôtels</span> · <span id="iglhcount">0</span> carrousels · <a class="igprofil" href="https://www.instagram.com/larevuedeshotels/" target="_blank" rel="noopener" title="Le compte où partent les carrousels">@larevuedeshotels ↗</a></span>
+      <div class="head"><span class="t"><span class="igonglets"><button type="button" class="igonglet on" data-plat="instagram" title="Carrousels 4:5 pour instagram.com/larevuedeshotels">📸 Instagram <b id="iglhcount">0</b></button><button type="button" class="igonglet" data-plat="tiktok" title="Carrousels 9:16 pour tiktok.com/@larevuedeshotels">🎵 TikTok <b id="iglhcounttk">0</b></button></span> <span class="pmed" style="--pc:#b8860b">🏨 La Revue des Hôtels</span> · <a class="igprofil" id="iglhprofil" href="https://www.instagram.com/larevuedeshotels/" target="_blank" rel="noopener" title="Le compte où partent les carrousels">@larevuedeshotels ↗</a></span>
         <button id="iglhnew" title="Choisir un article et fabriquer son carrousel">+ Générer un carrousel</button>
         <span id="iglhsrc" style="font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;color:#e0bd6a"></span></div>
       <div class="list" id="iglhlist"></div>
@@ -1310,12 +1310,12 @@ window.publierCarrouselLrdh = async (id) => {
   return { demandeLe, direct };
 };
 
-window.regenererCarrouselLrdh = async (id, wpUrl, version = 'v1') => {
+window.regenererCarrouselLrdh = async (id, wpUrl, version = 'v1', plateforme = 'instagram') => {
   if (!id || !wpUrl) throw new Error('carrousel sans identifiant ou sans article');
   const ref = doc(dbPour('lrdh_instagram_queue'), 'lrdh_instagram_queue', id);
   const requestedAt = new Date().toISOString();
   await updateDoc(ref, { regenRequest: { pending: true, requestedAt, type: 'carrousel' } });
-  try { await window.fabriquerCarrouselLrdh(wpUrl, { version }); }
+  try { await window.fabriquerCarrouselLrdh(wpUrl, { version, ...(plateforme === 'tiktok' ? { plateforme } : {}) }); }
   catch (e) {
     await updateDoc(ref, { regenRequest: { pending: false, requestedAt, error: String(e.message || e).slice(0, 120) } }).catch(() => {});
     throw e;
@@ -1341,7 +1341,10 @@ try {
       && !['archived', 'archived_stale', 'published'].includes(x.status)
       && (x.slides || []).length >= 2);
     vivants.sort((a, b) => cleDate(b.createdAt).localeCompare(cleDate(a.createdAt)));
-    if (vivants.length && window.rendreIgLrdh) window.rendreIgLrdh(vivants, false);
+    if (window.rendreIgLrdh) {
+      const insta = vivants.filter(x => x.plateforme !== 'tiktok'), tiktok = vivants.filter(x => x.plateforme === 'tiktok');
+      if (insta.length || tiktok.length) { window.rendreIgLrdh(insta, false, 'instagram'); window.rendreIgLrdh(tiktok, false, 'tiktok'); }
+    }
   }, 'lrdh');
 } catch (e) { console.warn('Instagram LRDH : file illisible, rendus de reference conserves', e); }
 
@@ -2440,6 +2443,14 @@ try {
   #strip-insta-lrdh .igcard:hover .igpub, #strip-insta-lrdh .igcard .igpub:disabled { opacity:1; }
   #strip-insta-lrdh .igcard .igpub:hover { background:#c13584; border-color:#c13584; }
   #strip-insta-lrdh .igprofil { color:#e0bd6a; text-decoration:none; font-weight:600; font-size:13px; }
+  #strip-insta-lrdh .igonglets { display:inline-flex; gap:4px; vertical-align:middle; margin-right:4px; }
+  #strip-insta-lrdh .igonglet { background:transparent; border:1px solid rgba(255,255,255,.22); color:#ddd; border-radius:999px; padding:3px 10px; font:600 12px var(--sans); cursor:pointer; }
+  #strip-insta-lrdh .igonglet.on { background:var(--lrdh); border-color:var(--lrdh); color:#111; }
+  #strip-insta-lrdh .igonglet b { font-weight:800; margin-left:3px; }
+  #strip-insta-lrdh .igvide { color:#9a9a9a; font-size:13px; padding:26px 12px; line-height:1.5; }
+  #strip-insta-lrdh .igcard .igtk { position:absolute; top:6px; left:36px; background:#fe2c55; color:#fff; font-size:9px; font-weight:800; letter-spacing:.5px; padding:3px 6px; border-radius:6px; }
+  #iglhview .sl figure.tk { width:min(240px,50vw); }
+  #iglhview .sl figure.tk .cv { aspect-ratio:9/16; }
   #strip-insta-lrdh .igprofil:hover { text-decoration:underline; }
   #iglhview .hd .igre.hd.pub { background:#c13584; border-color:#c13584; color:#fff; }
   #iglhview .hd .igre.hd.pub:disabled { opacity:.45; cursor:not-allowed; }
@@ -2648,9 +2659,26 @@ try {
     if (!rr.pending) return 'none';
     return (Date.now() - demande) > 20 * 60 * 1000 ? 'stale' : 'active';
   }
-  function rendre(list, seed) {
+  // Deux plateformes dans la meme bande (17/09/2026) : la file est unique
+  // (champ `plateforme`), l'onglet choisit ce qu'on affiche.
+  const rowsPar = { instagram: [], tiktok: [] };
+  let platActive = 'instagram';
+  const PROFILS = { instagram: 'https://www.instagram.com/larevuedeshotels/', tiktok: 'https://www.tiktok.com/@larevuedeshotels' };
+  function majOnglets() {
+    const c1 = document.getElementById('iglhcount'), c2 = document.getElementById('iglhcounttk');
+    if (c1) c1.textContent = rowsPar.instagram.length;
+    if (c2) c2.textContent = rowsPar.tiktok.length;
+    document.querySelectorAll('#strip-insta-lrdh .igonglet').forEach(b => b.classList.toggle('on', b.dataset.plat === platActive));
+    const a = document.getElementById('iglhprofil'); if (a) a.href = PROFILS[platActive];
+  }
+  function rendre(list, seed, plat = 'instagram') {
+    if (!seed) { rowsPar[plat] = list; majOnglets(); if (plat !== platActive) return; }
     rows = list;
-    document.getElementById('iglhcount').textContent = list.length;
+    if (!seed && !list.length) {
+      document.getElementById('iglhsrc').textContent = 'file Firestore';
+      document.getElementById('iglhlist').innerHTML = '<div class="igvide">Aucun carrousel ' + (plat === 'tiktok' ? 'TikTok' : 'Instagram') + ' pour l\u2019instant \u00b7 \u00ab + G\u00e9n\u00e9rer un carrousel \u00bb, plateforme ' + (plat === 'tiktok' ? 'TikTok' : 'Instagram') + '.</div>';
+      return;
+    }
     document.getElementById('iglhsrc').textContent = seed ? 'rendus de r\u00e9f\u00e9rence' : 'file Firestore';
     document.getElementById('iglhlist').innerHTML = list.slice(0, 12).map((p, i) => {
       const cover = (p.slides && p.slides[0]) || '';
@@ -2666,16 +2694,21 @@ try {
       const badgePub = pe === 'demande' ? '<span class="igre-badge on">\ud83d\udce4 envoi\u2026</span>'
         : pe === 'en_cours' ? '<span class="igre-badge on">\ud83d\udce4 publication\u2026</span>'
         : pe === 'erreur' ? '<span class="igre-badge err" title="' + ESC(String(pub.erreur || '')) + '">\u26a0\ufe0f publication \u00e9chou\u00e9e</span>' : '';
-      const boutonPub = !seed && p.id && !['demande', 'en_cours', 'publie'].includes(pe)
+      const boutonPub = !seed && p.id && p.plateforme !== 'tiktok' && !['demande', 'en_cours', 'publie'].includes(pe)
         ? '<button class="igpub" data-pub="' + i + '" title="Publier ce carrousel sur Instagram (@larevuedeshotels) · part tout de suite">\ud83d\udce4</button>' : '';
       return '<div class="igcard' + (re === 'active' ? ' regen' : '') + '" data-iglh="' + i + '" title="Voir le carrousel">'
         + (cover ? '<img src="' + ESC(cover) + '" alt="" loading="lazy">' : '<div class="igph">?</div>')
-        + (n ? '<span class="ign">' + n + '</span>' : '') + (p.variante === 'v2' ? '<span class="igv2" title="Version 2 des visuels">V2</span>' : '') + (badgePub || badge) + bouton + boutonPub
+        + (n ? '<span class="ign">' + n + '</span>' : '') + (p.plateforme === 'tiktok' ? '<span class="igtk" title="Carrousel TikTok 9:16">TikTok</span>' : (p.variante === 'v2' ? '<span class="igv2" title="Version 2 des visuels">V2</span>' : '')) + (badgePub || badge) + bouton + boutonPub
         + '<div class="igmeta"><span class="igt">' + ESC(DE(p.coverTitle || p.title || p.id)) + '</span>'
         + '<span class="igd' + (p.scheduledAt ? ' prog' : (seed ? '' : ' pret')) + '">' + (p.scheduledAt ? FD(p.scheduledAt) : (seed ? 'r\u00e9f\u00e9rence' : 'pr\u00eat \u00e0 programmer')) + '</span></div></div>';
     }).join('');
   }
   window.rendreIgLrdh = rendre;
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('#strip-insta-lrdh .igonglet'); if (!b) return;
+    platActive = b.dataset.plat === 'tiktok' ? 'tiktok' : 'instagram';
+    rendre(rowsPar[platActive], false, platActive);
+  });
 
   // ── Refaire par la machine ───────────────────────────────────────────────
   // Une regeneration efface ce qui a ete retouche a la main dans la fiche : on
@@ -2687,7 +2720,7 @@ try {
     if (!ok) return;
     (boutons || []).forEach(b => { b.disabled = true; b.textContent = '\u2026'; });
     try {
-      const requestedAt = await window.regenererCarrouselLrdh(p.id, p.wpUrl, p.variante === 'v2' ? 'v2' : 'v1');
+      const requestedAt = await window.regenererCarrouselLrdh(p.id, p.wpUrl, p.variante === 'v2' ? 'v2' : 'v1', p.plateforme === 'tiktok' ? 'tiktok' : 'instagram');
       p.regenRequest = { pending: true, requestedAt, type: 'carrousel' };
       rendre(rows, false);
       const etat = document.getElementById('iglhetat'); if (etat && ouvert && ouvert.id === p.id) etat.textContent = 'r\u00e9g\u00e9n\u00e9ration lanc\u00e9e · deux \u00e0 trois minutes';
@@ -2758,7 +2791,7 @@ try {
     try {
       if (!window.JSZip) await new Promise((ok, non) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload = ok; s.onerror = () => non(new Error('JSZip introuvable')); document.head.appendChild(s); });
       const zip = new JSZip();
-      const nom = String(DE(ouvert.coverTitle || ouvert.title || 'carrousel')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'carrousel';
+      const nom = (String(DE(ouvert.coverTitle || ouvert.title || 'carrousel')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'carrousel') + (ouvert.plateforme === 'tiktok' ? '-tiktok' : '');
       // Avec une recette, chaque image est RE-RENDUE ici en 1080x1350 (JPEG 95) :
       // c'est la pleine definition, quelle que soit la version stockee en ligne.
       // Sans recette (carrousels d'avant), on prend les fichiers stockes.
@@ -2836,7 +2869,7 @@ try {
   async function moduleEdition() {
     // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
     // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609170930');
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609171200');
     return EDIT;
   }
 
@@ -2844,7 +2877,8 @@ try {
     return aRecette()
       ? ouvert.recette.map((r, i, arr) => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1,
           ...(r.variante ? { variante: r.variante } : {}), index: i + 1, total: arr.length,
-          ...(r.kicker ? { kicker: r.kicker } : {}), ...(r.calque ? { calque: r.calque } : {}), ...(r.duree ? { duree: r.duree } : {}), lisibilite: r.lisibilite || 'auto' }))
+          ...(r.kicker ? { kicker: r.kicker } : {}), ...(r.calque ? { calque: r.calque } : {}), ...(r.duree ? { duree: r.duree } : {}),
+          ...(r.plateforme ? { plateforme: r.plateforme } : {}), lisibilite: r.lisibilite || 'auto' }))
       : (ouvert.slides || []).slice();
   }
 
@@ -2917,7 +2951,7 @@ try {
         + '<select data-sw="' + i + '"><option value="">⇄ échanger la photo avec…</option>'
         + travail.map((_, j) => j === i ? '' : '<option value="' + j + '">' + ESC(etiquette(j)) + '</option>').join('')
         + '</select>') : '';
-      return '<figure draggable="true" data-i="' + i + '">' + apercu
+      return '<figure draggable="true" data-i="' + i + '"' + (it && it.plateforme === 'tiktok' ? ' class="tk"' : '') + '>' + apercu
         + '<span class="num' + (vid ? ' vd' : '') + '">' + ESC(vid ? '▶ ' + etiquette(i) : etiquette(i)) + '</span>'
         + (rec && travail.length > 2 ? '<button type="button" class="rm" data-rm="' + i + '" title="Retirer ce slide">✕</button>' : '')
         + '<span class="fl">'
@@ -2933,8 +2967,10 @@ try {
     const pb = document.getElementById('iglhpub');
     if (pb) {
       const pe = ouvert && ouvert.publication && ouvert.publication.etat;
-      pb.disabled = !ouvert || !ouvert.id || chg || incomplet() || ['demande', 'en_cours', 'publie'].includes(pe);
+      const tiktok = Boolean(ouvert && ouvert.plateforme === 'tiktok');
+      pb.disabled = !ouvert || !ouvert.id || tiktok || chg || incomplet() || ['demande', 'en_cours', 'publie'].includes(pe);
       pb.title = !ouvert || !ouvert.id ? 'Rendu de r\u00e9f\u00e9rence : rien \u00e0 publier'
+        : tiktok ? 'TikTok se publie depuis l\u2019application : t\u00e9l\u00e9chargez l\u2019archive'
         : chg ? 'Enregistrez d\u2019abord les modifications'
         : pe === 'demande' || pe === 'en_cours' ? 'Publication en cours'
         : pe === 'publie' ? 'D\u00e9j\u00e0 publi\u00e9'
@@ -2996,7 +3032,7 @@ try {
   document.addEventListener('click', (e) => {
     if (e.target.closest('#iglhvsl [data-add]')) {
       if (!aRecette() || travail.length >= 20) return;
-      travail.push({ type: 'photo', src: '', texte: '', credit: '', taille: 1 });
+      travail.push({ type: 'photo', src: '', texte: '', credit: '', taille: 1, ...(ouvert && ouvert.plateforme === 'tiktok' ? { plateforme: 'tiktok' } : {}) });
       rendreSlides();
       const z = zone(); const f = z.querySelector('figure:last-of-type'); if (f) f.scrollIntoView({ behavior: 'smooth', inline: 'end', block: 'nearest' });
       return;
@@ -3177,7 +3213,8 @@ try {
     b.disabled = true; b.textContent = '…';
     try {
       const version = document.getElementById('iglhver')?.value === 'v2' ? 'v2' : 'v1';
-      await window.fabriquerCarrouselLrdh(b.dataset.gen, { version });
+      const plateforme = document.getElementById('iglhplat')?.value === 'tiktok' ? 'tiktok' : 'instagram';
+      await window.fabriquerCarrouselLrdh(b.dataset.gen, { version, ...(plateforme === 'tiktok' ? { plateforme } : {}) });
       b.textContent = 'lancé';
       etat.textContent = 'Fabrication lancée · le carrousel apparaîtra dans la bande d’ici deux à trois minutes.';
     } catch (err) {
@@ -3197,6 +3234,8 @@ try {
       document.getElementById('iglhvs').textContent = (p.slides||[]).length + ' slides'
         + (p.wpUrl ? ' \u00b7 ' + String(p.wpUrl).replace(/^https?:\/\//,'').slice(0,60) : '');
       ouvert = p;
+      { const l = document.getElementById('iglhcaplbl'); if (l) l.textContent = p.plateforme === 'tiktok' ? 'Légende TikTok' : 'Légende Instagram'; }
+      if (p.plateforme === 'tiktok') document.getElementById('iglhvs').textContent += ' \u00b7 TikTok 9:16';
       travail = initial();
     { const sel = document.getElementById('iglhlis'); if (sel) { sel.value = ''; sel.disabled = !aRecette(); } }
       rendreSlides();
@@ -3216,13 +3255,14 @@ try {
   <p class="aide">La fabrication demande au moins quatre photos dans le corps de l’article. Les articles trop peu illustrés sont relégués en bas de liste, grisés.</p>
   <div class="outils"><input id="iglhpq" type="search" placeholder="Filtrer par titre…" autocomplete="off">
     <select id="iglhver" title="Version des visuels"><option value="v1">Visuels V1 · exqz</option><option value="v2">Visuels V2 · éditorial</option></select>
+    <select id="iglhplat" title="Plateforme · TikTok = 9:16, toujours en V2"><option value="instagram">📸 Instagram · 4:5</option><option value="tiktok">🎵 TikTok · 9:16</option></select>
     <span class="leg"><span><i style="background:#e0bd6a"></i>faisable</span><span><i style="background:#7cc9a0"></i>déjà fait</span><span><i style="background:#77777c"></i>trop peu de photos</span></span></div>
   <div id="iglhplist"></div>
   <div class="enreg"><span id="iglhpetat"></span></div>
 </div></div>
 <div id="iglhview"><div class="box">
   <div class="hd"><b id="iglhvt"></b><span id="iglhvs"></span><label class="iglhlis" title="Applique le même traitement du fond à tous les slides · chaque slide garde ensuite son propre réglage sous sa vignette"><select id="iglhlis"><option value="">Fond · toutes les slides…</option><option value="auto">auto · dégradé si la photo est claire</option><option value="degrade">dégradé</option><option value="ombre">un peu de sombre derrière le texte</option><option value="plaque">plaque</option><option value="bandeau">bandeau</option><option value="aucune">aucune</option></select></label><button id="iglhpub" class="igre hd pub" title="Publier ce carrousel sur Instagram (@larevuedeshotels) · part tout de suite">📤 Publier sur Instagram</button><button id="iglhdl" class="igre hd" title="Télécharger les visuels (une archive zip, un fichier par slide, prêts pour Instagram)">⬇ Télécharger</button><button id="iglhregen" class="igre hd" title="Refaire ce carrousel par la machine · nouvelles photos et nouveaux textes, la version actuelle est conservée">↻ Refaire par la machine</button><span class="x" onclick="document.getElementById('iglhview').classList.remove('on')">✕</span></div>
-  <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="capbloc"><div class="caphd"><span>Légende Instagram</span><span class="capact"><button id="iglhcapcopy" type="button">📋 Copier</button><button id="iglhcapsave" type="button" disabled>💾 Enregistrer la légende</button><button id="iglhcapgen" type="button" title="La machine réécrit la légende (accroche, faits, lien bio, hashtags) · deux minutes">✨ Réécrire par la machine</button></span></div><textarea id="iglhvc" rows="9" spellcheck="true" placeholder="Pas encore de légende : cliquez « Réécrire par la machine »."></textarea><span class="caphint" id="iglhcaphint"></span></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
+  <div class="corps"><div class="sl" id="iglhvsl"></div><p class="aide" id="iglhaide"></p><div class="capbloc"><div class="caphd"><span id="iglhcaplbl">Légende Instagram</span><span class="capact"><button id="iglhcapcopy" type="button">📋 Copier</button><button id="iglhcapsave" type="button" disabled>💾 Enregistrer la légende</button><button id="iglhcapgen" type="button" title="La machine réécrit la légende (accroche, faits, lien bio, hashtags) · deux minutes">✨ Réécrire par la machine</button></span></div><textarea id="iglhvc" rows="9" spellcheck="true" placeholder="Pas encore de légende : cliquez « Réécrire par la machine »."></textarea><span class="caphint" id="iglhcaphint"></span></div></div><div class="enreg"><button id="iglhsave" disabled>Enregistrer l'ordre</button><span id="iglhetat"></span></div>
 </div></div>
 </body>
 </html>
