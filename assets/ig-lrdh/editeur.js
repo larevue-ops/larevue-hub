@@ -9,7 +9,7 @@
 // recette : les sources sont sur Cloudinary (entetes CORS, sans quoi
 // `toBlob` refuserait un canvas contamine), les fontes sont servies par le hub,
 // et la marque aussi.
-import * as N from './noyau.js?v=202609162300';
+import * as N from './noyau.js?v=202609170930';
 
 const CLOUD = 'dghhiz8ou';
 const PRESET = 'larevue_articles';
@@ -114,7 +114,7 @@ export async function importer(url) {
   throw new Error(message);
 }
 
-/** Une entree de recette qui n'est pas dessinee : la video part telle quelle. */
+/** Une entree de recette video : le fichier part tel quel, son texte (s'il y en a) sur un calque. */
 export const estVideo = (item) => item && item.type === 'video';
 
 const CACHE = new Map();
@@ -128,18 +128,52 @@ async function source(url) {
  * @param {{type:string, src:string, texte:string, credit:string}} item
  * @returns {Promise<HTMLCanvasElement>}
  */
-export async function rendre(item) {
-  if (estVideo(item)) throw new Error('visuel video : aucun rendu canvas');
+export async function rendre(item, extra = {}) {
   const { logo } = await pret();
-  const img = await source(item.src);
+  // Une video n'a pas de rendu plein : on dessine son CALQUE (fond transparent,
+  // degrade, marque, texte, compteur), a poser sur la video · 17/09/2026.
+  const calque = Boolean(extra.calque) || estVideo(item);
+  const img = calque ? null : await source(item.src);
   const c = document.createElement('canvas');
   c.width = N.W; c.height = N.H;
   const ctx = c.getContext('2d', { willReadFrequently: true });
   const taille = Number(item.taille) || 1;
+  // une video se dessine comme une photo (ou comme une couverture en 1re position)
+  const type = estVideo(item) ? ((extra.index || item.index) === 1 ? 'couverture' : 'photo') : item.type;
   // 16/09/2026 : l'aiguillage vit dans le noyau (variante v1/v2, surtitre, compteur) ·
   // une recette V2 se re-rend donc ici exactement comme sur le serveur.
-  N.dessiner(ctx, { ...item, taille }, { img, logo });
+  N.dessiner(ctx, { ...item, type, taille }, { img, logo, calque, index: extra.index, total: extra.total });
   return c;
+}
+export const rendreCalque = (item, extra = {}) => rendre(item, { ...extra, calque: true });
+
+/**
+ * Televerse un calque PNG (transparent) et renvoie son public_id Cloudinary,
+ * celui qu'attend la transformation `l_` posee sur la video.
+ */
+export async function televerserCalque(canvas, publicId) {
+  const png = await new Promise(ok => canvas.toBlob(ok, 'image/png'));
+  const fd = new FormData();
+  fd.append('file', png);
+  fd.append('upload_preset', PRESET_SLIDES);
+  if (publicId) fd.append('public_id', publicId);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/image/upload`, { method: 'POST', body: fd });
+  const j = await r.json();
+  if (!j.public_id) throw new Error('Cloudinary (calque) : ' + JSON.stringify(j.error || j).slice(0, 140));
+  return j.public_id;
+}
+
+/**
+ * L'adresse de la video AVEC son calque incruste, livree par Cloudinary :
+ * cadrage 4:5 en 1080x1350, calque a la meme taille par-dessus, mp4.
+ * Ne vaut que pour une video hebergee chez Cloudinary (sinon null).
+ */
+export function urlVideoCalque(src, publicId) {
+  const m = String(src || '').match(/^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.*)$/);
+  if (!m || !publicId) return null;
+  const reste = m[2].replace(/^(?:[a-z]{1,2}_[^/]+\/)+/, '').replace(/\.(mov|m4v|webm)(\?.*)?$/i, '.mp4');
+  const id = String(publicId).replace(/\//g, ':');
+  return `${m[1]}c_fill,w_${N.W},h_${N.H}/l_${id},c_scale,w_${N.W},h_${N.H}/fl_layer_apply/${reste}`;
 }
 
 const blob = (canvas) => new Promise(ok => canvas.toBlob(ok, 'image/jpeg', 0.95));
@@ -168,14 +202,24 @@ export async function publier(recette, postId, surAvancement) {
   const urls = [];
   for (let i = 0; i < recette.length; i++) {
     surAvancement?.(i, recette.length);
-    // Une video est deja hebergee et ne porte pas de texte dessine : on la
-    // reprend telle quelle, sinon on redessine le visuel.
-    if (estVideo(recette[i])) { urls.push(recette[i].src); continue; }
-    const c = await rendre(recette[i]);
+    const it = recette[i];
+    // la position vraie, pour le compteur et l'echo de la marque
+    if (it && typeof it === 'object') { it.index = i + 1; it.total = recette.length; }
+    if (estVideo(it)) {
+      // Une video est deja hebergee. Sans texte, elle part telle quelle ; avec
+      // un texte, on televerse son calque et Cloudinary l'incruste (17/09/2026).
+      const texte = String(it.texte || '').trim();
+      if (!texte || !/\/video\/upload\//.test(String(it.src))) { delete it.calque; urls.push(it.src); continue; }
+      const cv = await rendreCalque(it, { index: i + 1, total: recette.length });
+      it.calque = await televerserCalque(cv, `lrdh_instagram/calques/${postId || 'edit'}-${i + 1}-${stamp}`);
+      urls.push(urlVideoCalque(it.src, it.calque) || it.src);
+      continue;
+    }
+    const c = await rendre(it, { index: i + 1, total: recette.length });
     urls.push(await televerser(c, `lrdh_instagram/${postId || 'edit'}-${i + 1}-${stamp}`));
   }
   return urls;
 }
 
 export const W = N.W, H = N.H, CTA_DEFAUT = N.CTA_DEFAUT;
-export default { pret, rendre, televerser, publier, importer, estVideo, W, H };
+export default { pret, rendre, rendreCalque, televerser, televerserCalque, urlVideoCalque, publier, importer, estVideo, W, H };

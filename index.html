@@ -2527,7 +2527,9 @@ try {
   #iglhview .sl .etatsrc { font-size:11px; color:#8d8d8d; min-height:13px; line-height:1.25; }
   #iglhview .sl .etatsrc.ko { color:#e08a6a; }
   #iglhview .sl .etatsrc.ok { color:#8fc4a0; }
+  #iglhview .sl .cv { position:relative; }
   #iglhview .sl .cv video { width:100%; height:100%; object-fit:cover; display:block; background:#000; }
+  #iglhview .sl .cv canvas.calque { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
   #iglhview .sl .vidnote { font-size:11.5px; color:#8d8d8d; line-height:1.35; background:#1b1b1d;
     border:1px solid #333; border-radius:8px; padding:7px 9px; }
   #iglhview .sl .num.vd { background:rgba(224,189,106,.9); color:#111; }
@@ -2711,7 +2713,6 @@ try {
     const legende = String(p.caption || '').trim();
     if (n < 2 || n > 10) { alert('Instagram accepte de 2 \u00e0 10 visuels par carrousel \u00b7 celui-ci en a ' + n + '.'); return; }
     if (!legende) { alert('Pas de l\u00e9gende : \u00e9crivez-la (ou \u00ab R\u00e9\u00e9crire par la machine \u00bb) dans la fiche, puis enregistrez-la.'); return; }
-    if ((p.recette || []).some(x => x && x.type === 'video')) { alert('Ce carrousel contient une vid\u00e9o : la publication directe ne prend pour l\u2019instant que des images.'); return; }
     const ok = confirm('Publier sur Instagram (@larevuedeshotels) ?\n\n\u00ab ' + DE(p.coverTitle || p.title || '') + ' \u00bb\n' + n + ' slides \u00b7 l\u00e9gende : ' + legende.replace(/\s+/g, ' ').slice(0, 90) + (legende.length > 90 ? '\u2026' : '') + '\n\nLa publication part tout de suite. Elle ne se retire pas depuis le hub.');
     if (!ok) return;
     (boutons || []).forEach(b => { b.disabled = true; });
@@ -2772,7 +2773,7 @@ try {
           const cv = await ED.rendre(item);
           blob = await (ED.enJpeg ? ED.enJpeg(cv) : new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.95))); ext = 'jpg';
         } else {
-          const url = video ? (item ? item.src : slides[i]) : slides[i].replace('/upload/f_auto,q_auto/', '/upload/');
+          const url = video ? slides[i] : slides[i].replace('/upload/f_auto,q_auto/', '/upload/');
           const r = await fetch(url); if (!r.ok) throw new Error(`visuel ${i + 1} : HTTP ${r.status}`);
           blob = await r.blob();
           ext = video ? (url.match(/\.(mp4|mov|m4v|webm)/i)?.[1] || 'mp4').toLowerCase() : (blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg');
@@ -2835,15 +2836,15 @@ try {
   async function moduleEdition() {
     // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
     // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609162300');
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609170930');
     return EDIT;
   }
 
   function initial() {
     return aRecette()
-      ? ouvert.recette.map(r => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1,
-          ...(r.variante ? { variante: r.variante } : {}), ...(r.index ? { index: r.index } : {}), ...(r.total ? { total: r.total } : {}),
-          ...(r.kicker ? { kicker: r.kicker } : {}), lisibilite: r.lisibilite || 'auto' }))
+      ? ouvert.recette.map((r, i, arr) => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1,
+          ...(r.variante ? { variante: r.variante } : {}), index: i + 1, total: arr.length,
+          ...(r.kicker ? { kicker: r.kicker } : {}), ...(r.calque ? { calque: r.calque } : {}), ...(r.duree ? { duree: r.duree } : {}), lisibilite: r.lisibilite || 'auto' }))
       : (ouvert.slides || []).slice();
   }
 
@@ -2874,10 +2875,15 @@ try {
       const v = document.createElement('video');
       v.src = travail[i].src; v.controls = true; v.muted = true; v.playsInline = true; v.preload = 'metadata';
       cible.replaceChildren(v);
+      // le texte, s'il y en a, se dessine sur un calque transparent par-dessus (17/09/2026)
+      if (String(travail[i].texte || '').trim()) {
+        try { const c = await r(travail[i], { calque: true, index: i + 1, total: travail.length }); c.className = 'calque'; cible.appendChild(c); }
+        catch (e) { console.warn('calque vidéo', e); }
+      }
       return;
     }
     try {
-      const c = await r(travail[i]);
+      const c = await r(travail[i], { index: i + 1, total: travail.length });
       c.className = 'ap';
       cible.replaceChildren(c);
     } catch (e) {
@@ -2888,15 +2894,14 @@ try {
   const LISIB_OPTS = [["auto", "auto · dégradé si la photo est claire"], ["degrade", "dégradé"], ["ombre", "un peu de sombre derrière le texte"], ["plaque", "plaque"], ["bandeau", "bandeau"], ["aucune", "aucune"]];
   function rendreSlides() {
     const rec = aRecette();
+    if (rec) travail.forEach((it, i) => { if (it && typeof it === 'object') { it.index = i + 1; it.total = travail.length; } });
     document.getElementById('iglhvsl').innerHTML = travail.map((it, i) => {
       const apercu = rec ? '<div class="cv"><div class="att">…</div></div>'
                          : '<img src="' + ESC(it) + '" alt="" loading="lazy">';
       const vid = it && it.type === 'video';
       const champs = rec ? (
-        (vid
-          ? '<div class="vidnote">Visuel vidéo : il part tel quel, sans texte incrusté. Remplacez-le par une image pour retrouver le titre.</div>'
-          : '<textarea data-tx="' + i + '" rows="2" spellcheck="true" placeholder="'
-            + (it.type === 'chute' ? "Plus d'infos via le lien dans la bio." : 'Texte du visuel (vide = photo seule)')
+        ('<textarea data-tx="' + i + '" rows="2" spellcheck="true" placeholder="'
+            + (it.type === 'chute' ? "Plus d'infos via le lien dans la bio." : vid ? 'Texte sur la vidéo (vide = vidéo seule)' : 'Texte du visuel (vide = photo seule)')
             + '">' + ESC(it.texte) + '</textarea>'
             + '<div class="tl"><span class="tl-l">Texte</span>'
             + '<button type="button" data-tl="' + i + '" data-d="-1" title="Réduire le texte">A−</button>'
@@ -2937,7 +2942,7 @@ try {
     }
     document.getElementById('iglhetat').textContent = incomplet() ? 'un slide n’a pas encore de visuel' : (chg ? 'modifié' : '');
     document.getElementById('iglhaide').textContent = rec
-      ? 'Modifiez le texte sous chaque visuel (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, glissez une vignette pour la déplacer, ou retirez-en une avec le ✕ en haut à droite.'
+      ? 'Modifiez le texte sous chaque visuel, vidéo comprise (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, glissez une vignette pour la déplacer, ou retirez-en une avec le ✕ en haut à droite.'
       : (Array.isArray(ouvert?.recette) && ouvert.recette.length
           ? 'Recette incomplète (' + ouvert.recette.length + ' entrée' + (ouvert.recette.length > 1 ? 's' : '') + ' pour ' + (ouvert.slides || []).length + ' visuels) : seul l’ordre est modifiable. « ↻ Refaire par la machine » le refabrique avec une recette complète, la version actuelle est conservée.'
           : 'Ce carrousel n’a pas de recette (fabriqué avant l’éditeur du 26 août) : seul l’ordre est modifiable. « ↻ Refaire par la machine », en haut à droite, le refabrique avec ses textes et photos éditables · la version actuelle est conservée.');
@@ -2975,7 +2980,7 @@ try {
     }
     if (e.target.id !== 'iglhlis' || !aRecette()) return;
     const v = e.target.value; if (!v) return;
-    travail.forEach(it => { if (it && it.type !== 'video') it.lisibilite = v; });
+    travail.forEach(it => { if (it && typeof it === 'object') it.lisibilite = v; });
     e.target.value = '';
     rendreSlides();
   });
