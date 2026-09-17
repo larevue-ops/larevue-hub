@@ -2945,7 +2945,7 @@ try {
   async function moduleEdition() {
     // ?v= : GitHub Pages et le navigateur gardent l'ancien module 10 min · sans
     // ce cachet, un déploiement laissait « ED.enJpeg is not a function » (09/09).
-    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609171200');
+    if (!EDIT) EDIT = await import('./assets/ig-lrdh/editeur.js?v=202609171500');
     return EDIT;
   }
 
@@ -3017,7 +3017,7 @@ try {
             + '<button type="button" data-tl="' + i + '" data-d="-1" title="Réduire le texte">A−</button>'
             + '<b data-tlv="' + i + '">' + Math.round((it.taille || 1) * 100) + ' %</b>'
             + '<button type="button" data-tl="' + i + '" data-d="1" title="Agrandir le texte">A+</button>'
-            + '<span class="tl-h">*mots* surligné · =mots= encerclé</span></div>'
+            + '<span class="tl-h">*mots* surligné · =mots= encerclé · ==mots== pastille rouge</span></div>'
             + '<div class="tl lis"><span class="tl-l">Fond</span><select data-lis="' + i + '" title="Traitement du fond derrière le texte, pour ce slide">'
             + LISIB_OPTS.map(([v, l]) => '<option value="' + v + '"' + ((it.lisibilite || 'auto') === v ? ' selected' : '') + '>' + l + '</option>').join('')
             + '</select></div>')
@@ -3054,7 +3054,7 @@ try {
     }
     document.getElementById('iglhetat').textContent = incomplet() ? 'un slide n’a pas encore de visuel' : (chg ? 'modifié' : '');
     document.getElementById('iglhaide').textContent = rec
-      ? 'Modifiez le texte sous chaque visuel, vidéo comprise (*mots* = surligné rouge, =mots= = encerclé), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, glissez une vignette pour la déplacer, ou retirez-en une avec le ✕ en haut à droite.'
+      ? 'Modifiez le texte sous chaque visuel, vidéo comprise (*mots* = surligné rouge, =mots= = encerclé au trait, ==mots== = pastille rouge pleine), réglez sa taille avec A− / A+, collez une adresse pour remplacer une photo (ou poser une vidéo), échangez les photos entre deux slides, glissez une vignette pour la déplacer, ou retirez-en une avec le ✕ en haut à droite.'
       : (Array.isArray(ouvert?.recette) && ouvert.recette.length
           ? 'Recette incomplète (' + ouvert.recette.length + ' entrée' + (ouvert.recette.length > 1 ? 's' : '') + ' pour ' + (ouvert.slides || []).length + ' visuels) : seul l’ordre est modifiable. « ↻ Refaire par la machine » le refabrique avec une recette complète, la version actuelle est conservée.'
           : 'Ce carrousel n’a pas de recette (fabriqué avant l’éditeur du 26 août) : seul l’ordre est modifiable. « ↻ Refaire par la machine », en haut à droite, le refabrique avec ses textes et photos éditables · la version actuelle est conservée.');

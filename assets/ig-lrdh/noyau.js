@@ -110,8 +110,9 @@ function ombreTexte(ctx, force = 1) {
 function sansOmbre(ctx) { ctx.shadowBlur = 0; ctx.shadowOffsetY = 0; ctx.shadowColor = 'transparent'; }
 
 // ─── marqueurs dans le texte (09/09/2026, comme sur les covers LinkedIn) ────
-//   *mots* → surligné rouge (fond plein, texte blanc)
-//   =mots= → encerclé au feutre rouge, tracé DERRIÈRE le texte
+//   *mots*   → surligné rouge (rectangle plein, texte blanc)
+//   =mots=   → encerclé au feutre rouge, tracé DERRIÈRE le texte
+//   ==mots== → le même ovale, mais REMPLI de rouge (demande user 17/09/2026)
 // Le texte est découpé en mots porteurs de leurs marques ; l'habillage et le
 // centrage se font sur le texte nu, les marques ne changent pas la coupe.
 export const ROUGE = '#dc2626';
@@ -120,15 +121,19 @@ export function parseMarqueurs(text) {
   const out = [];
   // `colle` : le mot se colle au précédent, sans espace · c'est la ponctuation
   // qui suit une marque (« *Sogni*, le » → « Sogni, le », pas « Sogni , le »).
-  const pousser = (morceau, hl, ci) => {
+  const pousser = (morceau, hl, ci, pa = false) => {
     const colle = /^[,.;:!?…»)\]]/.test(morceau) && out.length > 0;
-    morceau.split(/\s+/).filter(Boolean).forEach((w, k) => out.push({ t: w, hl, ci, colle: colle && k === 0 }));
+    morceau.split(/\s+/).filter(Boolean).forEach((w, k) => out.push({ t: w, hl, ci, pa, colle: colle && k === 0 }));
   };
-  const re = /\*([^*\n]+)\*|=([^=\n]+)=/g;
+  // ⚠️ `==mots==` AVANT `=mots=` dans l'alternance : dans l'autre ordre, la
+  // première branche mange le `=` intérieur et laisse deux `=` en texte brut.
+  const re = /\*([^*\n]+)\*|==([^=\n]+)==|=([^=\n]+)=/g;
   let last = 0, m;
   while ((m = re.exec(s))) {
     if (m.index > last) pousser(s.slice(last, m.index), false, false);
-    if (m[1] != null) pousser(m[1], true, false); else pousser(m[2], false, true);
+    if (m[1] != null) pousser(m[1], true, false);
+    else if (m[2] != null) pousser(m[2], false, false, true);
+    else pousser(m[3], false, true);
     last = m.index + m[0].length;
   }
   if (last < s.length) pousser(s.slice(last), false, false);
@@ -192,22 +197,41 @@ function fitTitle(ctx, text, maxW, maxLignes = 3, hi = 82, lo = 52, taille = 1) 
 // Super-ellipse rouge « au feutre », derrière un passage : flancs redressés
 // (exposant 2,6), bornée à la boîte de sa ligne · même geste que sur les
 // covers LinkedIn.
+// L'ovale « tracé à la main » : une superellipse (n = 2,6) légèrement inclinée.
+// Partagée par le contour au feutre (=mots=) et la pastille pleine (==mots==),
+// pour que les deux marques aient exactement la même forme.
+function ovale(ctx, cx, cy, rx, ry, kx = 0, ky = 0, de = 0, a = Math.PI * 2) {
+  const n = 2.6, tilt = -0.03, cos = Math.cos(tilt), sin = Math.sin(tilt);
+  ctx.beginPath();
+  for (let i = 0; i <= 200; i++) {
+    const t = de + (a - de) * (i / 200), ct = Math.cos(t), st = Math.sin(t);
+    const px = Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n) * (rx + kx);
+    const py = Math.sign(st) * Math.pow(Math.abs(st), 2 / n) * (ry + ky);
+    const X = cx + px * cos - py * sin, Y = cy + px * sin + py * cos;
+    if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+  }
+}
+
+// `==mots==` (17/09/2026, demande user) : le même ovale, rempli de rouge · le
+// texte reste blanc par-dessus, comme sur le surlignage.
+function pastille(ctx, x, baseline, w, size) {
+  const haut = baseline - size * 0.86, bas = baseline + size * 0.28;
+  const cy = (haut + bas) / 2, ry = (bas - haut) / 2, cx = x + w / 2, rx = w / 2 + size * 0.20;
+  ctx.save();
+  // une ombre courte décolle la pastille de la photo, sans la faire flotter
+  ctx.shadowColor = 'rgba(0,0,0,0.30)'; ctx.shadowBlur = Math.round(size * 0.22); ctx.shadowOffsetY = Math.round(size * 0.04);
+  ovale(ctx, cx, cy, rx, ry);
+  ctx.closePath();
+  ctx.fillStyle = ROUGE;
+  ctx.fill();
+  ctx.restore();
+}
+
 function cercle(ctx, x, baseline, w, size) {
   const lw = Math.max(3, Math.round(size * 0.07));
   const haut = baseline - size * 0.80 + lw / 2, bas = baseline + size * 0.22 - lw / 2;
   const cy = (haut + bas) / 2, ry = (bas - haut) / 2, cx = x + w / 2, rx = w / 2 + size * 0.13;
-  const n = 2.6, tilt = -0.03, cos = Math.cos(tilt), sin = Math.sin(tilt);
-  const trace = (kx, ky, de, a) => {
-    ctx.beginPath();
-    for (let i = 0; i <= 160; i++) {
-      const t = de + (a - de) * (i / 160), ct = Math.cos(t), st = Math.sin(t);
-      const px = Math.sign(ct) * Math.pow(Math.abs(ct), 2 / n) * (rx + kx);
-      const py = Math.sign(st) * Math.pow(Math.abs(st), 2 / n) * (ry + ky);
-      const X = cx + px * cos - py * sin, Y = cy + px * sin + py * cos;
-      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
-    }
-    ctx.stroke();
-  };
+  const trace = (kx, ky, de, a) => { ovale(ctx, cx, cy, rx, ry, kx, ky, de, a); ctx.stroke(); };
   ctx.save();
   ctx.strokeStyle = ROUGE; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.lineWidth = lw; trace(0, 0, Math.PI * 0.62, Math.PI * 0.62 + Math.PI * 2.04);
@@ -232,7 +256,7 @@ function ecrireLignes(ctx, lignes, cx, haut, lh, clarte, size) {
     mots.forEach((m, k) => {
       if (k && m.colle) x -= esp;                 // ponctuation collée : on reprend l'espace
       const w = ctx.measureText(m.t).width;
-      const genre = m.hl ? 'hl' : m.ci ? 'ci' : null;
+      const genre = m.hl ? 'hl' : m.pa ? 'pa' : m.ci ? 'ci' : null;
       const dernier = runs[runs.length - 1];
       if (genre && dernier && dernier.genre === genre && Math.abs(dernier.fin - (x - esp)) < 0.5) dernier.fin = x + w;
       else if (genre) runs.push({ genre, debut: x, fin: x + w });
@@ -246,7 +270,8 @@ function ecrireLignes(ctx, lignes, cx, haut, lh, clarte, size) {
       const padX = Math.round(size * 0.08);
       ctx.fillStyle = ROUGE;
       ctx.fillRect(r.debut - padX, p.y - size * 0.78, r.fin - r.debut + padX * 2, size * 1.0);
-    } else cercle(ctx, r.debut, p.y, r.fin - r.debut, size);
+    } else if (r.genre === 'pa') pastille(ctx, r.debut, p.y, r.fin - r.debut, size);
+    else cercle(ctx, r.debut, p.y, r.fin - r.debut, size);
   }
   // 2) texte
   ctx.textAlign = 'center';
