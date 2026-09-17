@@ -101,13 +101,18 @@ import { getFirestore, collection, addDoc, doc, getDoc, updateDoc } from 'https:
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import * as N from './assets/ig-lra/noyau.js?v=20260911c';
 
+// ⚠️ 17/09/2026 · la file `lra_instagram_queue` a quitte le projet historique
+// `larevue-auto-dashboard`, dont le quota de lecture tombait chaque jour avant
+// 15 h : depuis le 15/09 aucun passage du runner ne pouvait la lire, et rien ne
+// partait sur Instagram. Elle vit desormais sur `larevue-firestore-lra`, avec la
+// file LinkedIn du meme media (meme configuration que PROJETS.lra dans index.html,
+// et le compte de connexion porte la meme adresse sur ce projet).
 const app = initializeApp({
-  apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
-  authDomain: 'larevue-auto-dashboard.firebaseapp.com',
-  projectId: 'larevue-auto-dashboard',
-  storageBucket: 'larevue-auto-dashboard.firebasestorage.app',
-  messagingSenderId: '1064950692754',
-  appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
+  apiKey: 'AIzaSyBKJSuzFab-wCsF2ojPT_7O1hCiCsNLXX4',
+  authDomain: 'larevue-firestore-lra.firebaseapp.com',
+  projectId: 'larevue-firestore-lra',
+  messagingSenderId: '159916719733',
+  appId: '1:159916719733:web:e4889fd72d050399b8023c',
 });
 const db = getFirestore(app), auth = getAuth(app);
 const WP = 'https://larevue.app';
