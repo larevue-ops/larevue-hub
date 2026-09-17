@@ -583,6 +583,7 @@
         <div id="minsetrow">
           <label>Image ronde incrustée <span class="hint">· URL d'une photo (bord rouge) · <b>vide = automatique</b> : la 2<sup>e</sup> image de l'article est reprise · écrire <b>none</b> pour n'en mettre aucune</span></label>
           <input id="minset" placeholder="https://…  ·  vide = automatique  ·  none = aucune">
+          <div class="thumbs" id="minsetthumbs"></div>
           <label>Légende de la photo ronde <span class="hint">· texte + flèche vers le rond (option)</span></label>
           <input id="minsetlabel" placeholder="ex : La piscine face aux dunes (vide = pas de légende)">
         </div>
@@ -1925,20 +1926,55 @@ window.openModal = (qkey, id) => {
   dessinerApercuTitre();
   dessinerApercuCover();
   document.getElementById('mdate').value = toLocal(post.scheduledAt);
-  // vignettes : photos candidates de l'article, l'actuelle en surbrillance
+  // vignettes : photos candidates de l'article, l'actuelle en surbrillance.
+  // ⚠️ 17/09/2026 · `availableImages` vient d'un balayage de la PAGE (logo,
+  //    articles liés, sidebar) : une seule photo sur huit venait de l'article.
+  //    On relit le corps de l'article par l'API WordPress et on affiche d'abord
+  //    ses photos ; la liste balayée ne sert plus que de repli.
   const current = post.selectedImage || post.linkedinSelectedImage || '';
-  const imgs = [...new Set([current, ...(post.availableImages || [])].filter(Boolean))].slice(0, 8);
-  document.getElementById('mthumbs').innerHTML = imgs.map(u =>
-    `<img class="th ${u === current ? 'sel' : ''}" loading="lazy" src="${esc(u)}" data-u="${esc(u)}">`).join('')
-    || '<span class="hint" style="font-size:11px">Aucune autre photo détectée · coller une URL ci-dessous.</span>';
-  document.querySelectorAll('#mthumbs img.th').forEach(im => im.onclick = () => {
-    document.querySelectorAll('#mthumbs img.th').forEach(x => x.classList.remove('sel'));
-    im.classList.add('sel');
-    editing.pickedImage = im.dataset.u === current ? null : im.dataset.u;
-    document.getElementById('mcustomimg').value = '';
-    if (editing.refreshCropImg) editing.refreshCropImg();
-    planifierApercuCover();
-  });
+  const peindreVignettes = (liste) => {
+    const imgs = [...new Set([current, ...liste].filter(Boolean))].slice(0, 18);
+    document.getElementById('mthumbs').innerHTML = imgs.map(u =>
+      `<img class="th ${u === current ? 'sel' : ''}" loading="lazy" src="${esc(u)}" data-u="${esc(u)}">`).join('')
+      || '<span class="hint" style="font-size:11px">Aucune autre photo détectée · coller une URL ci-dessous.</span>';
+    document.querySelectorAll('#mthumbs img.th').forEach(im => im.onclick = () => {
+      document.querySelectorAll('#mthumbs img.th').forEach(x => x.classList.remove('sel'));
+      im.classList.add('sel');
+      editing.pickedImage = im.dataset.u === current ? null : im.dataset.u;
+      document.getElementById('mcustomimg').value = '';
+      if (editing.refreshCropImg) editing.refreshCropImg();
+      planifierApercuCover();
+    });
+  };
+  // l'image ronde : mêmes photos, plus « auto » et « aucune »
+  const peindreVignettesRond = (liste) => {
+    const zone = document.getElementById('minsetthumbs'); if (!zone) return;
+    const champ = document.getElementById('minset');
+    const val = () => champ.value.trim();
+    const imgs = [...new Set(liste.filter(Boolean))].slice(0, 18);
+    zone.innerHTML = `<button type="button" class="thchip ${val() === '' ? 'sel' : ''}" data-v="">auto</button>`
+      + `<button type="button" class="thchip ${val() === 'none' ? 'sel' : ''}" data-v="none">aucune</button>`
+      + imgs.map(u => `<img class="th ${u === val() ? 'sel' : ''}" loading="lazy" src="${esc(u)}" data-v="${esc(u)}" title="Mettre cette photo dans le rond">`).join('');
+    zone.querySelectorAll('[data-v]').forEach(el => el.onclick = () => {
+      champ.value = el.dataset.v;
+      zone.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('sel', x === el));
+      champ.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    if (!champ._rondLie) {
+      champ._rondLie = true;
+      champ.addEventListener('input', () => { const v = val(); zone.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('sel', x.dataset.v === v)); });
+    }
+  };
+  peindreVignettes(post.availableImages || []);
+  peindreVignettesRond(post.availableImages || []);
+  if (qkey === 'lrdh' && (post.wpUrl || post.articleUrl)) {
+    const jeton = editing.jeton = Symbol('vignettes');
+    imagesArticleLrdh(post.wpUrl || post.articleUrl).then(liste => {
+      if (editing.jeton !== jeton || !liste.length) return;
+      peindreVignettes([...liste, ...(post.availableImages || [])]);
+      peindreVignettesRond([...liste, ...(post.availableImages || [])]);
+    }).catch(e => console.warn('photos de l’article', e));
+  }
   // ── cadrage photo (LRDH uniquement : seul son générateur gère le crop) ──
   const cropRow = document.getElementById('mcroprow');
   cropRow.style.display = qkey === 'lrdh' ? 'block' : 'none';
@@ -1971,6 +2007,43 @@ window.openModal = (qkey, id) => {
   }
   document.getElementById('overlay').classList.add('on');
 };
+
+// ─── Photos du corps d'un article LRDH, par l'API WordPress (17/09/2026) ────
+// La page HTML embarque logo, sidebar et articles liés : seul le corps du post
+// dit quelles photos sont celles de l'article. Une requête par article, en cache.
+const _imagesArticle = new Map();
+function imagesArticleLrdh(url) {
+  const u = String(url || '').trim();
+  if (!u) return Promise.resolve([]);
+  if (_imagesArticle.has(u)) return _imagesArticle.get(u);
+  const p = (async () => {
+    const o = new URL(u);
+    const parts = o.pathname.split('/').filter(Boolean);
+    const lang = /^(en|es|de|pt)$/.test(parts[0] || '') ? parts[0] : '';
+    const slug = parts[parts.length - 1];
+    if (!slug) return [];
+    const api = `${o.origin}/wp-json/wp/v2/posts?slug=${encodeURIComponent(slug)}${lang ? '&lang=' + lang : ''}&_fields=id,content.rendered,_links&_embed=wp:featuredmedia`;
+    const r = await fetch(api); if (!r.ok) return [];
+    const j = await r.json(); const post = Array.isArray(j) ? j[0] : null; if (!post) return [];
+    const out = [];
+    const une = post._embedded?.['wp:featuredmedia']?.[0]?.source_url; if (une) out.push(une);
+    const html = post.content?.rendered || '';
+    for (const tag of html.matchAll(/<img\b[^>]*>/gi)) {
+      const m = tag[0].match(/(?:^|\s)(?:data-src|data-lazy-src|src)=["']([^"']+)["']/i);
+      const src = m && m[1];
+      if (!src || !/^https?:/i.test(src) || /\.(svg|gif)(\?|$)/i.test(src) || /emoji|\/wp-content\/themes\//i.test(src)) continue;
+      const w = +(tag[0].match(/\swidth=["']?(\d+)/i)?.[1] || 0);
+      if (w && w < 400) continue;
+      out.push(src);
+    }
+    // une seule entrée par photo, quelle que soit la taille servie
+    const vus = new Set(); const liste = [];
+    for (const src of out) { const cle = src.replace(/-\d+x\d+(\.[a-z]+)/i, '$1').replace(/\/upload\/[^/]*\//, '/upload/'); if (vus.has(cle)) continue; vus.add(cle); liste.push(src); }
+    return liste;
+  })().catch(() => []);
+  _imagesArticle.set(u, p);
+  return p;
+}
 
 // ─── Champ « Titre sur l'image » en WYSIWYG ─────────────────────────────────
 //
@@ -2443,6 +2516,9 @@ try {
   #strip-insta-lrdh .igcard:hover .igpub, #strip-insta-lrdh .igcard .igpub:disabled { opacity:1; }
   #strip-insta-lrdh .igcard .igpub:hover { background:#c13584; border-color:#c13584; }
   #strip-insta-lrdh .igprofil { color:#e0bd6a; text-decoration:none; font-weight:600; font-size:13px; }
+  #minsetthumbs { margin-top:6px; }
+  #minsetthumbs .thchip { font:600 11px var(--sans); letter-spacing:.3px; padding:6px 10px; border-radius:8px; border:1px solid #d9d2c1; background:#f6f3ec; color:#444; cursor:pointer; margin:0 6px 6px 0; vertical-align:top; }
+  #minsetthumbs .thchip.sel { background:var(--lrdh); border-color:var(--lrdh); color:#111; }
   #strip-insta-lrdh .igonglets { display:inline-flex; gap:4px; vertical-align:middle; margin-right:4px; }
   #strip-insta-lrdh .igonglet { background:transparent; border:1px solid rgba(255,255,255,.22); color:#ddd; border-radius:999px; padding:3px 10px; font:600 12px var(--sans); cursor:pointer; }
   #strip-insta-lrdh .igonglet.on { background:var(--lrdh); border-color:var(--lrdh); color:#111; }
