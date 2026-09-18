@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Générateur LinkedIn · LRDH</title>
+<title>Générateur LinkedIn EN · LRDH · page entreprise</title>
 <style>
   :root { --gold:#D4AF37; --ink:#1a1a1a; }
   * { box-sizing:border-box; margin:0; }
@@ -61,7 +61,7 @@
 <body>
 <header>
   <div class="logo">LR</div>
-  <div><h1>Générateur LinkedIn · La Revue des Hôtels</h1><p>Choisis un article publié → cover + caption générées → programme le créneau</p></div>
+  <div><h1>Générateur LinkedIn EN · La Revue des Hôtels · page entreprise</h1><p>Édition anglaise, publiée sur la page entreprise LinkedIn (pas le profil). Les posts FR programmés sont reproduits ici automatiquement · cette page sert à générer un post EN à la main.</p></div>
   <nav id="topnav" style="display:none">
     <a href="index.html">← Hub</a>
     <a href="triage.html">✨ Tri du jour</a>
@@ -130,9 +130,10 @@ const appLrdh = initializeApp({
 const dbLrdh = getFirestore(appLrdh);
 const authLrdh = getAuth(appLrdh);
 
-// ⚠️ A passer a true UNE FOIS la copie faite, pas avant : sinon la page va
-// chercher la file sur un projet ou elle n'existe pas encore.
-const EN_SUR_PROJET_LRDH = false;
+// 18/09/2026 · la file EN vit sur le projet dedie LRDH, avec la file FR
+// (adminCompat.js du runner route `lrdh_en_linkedin_queue` → LRDH, regles
+// Firestore du projet 2 ouvertes le meme jour).
+const EN_SUR_PROJET_LRDH = true;
 const baseFile = () => (EN_SUR_PROJET_LRDH ? dbLrdh : db);
 
 const WP = 'https://larevuedeshotels.com';

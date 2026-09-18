@@ -730,6 +730,7 @@ const PROJETS = {
 // Une collection n'entre ici qu'APRES sa copie.
 const MEDIA_DE_COLLECTION = {
   lrdh_linkedin_queue: 'lrdh',      // migre le 03/09/2026
+  lrdh_en_linkedin_queue: 'lrdh',   // 18/09/2026 · edition anglaise (page entreprise) · routee avec la file FR, collection vide au depart
   lrdh_instagram_queue: 'lrdh',     // migre le 04/09/2026 · 11 documents
   larevue_linkedin_queue: 'lra',    // migre le 04/09/2026 · 51 documents
   lra_instagram_queue: 'lra',       // bascule le 17/09/2026 : le projet historique n'etait plus lisible l'apres-midi (quota)
@@ -772,9 +773,19 @@ const QUEUES = [
   { key:'lrdl', cls:'lrdl', icon:'💼', name:'LinkedIn', media:'lrdl', col:'linkedin_queue' },
   { key:'lrdv', cls:'lrdv', icon:'💼', name:'LinkedIn', media:'lrdv', col:'lrdv_linkedin_queue' },
   { key:'lrdh', cls:'lrdh', icon:'💼', name:'LinkedIn', media:'lrdh', col:'lrdh_linkedin_queue' },
+  // Edition anglaise : les memes posts, ecrits en anglais, publies sur la PAGE
+  // ENTREPRISE (Company ID 105732391) et non sur le profil membre qui poste en
+  // francais. Alimentee automatiquement par enqueue-lrdh-en.mjs a partir des
+  // posts FR programmes · meme gabarit de cover (marque lrdh_en).
+  { key:'lrdhen', cls:'lrdh lrdhen', icon:'🇬🇧', name:'LinkedIn EN · page entreprise', media:'lrdh', col:'lrdh_en_linkedin_queue' },
   { key:'lra',  cls:'lra',  icon:'💼', name:'LinkedIn', media:'lra',  col:'larevue_linkedin_queue' },
 ];
 const state = {}; // key -> {scheduled, ready, published}
+// La file EN utilise le MEME generateur que la file FR (marque lrdh_en) : tout
+// ce que la modale sait faire pour LRDH (lieu, style de cover, rond, cadrage,
+// photos de l'article) vaut pour elle. Tester la cle nue laisserait l'edition
+// anglaise avec une modale amputee, sans erreur.
+const gabaritLrdh = (k) => k === 'lrdh' || k === 'lrdhen';
 let editing = null;
 // #edit=lrdh:12737 → ouvre la modale de ce post à l'arrivée (lien depuis la page Générer)
 const hm = location.hash.match(/^#edit=([a-z]+):(.+)$/);
@@ -914,6 +925,8 @@ function render() {
     });
     const genCta = q.key === 'lrdh'
       ? `<a class="gencta" href="linkedin-lrdh.html">✨ Générer un post depuis un article</a>`
+      : q.key === 'lrdhen'
+      ? `<span class="gencta auto" title="Chaque post FR programmé est reproduit en anglais (titre et légende écrits en anglais, même photo, même style), à un créneau décalé vers l'après-midi de Paris, puis publié sur la page entreprise.">🤖 Automatique depuis les posts FR</span><a class="gencta" href="linkedin-lrdh-en.html">✨ Générer un post EN à la main</a>`
       : '';
     div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} ${puceMedia(q.media)} · ${parts.join(' · ')}</span>${genCta}</div>` +
       (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé.</div>`);
@@ -1640,7 +1653,7 @@ const CATS = [
 const ORDRE_MEDIAS = ['lrdh', 'lrdl', 'lrdv', 'lra'];
 // Ce que chaque media possede, dans l'ordre d'affichage a l'interieur du bloc.
 const BLOCS_MEDIA = {
-  lrdh: ['#strip-lrdh', '#strip-insta-lrdh'],
+  lrdh: ['#strip-lrdh', '#strip-lrdhen', '#strip-insta-lrdh'],
   lrdl: ['#strip-lrdl', '#strip-insta', '#drafts-sec'],
   lrdv: ['#strip-lrdv'],
   lra:  ['#strip-lra', '#strip-insta-lra'],
@@ -1881,12 +1894,12 @@ window.openModal = (qkey, id) => {
   document.getElementById('mbrandrow').style.display = qkey === 'lra' ? 'none' : 'block';
   document.getElementById('mbrand').value = post.linkedinBrand || '';
   // localisation : uniquement sur le gabarit LRDH (bandeau « marque · lieu »)
-  document.getElementById('mlocrow').style.display = qkey === 'lrdh' ? 'block' : 'none';
+  document.getElementById('mlocrow').style.display = gabaritLrdh(qkey) ? 'block' : 'none';
   document.getElementById('mloc').value = post.linkedinLocation || '';
   document.getElementById('mcustomimg').value = '';
   document.getElementById('mcaption').value = post.linkedinCaption || '';
   // style de cover (LRDH uniquement) : Actu vs « On a testé »
-  const isLrdhStyle = qkey === 'lrdh';
+  const isLrdhStyle = gabaritLrdh(qkey);
   document.getElementById('mstylerow').style.display = isLrdhStyle ? 'block' : 'none';
   document.getElementById('mstyle').value = post.linkedinStyle || 'news';
   document.getElementById('mnote').value = post.linkedinNote || '';
@@ -1981,7 +1994,7 @@ window.openModal = (qkey, id) => {
   };
   peindreVignettes(post.availableImages || []);
   peindreVignettesRond(post.availableImages || []);
-  if (qkey === 'lrdh' && (post.wpUrl || post.articleUrl)) {
+  if (gabaritLrdh(qkey) && (post.wpUrl || post.articleUrl)) {
     const jeton = editing.jeton = Symbol('vignettes');
     imagesArticleLrdh(post.wpUrl || post.articleUrl).then(liste => {
       if (editing.jeton !== jeton || !liste.length) return;
@@ -1991,8 +2004,8 @@ window.openModal = (qkey, id) => {
   }
   // ── cadrage photo (LRDH uniquement : seul son générateur gère le crop) ──
   const cropRow = document.getElementById('mcroprow');
-  cropRow.style.display = qkey === 'lrdh' ? 'block' : 'none';
-  if (qkey === 'lrdh') {
+  cropRow.style.display = gabaritLrdh(qkey) ? 'block' : 'none';
+  if (gabaritLrdh(qkey)) {
     const rc = post.linkedinImageCrop1;
     const base = (rc && typeof rc === 'object')
       ? { x: Number(rc.x ?? 50), y: Number(rc.y ?? 50), zoom: Number(rc.zoom ?? 100) }
@@ -2243,7 +2256,7 @@ async function dessinerApercuCover() {
   const note = document.getElementById('mlivenote');
   if (!img || !cv) return;
 
-  const estActu = editing && editing.qkey === 'lrdh'
+  const estActu = editing && gabaritLrdh(editing.qkey)
     && (document.getElementById('mstyle').value || 'news') === 'news';
   if (!estActu) {
     cv.style.display = 'none'; note.style.display = 'none'; img.style.display = '';
@@ -2375,7 +2388,7 @@ window.saveEdit = async () => {
     //    sur le post. Le worker la persiste bien apres coup, mais entre-temps
     //    l'editeur relisait un champ vide : on voyait le rond sur la vignette et
     //    le champ vide dans le formulaire. On l'ecrit donc ici, tout de suite.
-    if (editing.qkey === 'lrdh') {
+    if (gabaritLrdh(editing.qkey)) {
       upd.linkedinInsetImage = document.getElementById('minset').value.trim() || null;
       upd.linkedinInsetLabel = document.getElementById('minsetlabel').value.trim() || null;
       upd.linkedinGradient = document.getElementById('mgradient').value || 'auto';
@@ -2389,7 +2402,7 @@ window.saveEdit = async () => {
     if (cat && cat !== (post.linkedinCategory || '')) rr.category = cat;
     if (covTitle && covTitle !== (editing.titreBase ?? (post.linkedinTitle || ''))) rr.title = covTitle;
     if (brand && brand !== (post.linkedinBrand || '')) rr.brand = brand;
-    if (editing.qkey === 'lrdh') {
+    if (gabaritLrdh(editing.qkey)) {
       const style = document.getElementById('mstyle').value;
       const note = document.getElementById('mnote').value.trim();
       if (style !== (post.linkedinStyle || 'news')) rr.style = style;
@@ -2499,6 +2512,8 @@ try {
   #strip-insta-lra .line a:hover { text-decoration:underline; }
   #strip-insta-lra .vide { font-size:12px; color:var(--muted); padding:6px 0; }
   #strip-insta-lra button { font-size:11.5px; }
+  #strip-lrdhen .t::after { content:'EN'; margin-left:8px; font-size:10px; font-weight:800; letter-spacing:.08em; padding:2px 6px; border-radius:6px; background:var(--lrdh); color:#fff; vertical-align:middle; }
+  .gencta.auto { cursor:help; opacity:.85; margin-right:8px; }
   #strip-insta-lrdh { background:color-mix(in srgb, var(--lrdh) 6%, var(--surface)); border-color:color-mix(in srgb, var(--lrdh) 22%, var(--border)); }
   #strip-insta-lrdh .t { color:var(--lrdh); }
   #strip-insta-lrdh .list { max-height:none; overflow:visible; display:grid; grid-template-columns:repeat(auto-fill,minmax(164px,1fr)); gap:14px; }
