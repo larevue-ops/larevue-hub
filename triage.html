@@ -223,6 +223,13 @@ const TRI_HEURE = '11h40';
 let site = SITES[0];
 let unsubSite = null;
 const cacheBySite = {};
+// ⚠️ 18/09/2026 · UNE ecoute par media, gardee pour toute la vie de la page.
+// Firestore facture l'instantane INITIAL de chaque onSnapshot : se reabonner a
+// chaque changement de media, ou a chaque retour d'onglet (l'ancien
+// `visibilitychange`), relisait la file entiere · 634 brouillons LRDH a chaque
+// fois. C'est ce qui vidait le quota du projet historique avant 15 h depuis le
+// 15/09 (voir index.html, meme lecon tiree le 02/09).
+const abonnements = {};
 const BUCKETS = [
   { key:'prioritaire', label:'À publier en priorité', color:'var(--prio)', desc:'Sujets forts. À relire dans WordPress puis publier vite.' },
   { key:'mineur', label:'Mineurs', color:'var(--mineur)', desc:'Publiables sans urgence, ou mises à jour d’articles existants.' },
@@ -380,9 +387,9 @@ function renderSites() {
   document.querySelectorAll('#sites .media').forEach(b => b.onclick = () => switchSite(SITES.find(s => s.key === b.dataset.site)));
 }
 function subscribeSite() {
-  if (unsubSite) unsubSite();
   const target = site;
-  unsubSite = onSnapshot(query(collection(db, target.col), where('status','==','ai_draft_auto')), snap => {
+  if (abonnements[target.key]) return;   // deja a l'ecoute : rien a relire
+  abonnements[target.key] = onSnapshot(query(collection(db, target.col), where('status','==','ai_draft_auto')), snap => {
     const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
     rows.sort((a,b) => (toDate(b.createdAt)?.getTime()||0) - (toDate(a.createdAt)?.getTime()||0));
     cacheBySite[target.key] = rows;
@@ -431,11 +438,11 @@ onAuthStateChanged(auth, user => {
   document.getElementById('appmain').style.display = user ? 'block' : 'none';
   if (user && !started) { started = true; renderSites(); switchSite(site); }
 });
-/* Un onglet oublié sur un portable qui s'endort relit toute la requête à chaque réveil :
- * on coupe l'écoute quand la page n'est pas regardée, et on la relance au retour. */
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { if (typeof unsubSite === 'function') { try { unsubSite(); } catch {} unsubSite = null; } }
-  else if (started && !unsubSite) subscribeSite();
+/* ⚠️ Ne PAS couper l'écoute quand l'onglet passe en arrière-plan : une écoute
+ * attachée ne coûte que les documents qui changent, alors que chaque rattachement
+ * refacture l'instantané complet. On ne relâche qu'à la fermeture de la page. */
+window.addEventListener('pagehide', () => {
+  for (const k of Object.keys(abonnements)) { try { abonnements[k](); } catch {} delete abonnements[k]; }
 });
 </script>
 </body>
