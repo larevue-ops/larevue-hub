@@ -775,8 +775,8 @@ const QUEUES = [
   { key:'lrdh', cls:'lrdh', icon:'💼', name:'LinkedIn', media:'lrdh', col:'lrdh_linkedin_queue' },
   // Edition anglaise : les memes posts, ecrits en anglais, publies sur la PAGE
   // ENTREPRISE (Company ID 105732391) et non sur le profil membre qui poste en
-  // francais. Alimentee automatiquement par enqueue-lrdh-en.mjs a partir des
-  // posts FR programmes · meme gabarit de cover (marque lrdh_en).
+  // francais. Alimentee automatiquement par enqueue-lrdh-en.mjs a partir de
+  // TOUS les posts FR generes (decision user 19/09) · meme gabarit (marque lrdh_en).
   { key:'lrdhen', cls:'lrdh lrdhen', icon:'🇬🇧', name:'LinkedIn EN · page entreprise', media:'lrdh', col:'lrdh_en_linkedin_queue' },
   { key:'lra',  cls:'lra',  icon:'💼', name:'LinkedIn', media:'lra',  col:'larevue_linkedin_queue' },
 ];
@@ -926,7 +926,7 @@ function render() {
     const genCta = q.key === 'lrdh'
       ? `<a class="gencta" href="linkedin-lrdh.html">✨ Générer un post depuis un article</a>`
       : q.key === 'lrdhen'
-      ? `<span class="gencta auto" title="Chaque post FR programmé est reproduit en anglais (titre et légende écrits en anglais, même photo, même style), à un créneau décalé vers l'après-midi de Paris, puis publié sur la page entreprise.">🤖 Automatique depuis les posts FR</span><a class="gencta" href="linkedin-lrdh-en.html">✨ Générer un post EN à la main</a>`
+      ? `<span class="gencta auto" title="Chaque post FR généré (visuel prêt depuis 2 h) est reproduit en anglais (titre et légende écrits en anglais, même photo, même style), à un créneau dans l'après-midi de Paris, puis publié sur la page entreprise via Make.">🤖 Automatique depuis les posts FR</span><a class="gencta" href="linkedin-lrdh-en.html">✨ Générer un post EN à la main</a>`
       : '';
     div.innerHTML = `<div class="head"><span class="t">${q.icon} ${q.name} ${puceMedia(q.media)} · ${parts.join(' · ')}</span>${genCta}</div>` +
       (cards ? `<div class="row">${cards}</div>` : `<div class="empty">Aucun post programmé.</div>`);
