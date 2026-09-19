@@ -2982,16 +2982,22 @@ try {
     return EDIT;
   }
 
-  function initial() {
-    return aRecette()
-      ? ouvert.recette.map((r, i, arr) => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1,
+  // Forme canonique d'une recette : memes cles, meme ordre, index/total
+  // recalcules d'apres la position. C'est la SEULE forme qu'on compare et
+  // qu'on enregistre.
+  const normaliser = (liste) => liste.map((r, i, arr) => ({ type: r.type || 'photo', src: r.src, texte: r.texte || '', credit: r.credit || '', taille: Number(r.taille) || 1,
           ...(r.variante ? { variante: r.variante } : {}), index: i + 1, total: arr.length,
           ...(r.kicker ? { kicker: r.kicker } : {}), ...(r.calque ? { calque: r.calque } : {}), ...(r.duree ? { duree: r.duree } : {}),
-          ...(r.plateforme ? { plateforme: r.plateforme } : {}), lisibilite: r.lisibilite || 'auto' }))
-      : (ouvert.slides || []).slice();
+          ...(r.plateforme ? { plateforme: r.plateforme } : {}), lisibilite: r.lisibilite || 'auto' }));
+  function initial() {
+    return aRecette() ? normaliser(ouvert.recette) : (ouvert.slides || []).slice();
   }
 
-  const modifie = () => JSON.stringify(travail) !== JSON.stringify(initial());
+  // ⚠️ Comparer les deux cotes sous la MEME forme. `travail` comparee brute a
+  // `initial()` restait « modifie » apres l'enregistrement des qu'un slide
+  // avait ete ajoute (pas d'index/total) ou deplace (index perime) : le bouton
+  // Telecharger et le bouton Publier restaient bloques sans issue (19/09/2026).
+  const modifie = () => JSON.stringify(aRecette() ? normaliser(travail) : travail) !== JSON.stringify(initial());
   // Un slide ajouté sans visuel ne peut pas être rendu : on bloque l'enregistrement tant qu'il est vide.
   const incomplet = () => aRecette() && travail.some(x => x && x.type !== 'video' && !x.src);
   const majSauvegarde = () => {
@@ -3249,13 +3255,15 @@ try {
         const urls = await publier(travail, ouvert.postId, (i, n) => {
           etat.textContent = `rendu ${i + 1}/${n}…`;
         });
-        charge = { slides: urls, recette: travail.map(x => ({ ...x })) };
+        charge = { slides: urls, recette: normaliser(travail) };
       } else {
         charge = { slides: travail.slice() };
       }
       etat.textContent = 'enregistrement…';
       await window.enregistrerCarrouselLrdh(ouvert.id, charge);
       Object.assign(ouvert, charge);
+      // realigne la copie de travail sur ce qui vient d'etre enregistre
+      travail = initial();
       etat.textContent = 'enregistré';
       rendre(rows, false);
       rendreSlides();
