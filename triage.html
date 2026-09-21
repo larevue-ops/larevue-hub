@@ -112,6 +112,10 @@
   .chip.age.fresh { color:var(--ok); border-color:color-mix(in srgb, var(--ok) 35%, var(--border)); background:var(--ok-soft); }
   .chip.maj { color:var(--lrdv); border-color:color-mix(in srgb, var(--lrdv) 35%, var(--border)); }
   .chip.wait { color:var(--mineur); }
+  /* ⚓ Fait écrit par le rédacteur mais introuvable dans la source. Assez visible
+     pour qu'on ne le rate pas, sans hurler : c'est une invitation à vérifier,
+     pas un verdict. Le survol donne la liste complète. */
+  .chip.ancrage { color:#b3261e; border-color:color-mix(in srgb, #b3261e 45%, var(--border)); background:color-mix(in srgb, #b3261e 8%, transparent); font-weight:600; cursor:help; }
   .chip a { text-decoration:none; }
   .art .why { font-size:11.5px; color:var(--muted); margin-top:7px; line-height:1.45; padding-left:10px; border-left:2px solid var(--border-2); }
   .art .act { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; align-items:center; }
@@ -290,6 +294,13 @@ function cardHtml(a) {
     lieu ? `<span class="chip">📍 ${esc(lieu)}</span>` : '',
     domain ? `<span class="chip"><a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener" title="Ouvrir la source">${esc(domain)}</a>${a.sourceName && !/google/i.test(a.sourceName) ? ' · ' + esc(a.sourceName) : ''}</span>` : '',
     !t.verdict ? `<span class="chip wait">⏳ pas encore trié</span>` : '',
+    // ⚓ [21/09/2026] Faits écrits par le rédacteur mais absents de la source
+    // (ai/ancrage.js du scraper). Le 21/09, trois brouillons sur cinq portaient
+    // une erreur de ce type : mauvaise marque de spa, chef parti, héliport
+    // inexistant. La pastille dit OÙ regarder en premier.
+    (Array.isArray(a.faitsNonAncres) && a.faitsNonAncres.length)
+      ? `<span class="chip ancrage" title="${esc(a.faitsNonAncres.map(f => `${f.type} : ${f.valeur}`).join('\n'))}">⚓ ${a.faitsNonAncres.length} fait${a.faitsNonAncres.length > 1 ? 's' : ''} hors source · ${esc(a.faitsNonAncres.slice(0, 3).map(f => f.valeur).join(' · '))}${a.faitsNonAncres.length > 3 ? '…' : ''}</span>`
+      : '',
   ].filter(Boolean).join('');
   return `<article class="art" style="--c:${c}" data-id="${esc(a.id)}">
     <div class="top">
