@@ -30,6 +30,19 @@ export const LARGEUR_MINI = 900;        // en deca, l'image serait etiree
 export const INK = '#0d0d0c';
 export const CTA_DEFAUT = "Plus d'infos via le lien dans la bio.";
 
+// ─── Gouttière du texte (21/09/2026, demande user) ──────────────────────────
+// Le texte courait d'un bord à l'autre, à 66 px des côtés : sur le vrai fil
+// Instagram, les avatars de collaboration, la pastille de son et les points du
+// carrousel viennent mordre dessus, et les premiers mots de chaque ligne se
+// perdent. La référence donnée par la rédaction (un carrousel @nylonfrance)
+// tient son texte dans les 70 % centraux et le pose plus haut.
+//
+// GOUTTIERE = marge latérale de chaque côté · FOND_TEXTE = distance au bas.
+// Modifier ces deux valeurs suffit à recadrer TOUS les slides d'un coup.
+export const GOUTTIERE = 160;          // 14,8 % de 1080 de chaque côté
+export const FOND_TEXTE = 236;         // au-dessus des commandes d'Instagram
+export const largeurTexte = (retrait = 0) => W - 2 * GOUTTIERE - retrait;
+
 // ⚠️ Newsreader etait une erreur d'identification : je l'avais lue dans la
 // feuille de style d'exqz.com en supposant que le site et les visuels
 // partageaient la meme police. C'est faux · leurs carrousels emploient un
@@ -350,7 +363,7 @@ const largeurLignes = (ctx, lignes, size) => { ctx.font = `${size}px "${SERIF}"`
 // Bandeau plein : la photo occupe le haut, le texte (et le logo) un bandeau INK en bas.
 function dessinerEnBandeau(ctx, { img, logo, texte, credit: cr, taille, hi, lo, maxLignes, logoLarge, echo = 0 }) {
   if (!CALQUE) { ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H); }
-  const { size, lignes } = fitTitle(ctx, texte, W - 132, maxLignes, hi, lo, taille);
+  const { size, lignes } = fitTitle(ctx, texte, largeurTexte(), maxLignes, hi, lo, taille);
   const lh = Math.round(size * 1.17);
   const hLogo = logo ? Math.round(logo.height * logoLarge / logo.width) : 0;
   const bande = 56 + hLogo + 30 + size + (lignes.length - 1) * lh + 64;
@@ -371,9 +384,9 @@ export function dessinerCouverture(ctx, { img, logo, titre, credit: cr, taille =
   fond(ctx, img);
   ctx.textBaseline = 'alphabetic';
   credit(ctx, cr, 20, 0.80, 62);
-  const { size, lignes } = fitTitle(ctx, titre, W - 132 - 2 * FMT.droite, 3, 82, 52, taille);
+  const { size, lignes } = fitTitle(ctx, titre, largeurTexte(2 * FMT.droite), 3, 82, 52, taille);
   const lh = Math.round(size * 1.17);
-  const bas = H - 196 - FMT.bas;
+  const bas = H - FOND_TEXTE - FMT.bas;
   const haut = bas - (lignes.length - 1) * lh;
   let clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
   const hLogo = logo ? Math.round(logo.height * LOGO_LARGE_COUV / logo.width) : 0;
@@ -399,9 +412,9 @@ export function dessinerPhoto(ctx, { img, logo, legende, credit: cr, taille = 1,
   // traitement de fond (16/09), on ne retire plus rien.
   if (leg && lisibilite === 'aucune' && clarteDuBas(ctx, H * 0.70, H * 0.22) > 0.82) leg = '';
   if (leg) {
-    const { size, lignes } = fitTitle(ctx, leg, W - 150 - 2 * FMT.droite, 3, 46, 32, taille);
+    const { size, lignes } = fitTitle(ctx, leg, largeurTexte(2 * FMT.droite), 3, 62, 42, taille);
     const lh = Math.round(size * 1.25);
-    const haut = H - 172 - FMT.bas - (lignes.length - 1) * lh;
+    const haut = H - FOND_TEXTE - FMT.bas - (lignes.length - 1) * lh;
     let clarte = clarteDuBas(ctx, haut - size, (lignes.length - 1) * lh + size * 1.4);
     const mode = modeLisibilite(lisibilite, clarte);
     if (mode !== 'aucune') {
@@ -421,7 +434,7 @@ export function dessinerChute(ctx, { img, logo, texte, credit: cr, taille = 1, l
   fond(ctx, img);
   ctx.textBaseline = 'alphabetic';
   credit(ctx, cr, 19, 0.78, 60);
-  const { size, lignes } = fitTitle(ctx, t, W - 300, 3, 54, 38, taille);
+  const { size, lignes } = fitTitle(ctx, t, largeurTexte(), 3, 54, 38, taille);
   const lh = Math.round(size * 1.24);
   const hBloc = LOGO_LARGE_COUV + 30 + size + (lignes.length - 1) * lh;
   const haut = Math.round((H - hBloc) / 2) + LOGO_LARGE_COUV + 30 + size;
