@@ -276,12 +276,16 @@ function blocSuivre(ctx, key = '') {
 }
 
 // ── La photo ronde incrustée ────────────────────────────────────────────────
-function photoRonde(ctx, img, legende) {
+function photoRonde(ctx, img, legende, titreEnHaut = false) {
   const D = 300;
   const icx = Math.round(W * 0.78);
   const bannerBottom = 88;
   const rightMargin = W - (icx + D / 2);
-  const icy = bannerBottom + rightMargin + D / 2;
+  // [21/09/2026] Titre en haut : le cercle descend au-dessus de la pastille du
+  // handle, sinon il passerait sous le texte. Meme calcul que le generateur.
+  const icy = titreEnHaut
+    ? (H - 60 - 36) - rightMargin - D / 2
+    : bannerBottom + rightMargin + D / 2;
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 6;
   ctx.beginPath(); ctx.arc(icx, icy, D / 2, 0, Math.PI * 2);
@@ -354,7 +358,10 @@ function cadrer(ctx, img, { x = 50, y = 50, zoom = 100 } = {}) {
 export async function dessinerCoverActu(ctx, {
   imageUrl = '', category = '', title = '', brand = '', location = '',
   crop = { x: 50, y: 50, zoom: 100 }, insetImage = '', insetLabel = '', titleSize = 0, gradient = 'auto',
+  titlePos = 'bas',
 } = {}) {
+  // [21/09/2026] Position du bloc-titre, meme regle que le generateur.
+  const titreEnHaut = String(titlePos || 'bas').trim().toLowerCase() === 'haut';
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, W, H);
@@ -367,13 +374,26 @@ export async function dessinerCoverActu(ctx, {
   // Dégradé : il monte avec le bloc-titre, sinon les premières lignes
   // tomberaient sur la photo claire (même calcul que le générateur).
   const mise = TITRE.layoutNewsTitle(ctx, { title, brand, size: titleSize });
+  const BANDEAU_H = 32 + 28 * 2;
+  const RESP_SOUS_BANDEAU = 46;
   const hautBloc = (H - 60 - 36 - 75) - mise.lines.length * mise.lineHeight - 84 - 70;
   const depart = Math.min(Math.round(H * 0.45), hautBloc - 160);
   // [17/09/2026] Même réglage que le générateur (DEGRADES dans lrdh.js) :
   // auto · leger · fort · aucun. Modifier les deux côtés ensemble.
   const DEGRADES = { auto: { mi: 0.55, bas: 0.92, haut: 0 }, leger: { mi: 0.30, bas: 0.62, haut: 80 }, fort: { mi: 0.72, bas: 0.97, haut: -140 }, aucun: null };
   const d = DEGRADES[String(gradient || 'auto').toLowerCase()] === undefined ? DEGRADES.auto : DEGRADES[String(gradient || 'auto').toLowerCase()];
-  if (d) {
+  if (d && titreEnHaut) {
+    // Titre en haut : le voile descend du bord supérieur jusque sous le bloc.
+    const premiere = BANDEAU_H + RESP_SOUS_BANDEAU + mise.size + 84;
+    const basBloc = premiere + (mise.lines.length - 1) * mise.lineHeight;
+    const e = Math.max(200, Math.min(H, basBloc + 160 - d.haut));
+    const grad = ctx.createLinearGradient(0, 0, 0, e);
+    grad.addColorStop(0, `rgba(0,0,0,${d.bas})`);
+    grad.addColorStop(0.45, `rgba(0,0,0,${d.mi})`);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, e);
+  } else if (d) {
     const s0 = Math.max(0, Math.min(H - 200, depart + d.haut));
     const grad = ctx.createLinearGradient(0, s0, 0, H);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
@@ -383,7 +403,7 @@ export async function dessinerCoverActu(ctx, {
     ctx.fillRect(0, s0, W, H - s0);
   }
 
-  if (insetImage) photoRonde(ctx, incruste, insetLabel);
+  if (insetImage) photoRonde(ctx, incruste, insetLabel, titreEnHaut);
   pastilleBas(ctx);
   blocSuivre(ctx, title);
 
@@ -410,8 +430,11 @@ export async function dessinerCoverActu(ctx, {
   // Badge de rubrique + titre
   const hauteurTitre = mise.lines.length * mise.lineHeight;
   const basTitre = (H - 60 - 36) - 75;
-  let ty = basTitre - hauteurTitre + mise.size;
-  badgeRubrique(ctx, category || 'ACTUALITÉS', mise.marginX, ty - mise.size - 84);
+  const hautBadge = titreEnHaut
+    ? BANDEAU_H + RESP_SOUS_BANDEAU
+    : (basTitre - hauteurTitre + mise.size) - mise.size - 84;
+  let ty = hautBadge + mise.size + 84;
+  badgeRubrique(ctx, category || 'ACTUALITÉS', mise.marginX, hautBadge);
   for (const ligne of mise.lines) {
     TITRE.drawEditorialTitleLine(ctx, ligne, mise.marginX, ty, mise.size, '#ffffff',
       { markerBg: mise.markerBg, markerText: mise.markerText });

@@ -624,6 +624,13 @@
             <span class="hint">px · l'aperçu suit</span>
           </div>
         </div>
+        <div id="mtitleposrow" style="display:none">
+          <label>Position du titre <span class="hint">· <b>en bas</b> = le gabarit habituel · <b>en haut</b> = le titre passe sous le bandeau, le voile sombre bascule en haut et la photo respire en bas</span></label>
+          <select id="mtitlepos">
+            <option value="bas">En bas · gabarit habituel (par défaut)</option>
+            <option value="haut">En haut · sous le bandeau</option>
+          </select>
+        </div>
         <div id="mbrandrow">
           <label>Marque / bandeau <span class="hint">· ligne sous le titre</span></label>
           <input id="mbrand">
@@ -1920,6 +1927,11 @@ window.openModal = (qkey, id) => {
   document.getElementById('mgradrow').style.display = isLrdhStyle ? 'block' : 'none';
   document.getElementById('mgradient').value = editing.gradientBase;
   document.getElementById('mgradient').onchange = planifierApercuCover;
+  // [21/09/2026, demande user] Position du bloc-titre : bas (defaut) ou haut.
+  editing.titlePosBase = post.linkedinTitlePos || _rr.titlePos || 'bas';
+  document.getElementById('mtitleposrow').style.display = isLrdhStyle ? 'block' : 'none';
+  document.getElementById('mtitlepos').value = editing.titlePosBase;
+  document.getElementById('mtitlepos').onchange = planifierApercuCover;
   document.getElementById('msize').value = post.linkedinTitleSize ? String(post.linkedinTitleSize) : '';
   editing.chiffreBase = {
     chiffre: post.linkedinChiffre || _rr.chiffre || '',
@@ -2295,6 +2307,7 @@ async function dessinerApercuCover() {
       insetLabel: document.getElementById('minsetlabel').value.trim(),
       titleSize: +document.getElementById('msize').value || 0,
       gradient: document.getElementById('mgradient').value || 'auto',
+      titlePos: document.getElementById('mtitlepos').value || 'bas',
     });
     note.style.display = 'block';
     if (apercuForce) { cv.style.display = 'block'; img.style.display = 'none'; }
@@ -2397,6 +2410,7 @@ window.saveEdit = async () => {
       upd.linkedinInsetImage = document.getElementById('minset').value.trim() || null;
       upd.linkedinInsetLabel = document.getElementById('minsetlabel').value.trim() || null;
       upd.linkedinGradient = document.getElementById('mgradient').value || 'auto';
+      upd.linkedinTitlePos = document.getElementById('mtitlepos').value || 'bas';
     }
     // ── détection des changements visuels → demande de régénération ──
     const rr = {};
@@ -2431,6 +2445,8 @@ window.saveEdit = async () => {
       if (_insl !== (editing.insetLabelBase || '')) rr.insetLabel = _insl;
       const _gr = document.getElementById('mgradient').value || 'auto';
       if (_gr !== (editing.gradientBase || 'auto')) rr.gradient = _gr;
+      const _tp = document.getElementById('mtitlepos').value || 'bas';
+      if (_tp !== (editing.titlePosBase || 'bas')) rr.titlePos = _tp;
       const _ts = +document.getElementById('msize').value || 0;
       if (_ts !== (+post.linkedinTitleSize || 0)) rr.titleSize = _ts;   // 0 = retour au corps du gabarit
       const loc = document.getElementById('mloc').value.trim();
