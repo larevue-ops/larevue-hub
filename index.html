@@ -361,6 +361,18 @@
   .draft .rest { background:color-mix(in srgb, var(--ok) 12%, var(--surface)); color:var(--ok); }
   .sect-title { font-family:var(--serif); font-size:15px; font-weight:600; margin:22px 0 6px; letter-spacing:-0.01em; }
   .autonote { font-size:11px; color:var(--muted); margin-bottom:14px; line-height:1.5; }
+
+  .rondpos{margin-top:10px;padding:10px 12px;border:1px solid var(--line,#e5e0d6);border-radius:12px;background:rgba(201,169,97,.06)}
+  .rondpos__g{display:grid;grid-template-columns:auto 1fr 52px;gap:6px 10px;align-items:center;font-size:12.5px;margin:6px 0 8px}
+  .rondpos__g output{font-variant-numeric:tabular-nums;text-align:right;font-size:12px;opacity:.8}
+  #mlive.rond-survol{cursor:grab}
+  #mlive.rond-glisse{cursor:grabbing}
+
+  .voilecols{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 2px}
+  .voilecols .vc{width:30px;height:30px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25);background:var(--c);cursor:pointer;padding:0}
+  .voilecols .vc.sel{box-shadow:0 0 0 3px #c9a961}
+  .voilecols .vcpick{display:inline-flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin:0}
+  .voilecols .vcpick input{width:34px;height:30px;border:none;padding:0;background:none;cursor:pointer}
 </style>
 </head>
 <body>
@@ -587,6 +599,15 @@
           <div class="thumbs" id="minsetthumbs"></div>
           <label>Légende de la photo ronde <span class="hint">· texte + flèche vers le rond (option)</span></label>
           <input id="minsetlabel" placeholder="ex : La piscine face aux dunes (vide = pas de légende)">
+          <div id="minsetposrow" class="rondpos">
+            <label>Position et taille du rond <span class="hint">· <b>glissez le rond</b> directement sur l'aperçu, ou réglez ici · <span id="minsetposetat">position automatique</span></span></label>
+            <div class="rondpos__g">
+              <span>Taille</span><input type="range" id="minsets" min="40" max="200" step="5" value="100"><output id="minsetsv">100 %</output>
+              <span>Horizontal</span><input type="range" id="minsetx" min="0" max="100" step="1" value="78"><output id="minsetxv">78 %</output>
+              <span>Vertical</span><input type="range" id="minsety" min="0" max="100" step="1" value="25"><output id="minsetyv">25 %</output>
+            </div>
+            <button type="button" id="minsetposreset" class="thchip">↺ Position et taille automatiques</button>
+          </div>
         </div>
         <div id="mgradrow" style="display:none">
           <label>Dégradé sombre du bas <span class="hint">· le voile noir sous le titre · <b>auto</b> = celui du gabarit · <b>aucun</b> quand la photo est déjà sombre ou que le texte reste lisible</span></label>
@@ -596,6 +617,16 @@
             <option value="fort">Fort · photo claire ou chargée</option>
             <option value="aucun">Aucun · pas de voile</option>
           </select>
+          <label style="margin-top:8px">Couleur du voile <span class="hint">· noir par défaut · un bleu garde un ciel bleu là où le noir le rend gris</span></label>
+          <div class="voilecols" id="mvoilecols">
+            <button type="button" class="vc" data-c="#000000" title="Noir (par défaut)" style="--c:#000000"></button>
+            <button type="button" class="vc" data-c="#0a1f44" title="Bleu nuit" style="--c:#0a1f44"></button>
+            <button type="button" class="vc" data-c="#1b4f8f" title="Bleu ciel profond" style="--c:#1b4f8f"></button>
+            <button type="button" class="vc" data-c="#0f3d2e" title="Vert forêt" style="--c:#0f3d2e"></button>
+            <button type="button" class="vc" data-c="#4a0f1c" title="Bordeaux" style="--c:#4a0f1c"></button>
+            <button type="button" class="vc" data-c="#3b2a1a" title="Brun sable" style="--c:#3b2a1a"></button>
+            <label class="vcpick" title="Choisir une autre couleur"><input type="color" id="mvoilecolor" value="#000000"> autre</label>
+          </div>
         </div>
         <div id="mnoterow" style="display:none">
           <label>Note finale <span class="hint">· sur le sceau et au centre (ex : 9,7/10)</span></label>
@@ -1940,9 +1971,20 @@ window.openModal = (qkey, id) => {
   editing.insetLabelBase = post.linkedinInsetLabel || _rr.insetLabel || '';
   document.getElementById('minset').value = editing.insetBase;
   document.getElementById('minsetlabel').value = editing.insetLabelBase;
+  // [24/09/2026, demande user] position et taille du rond, glissables sur l'aperçu
+  {
+    const lp = (v) => (v && typeof v === 'object') ? { ...v } : null;
+    editing.insetPosBase = lp(post.linkedinInsetPos) || lp(_rr.insetPos) || null;
+    editing.insetPos = editing.insetPosBase ? { ...editing.insetPosBase } : null;
+    lierCommandesRond();
+    majCommandesRond();
+  }
   editing.gradientBase = post.linkedinGradient || _rr.gradient || 'auto';
   document.getElementById('mgradrow').style.display = isLrdhStyle ? 'block' : 'none';
   document.getElementById('mgradient').value = editing.gradientBase;
+  // [24/09/2026, demande user] couleur du voile
+  editing.gradientColorBase = post.linkedinGradientColor || _rr.gradientColor || '#000000';
+  poserCouleurVoile(editing.gradientColorBase, false);
   document.getElementById('mgradient').onchange = planifierApercuCover;
   // [21/09/2026, demande user] Position du bloc-titre : bas (defaut) ou haut.
   editing.titlePosBase = post.linkedinTitlePos || _rr.titlePos || 'bas';
@@ -2298,7 +2340,7 @@ async function dessinerApercuCover() {
   }
   if (!(await chargerPolicesTitre())) return;   // sans Playfair, on ne triche pas
   if (!COVER) {
-    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260917a'); }
+    try { COVER = await import('./assets/lrdh-cover.mjs?v=20260924a'); }
     catch (e) { console.error('[hub] module cover indisponible', e); return; }
   }
   if (!editing) return;                          // modale refermée entre-temps
@@ -2322,12 +2364,15 @@ async function dessinerApercuCover() {
       crop,
       insetImage: document.getElementById('minset').value.trim(),
       insetLabel: document.getElementById('minsetlabel').value.trim(),
+      insetPos: (editing && editing.insetPos) || null,
       titleSize: +document.getElementById('msize').value || 0,
       gradient: document.getElementById('mgradient').value || 'auto',
+      gradientColor: (editing && editing.gradientColor) || '#000000',
       titlePos: document.getElementById('mtitlepos').value || 'bas',
     });
     note.style.display = 'block';
     if (apercuForce) { cv.style.display = 'block'; img.style.display = 'none'; }
+    majCommandesRond();
   } catch (e) {
     console.error('[hub] aperçu cover', e);
     cv.style.display = 'none'; img.style.display = ''; note.style.display = 'none';
@@ -2351,6 +2396,74 @@ function basculerApercuCover(e) {
   }
 }
 
+
+// ── Rond incrusté : position et taille (24/09/2026, demande user) ──────────
+// L'état vit dans editing.insetPos = { x, y, size } (x/y en % du visuel pour le
+// centre, size en % de la taille par défaut) ou null = placement automatique.
+// Le générateur applique exactement le même calcul (geometrieRond, lrdh.js).
+function majCommandesRond() {
+  if (!editing) return;
+  const p = editing.insetPos;
+  const g = (COVER && COVER.geometrieRond)
+    ? COVER.geometrieRond((document.getElementById('mtitlepos').value || 'bas') === 'haut', p)
+    : null;
+  const x = p && p.x != null ? p.x : (g ? Math.round(g.icx / 1080 * 1000) / 10 : 78);
+  const y = p && p.y != null ? p.y : (g ? Math.round(g.icy / 1350 * 1000) / 10 : 25);
+  const t = p && p.size != null ? p.size : 100;
+  const set = (id, v, suf) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; const o = document.getElementById(id + 'v'); if (o) o.textContent = Math.round(v) + suf; };
+  set('minsets', t, ' %'); set('minsetx', x, ' %'); set('minsety', y, ' %');
+  const et = document.getElementById('minsetposetat');
+  if (et) et.textContent = !p ? 'position automatique' : (p.x != null ? 'position réglée à la main' : 'taille réglée, position automatique');
+}
+let rondLie = false;
+function lierCommandesRond() {
+  if (rondLie) return; rondLie = true;
+  const redessiner = () => { majCommandesRond(); planifierApercuCover(); };
+  document.getElementById('minsets').oninput = (e) => { editing.insetPos = { ...(editing.insetPos || {}), size: +e.target.value }; redessiner(); };
+  const xy = () => { editing.insetPos = { ...(editing.insetPos || {}), x: +document.getElementById('minsetx').value, y: +document.getElementById('minsety').value }; redessiner(); };
+  document.getElementById('minsetx').oninput = xy;
+  document.getElementById('minsety').oninput = xy;
+  document.getElementById('minsetposreset').onclick = () => { editing.insetPos = null; redessiner(); };
+  // glisser le rond sur l'aperçu direct
+  const cv = document.getElementById('mlive');
+  let prise = null, raf = 0;
+  const point = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * 1080 / r.width, y: (e.clientY - r.top) * 1350 / r.height }; };
+  const surRond = (pt) => { const g = COVER && COVER.derniereGeometrieRond; return g && Math.hypot(pt.x - g.icx, pt.y - g.icy) <= g.D / 2 + 16 ? g : null; };
+  cv.addEventListener('pointerdown', (e) => {
+    const pt = point(e), g = surRond(pt);
+    if (!g || !editing) return;
+    prise = { dx: pt.x - g.icx, dy: pt.y - g.icy };
+    cv.setPointerCapture(e.pointerId); cv.classList.add('rond-glisse'); e.preventDefault();
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const pt = point(e);
+    if (!prise) { cv.classList.toggle('rond-survol', !!surRond(pt)); return; }
+    const r1 = (v) => Math.round(v * 10) / 10;
+    editing.insetPos = { ...(editing.insetPos || {}), x: r1((pt.x - prise.dx) / 1080 * 100), y: r1((pt.y - prise.dy) / 1350 * 100) };
+    majCommandesRond();
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; dessinerApercuCover(); });
+  });
+  const lacher = () => { if (!prise) return; prise = null; cv.classList.remove('rond-glisse'); planifierApercuCover(); };
+  cv.addEventListener('pointerup', lacher);
+  cv.addEventListener('pointercancel', lacher);
+  // Sur écran tactile, on laisse défiler la modale : les curseurs font le travail.
+  if (window.matchMedia && matchMedia('(pointer: fine)').matches) cv.style.touchAction = 'none';
+}
+
+// ── Couleur du voile (24/09/2026, demande user) ─────────────────────────────
+function poserCouleurVoile(c, redessiner = true) {
+  if (!editing) return;
+  const v = /^#[0-9a-f]{6}$/i.test(c || '') ? c.toLowerCase() : '#000000';
+  editing.gradientColor = v;
+  document.querySelectorAll('#mvoilecols .vc').forEach(b => b.classList.toggle('sel', b.dataset.c === v));
+  const pick = document.getElementById('mvoilecolor'); if (pick) pick.value = v;
+  if (!window._voileLie) {
+    window._voileLie = true;
+    document.querySelectorAll('#mvoilecols .vc').forEach(b => b.onclick = () => poserCouleurVoile(b.dataset.c));
+    document.getElementById('mvoilecolor').oninput = (e) => poserCouleurVoile(e.target.value);
+  }
+  if (redessiner) planifierApercuCover();
+}
 function planifierApercuCover() {
   clearTimeout(minuteurCover);
   minuteurCover = setTimeout(dessinerApercuCover, 140);
@@ -2426,7 +2539,9 @@ window.saveEdit = async () => {
     if (gabaritLrdh(editing.qkey)) {
       upd.linkedinInsetImage = document.getElementById('minset').value.trim() || null;
       upd.linkedinInsetLabel = document.getElementById('minsetlabel').value.trim() || null;
+      upd.linkedinInsetPos = editing.insetPos || null;
       upd.linkedinGradient = document.getElementById('mgradient').value || 'auto';
+      upd.linkedinGradientColor = editing.gradientColor || '#000000';
       upd.linkedinTitlePos = document.getElementById('mtitlepos').value || 'bas';
     }
     // ── détection des changements visuels → demande de régénération ──
@@ -2459,6 +2574,8 @@ window.saveEdit = async () => {
       // regenRequest), sinon un post ancien redemanderait une regeneration a chaque
       // sauvegarde sans que rien n'ait change.
       if (_ins !== (editing.insetBase || '')) rr.insetImage = _ins;
+      if ((editing.gradientColor || '#000000') !== (editing.gradientColorBase || '#000000')) rr.gradientColor = editing.gradientColor || '#000000';
+      if (JSON.stringify(editing.insetPos || null) !== JSON.stringify(editing.insetPosBase || null)) rr.insetPos = editing.insetPos || 'auto';   // 'auto' = retour à la position par défaut
       if (_insl !== (editing.insetLabelBase || '')) rr.insetLabel = _insl;
       const _gr = document.getElementById('mgradient').value || 'auto';
       if (_gr !== (editing.gradientBase || 'auto')) rr.gradient = _gr;

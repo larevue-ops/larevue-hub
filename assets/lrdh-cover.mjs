@@ -276,16 +276,34 @@ function blocSuivre(ctx, key = '') {
 }
 
 // ── La photo ronde incrustée ────────────────────────────────────────────────
-function photoRonde(ctx, img, legende, titreEnHaut = false) {
-  const D = 300;
-  const icx = Math.round(W * 0.78);
+// [24/09/2026] Position et taille réglables (demande user), MÊME calcul que
+// geometrieRond() dans lib/generators/lrdh.js : pos = { x, y, size }, x/y en %
+// du visuel pour le centre, size en % de la taille par défaut (40 à 200).
+export function geometrieRond(titreEnHaut = false, pos = null) {
+  const D0 = 300;
+  const icx0 = Math.round(W * 0.78);
   const bannerBottom = 88;
-  const rightMargin = W - (icx + D / 2);
+  const rightMargin = W - (icx0 + D0 / 2);
   // [21/09/2026] Titre en haut : le cercle descend au-dessus de la pastille du
   // handle, sinon il passerait sous le texte. Meme calcul que le generateur.
-  const icy = titreEnHaut
-    ? (H - 60 - 36) - rightMargin - D / 2
-    : bannerBottom + rightMargin + D / 2;
+  const icy0 = titreEnHaut ? (H - 60 - 36) - rightMargin - D0 / 2 : bannerBottom + rightMargin + D0 / 2;
+  let icx = icx0, icy = icy0, D = D0;
+  if (pos && typeof pos === 'object') {
+    const sc = Math.max(40, Math.min(200, Number(pos.size) || 100)) / 100;
+    D = Math.round(D0 * sc);
+    const x = Number(pos.x), y = Number(pos.y);
+    if (pos.x !== null && pos.x !== undefined && pos.x !== '' && Number.isFinite(x)) icx = Math.round(W * x / 100);
+    if (pos.y !== null && pos.y !== undefined && pos.y !== '' && Number.isFinite(y)) icy = Math.round(H * y / 100);
+  }
+  icx = Math.max(D / 2 + 12, Math.min(W - D / 2 - 12, icx));
+  icy = Math.max(D / 2 + 12, Math.min(H - D / 2 - 12, icy));
+  return { icx, icy, D };
+}
+export let derniereGeometrieRond = null;
+
+function photoRonde(ctx, img, legende, titreEnHaut = false, pos = null) {
+  const { icx, icy, D } = geometrieRond(titreEnHaut, pos);
+  derniereGeometrieRond = { icx, icy, D };
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 26; ctx.shadowOffsetY = 6;
   ctx.beginPath(); ctx.arc(icx, icy, D / 2, 0, Math.PI * 2);
@@ -303,13 +321,17 @@ function photoRonde(ctx, img, legende, titreEnHaut = false) {
   ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 3; ctx.stroke();
   ctx.restore();
 
+  // Légende : à gauche du rond, ou à droite si la place manque (dessinerLegendeRond du générateur).
   const texte = legende ? String(legende).trim() : '';
   if (!texte) return;
-  const ZONE_FLECHE = 120;
-  const droite = icx - D / 2 - ZONE_FLECHE;
-  const maxW = droite - 70;
+  const ZONE = 120, MARGE = 70;
+  const placeGauche = icx - D / 2 - ZONE - MARGE;
+  const placeDroite = W - MARGE - (icx + D / 2 + ZONE);
+  const aDroite = placeGauche < 220 && placeDroite > placeGauche;
+  const bord = aDroite ? icx + D / 2 + ZONE : icx - D / 2 - ZONE;
+  const maxW = Math.max(160, aDroite ? placeDroite : placeGauche);
   ctx.save();
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.textAlign = aDroite ? 'left' : 'right'; ctx.textBaseline = 'middle';
   let taille = 40, lignes = [];
   for (; taille >= 26; taille -= 2) {
     ctx.font = `italic bold ${taille}px "EditorialPlayfairItalic", "EditorialPlayfairItalicFallback", Georgia, serif`;
@@ -326,10 +348,11 @@ function photoRonde(ctx, img, legende, titreEnHaut = false) {
   const y0 = icy - ((lignes.length - 1) * lh) / 2;
   ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 3;
   ctx.fillStyle = '#ffffff';
-  lignes.forEach((l, i) => ctx.fillText(l, droite, y0 + i * lh));
-  const sx = droite + 18, sy = icy + 24;
-  const ex = icx - D / 2 - 20, ey = icy + 8;
-  const cpx = (sx + ex) / 2, cpy = icy + 62;
+  lignes.forEach((l, i) => ctx.fillText(l, bord, y0 + i * lh));
+  const sens = aDroite ? -1 : 1;
+  const sx = bord + 18 * sens, sy = icy + 24;
+  const ex = aDroite ? icx + D / 2 + 20 : icx - D / 2 - 20, ey = icy + 8;
+  const cpx = (sx + ex) / 2, cpy = icy + 60;
   ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = 6; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(cpx, cpy, ex, ey); ctx.stroke();
   const ang = Math.atan2(ey - cpy, ex - cpx);
@@ -358,7 +381,7 @@ function cadrer(ctx, img, { x = 50, y = 50, zoom = 100 } = {}) {
 export async function dessinerCoverActu(ctx, {
   imageUrl = '', category = '', title = '', brand = '', location = '',
   crop = { x: 50, y: 50, zoom: 100 }, insetImage = '', insetLabel = '', titleSize = 0, gradient = 'auto',
-  titlePos = 'bas',
+  titlePos = 'bas', insetPos = null, gradientColor = '',
 } = {}) {
   // [21/09/2026] Position du bloc-titre, meme regle que le generateur.
   const titreEnHaut = String(titlePos || 'bas').trim().toLowerCase() === 'haut';
@@ -382,28 +405,33 @@ export async function dessinerCoverActu(ctx, {
   // auto · leger · fort · aucun. Modifier les deux côtés ensemble.
   const DEGRADES = { auto: { mi: 0.55, bas: 0.92, haut: 0 }, leger: { mi: 0.30, bas: 0.62, haut: 80 }, fort: { mi: 0.72, bas: 0.97, haut: -140 }, aucun: null };
   const d = DEGRADES[String(gradient || 'auto').toLowerCase()] === undefined ? DEGRADES.auto : DEGRADES[String(gradient || 'auto').toLowerCase()];
+  // [24/09/2026] Couleur du voile ('#rrggbb'), comme rgbVoile() du générateur.
+  const mc = /^#?([0-9a-f]{6})$/i.exec(String(gradientColor || '').trim());
+  const nc = mc ? parseInt(mc[1], 16) : 0;
+  const cv = `${(nc >> 16) & 255},${(nc >> 8) & 255},${nc & 255}`;
   if (d && titreEnHaut) {
     // Titre en haut : le voile descend du bord supérieur jusque sous le bloc.
     const premiere = BANDEAU_H + RESP_SOUS_BANDEAU + mise.size + 84;
     const basBloc = premiere + (mise.lines.length - 1) * mise.lineHeight;
     const e = Math.max(200, Math.min(H, basBloc + 160 - d.haut));
     const grad = ctx.createLinearGradient(0, 0, 0, e);
-    grad.addColorStop(0, `rgba(0,0,0,${d.bas})`);
-    grad.addColorStop(0.45, `rgba(0,0,0,${d.mi})`);
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    grad.addColorStop(0, `rgba(${cv},${d.bas})`);
+    grad.addColorStop(0.45, `rgba(${cv},${d.mi})`);
+    grad.addColorStop(1, `rgba(${cv},0)`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, e);
   } else if (d) {
     const s0 = Math.max(0, Math.min(H - 200, depart + d.haut));
     const grad = ctx.createLinearGradient(0, s0, 0, H);
-    grad.addColorStop(0, 'rgba(0,0,0,0)');
-    grad.addColorStop(0.45, `rgba(0,0,0,${d.mi})`);
-    grad.addColorStop(1, `rgba(0,0,0,${d.bas})`);
+    grad.addColorStop(0, `rgba(${cv},0)`);
+    grad.addColorStop(0.45, `rgba(${cv},${d.mi})`);
+    grad.addColorStop(1, `rgba(${cv},${d.bas})`);
     ctx.fillStyle = grad;
     ctx.fillRect(0, s0, W, H - s0);
   }
 
-  if (insetImage) photoRonde(ctx, incruste, insetLabel, titreEnHaut);
+  derniereGeometrieRond = null;
+  if (insetImage) photoRonde(ctx, incruste, insetLabel, titreEnHaut, insetPos);
   pastilleBas(ctx);
   blocSuivre(ctx, title);
 
