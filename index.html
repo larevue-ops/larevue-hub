@@ -639,6 +639,11 @@
           <label>Localisation <span class="hint">· après la marque dans le bandeau haut (ex : Le Morne, Maurice)</span></label>
           <input id="mloc" placeholder="Ville, Pays">
         </div>
+        <div id="mfrpostrow" style="display:none">
+          <label>🔗 Post LinkedIn FR publié <span class="hint">· colle l'URL du post (lnkd.in ou linkedin.com/posts) : les jumeaux EN et ES reprendront SA légende, traduite, mentions des marques comprises</span></label>
+          <input id="mfrpost" placeholder="https://lnkd.in/…">
+          <div class="hint" id="mfrpoststate" style="margin-top:4px"></div>
+        </div>
         <label>Photo de la cover <span class="hint">· cliquer pour changer</span></label>
         <div class="thumbs" id="mthumbs"></div>
         <input id="mcustomimg" placeholder="…ou coller l'URL d'une autre image">
@@ -1908,6 +1913,18 @@ window.openModal = (qkey, id) => {
   // localisation : uniquement sur le gabarit LRDH (bandeau « marque · lieu »)
   document.getElementById('mlocrow').style.display = gabaritLrdh(qkey) ? 'block' : 'none';
   document.getElementById('mloc').value = post.linkedinLocation || '';
+  // [24/09/2026, demande user] URL du post FR reellement publie : le runner en
+  // relit la legende (texte + marques mentionnees) et la traduit pour EN/ES.
+  document.getElementById('mfrpostrow').style.display = qkey === 'lrdh' ? 'block' : 'none';
+  document.getElementById('mfrpost').value = post.frPostUrl || '';
+  {
+    const fp = post.frPost || null;
+    const st = document.getElementById('mfrpoststate');
+    st.textContent = !post.frPostUrl ? ''
+      : !fp || fp.url !== post.frPostUrl ? '⏳ relecture au prochain passage du runner (≤ 30 min)'
+      : fp.error ? '⚠️ ' + fp.error + ' · colle le texte du post dans la légende du jumeau si ça persiste'
+      : `✓ légende relue le ${fdate(fp.fetchedAt)} · ${(fp.mentions || []).filter(m => m.urn).length} marque(s) mentionnée(s)` + (fp.appliedLangs && fp.appliedLangs.length ? ` · traduite pour ${fp.appliedLangs.map(l => l.toUpperCase()).join(' + ')}` : '');
+  }
   document.getElementById('mcustomimg').value = '';
   document.getElementById('mcaption').value = post.linkedinCaption || '';
   // style de cover (LRDH uniquement) : Actu vs « On a testé »
@@ -2456,6 +2473,10 @@ window.saveEdit = async () => {
       const cropZ = +document.getElementById('mcropz').value;
       const bc = editing.baseCrop || { x: 50, y: 50, zoom: 100 };
       if (cropX !== (bc.x ?? 50) || cropY !== bc.y || cropZ !== bc.zoom) rr.crop1 = { x: cropX, y: cropY, zoom: cropZ };
+    }
+    if (editing.qkey === 'lrdh') {
+      const u = document.getElementById('mfrpost').value.trim();
+      if (u !== (post.frPostUrl || '')) { upd.frPostUrl = u || null; upd.frPost = null; }
     }
     const newImg = customUrl || editing.pickedImage;
     if (newImg) rr.customImage = newImg;
