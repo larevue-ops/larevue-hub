@@ -2074,6 +2074,8 @@ window.openModal = (qkey, id) => {
     const jeton = editing.jeton = Symbol('vignettes');
     imagesArticleLrdh(post.wpUrl || post.articleUrl).then(liste => {
       if (editing.jeton !== jeton || !liste.length) return;
+      editing.imagesArticle = liste;
+      planifierApercuCover();   // le rond « auto » dépend de ces photos
       peindreVignettes([...liste, ...(post.availableImages || [])]);
       peindreVignettesRond([...liste, ...(post.availableImages || [])]);
     }).catch(e => console.warn('photos de l’article', e));
@@ -2362,7 +2364,7 @@ async function dessinerApercuCover() {
       brand: document.getElementById('mbrand').value,
       location: document.getElementById('mloc').value,
       crop,
-      insetImage: document.getElementById('minset').value.trim(),
+      insetImage: rondApercu(photo),
       insetLabel: document.getElementById('minsetlabel').value.trim(),
       insetPos: (editing && editing.insetPos) || null,
       titleSize: +document.getElementById('msize').value || 0,
@@ -2396,6 +2398,31 @@ function basculerApercuCover(e) {
   }
 }
 
+
+// ── Rond incrusté : quelle photo dans l'aperçu direct (25/09/2026) ──────────
+// Champ vide = « auto » : le générateur prend la 2ᵉ photo distincte du corps de
+// l'article (pickAutoInset, lrdh.js). L'aperçu ne le faisait pas : il ne dessinait
+// aucun rond en mode auto, et les curseurs de position semblaient sans effet.
+// Même règle qu'au générateur, recopiée ici.
+const INSET_EXCLUDE_RE = /logo|avatar|gravatar|badge|sceau|seal|placeholder|icon|favicon|watermark|larevue_linkedin|\.svg(\?|$)|\.gif(\?|$)/i;
+function pickAutoInset(images = [], cover = '') {
+  const base = (u) => String(u || '').replace(/-\d+x\d+(\.(?:jpe?g|png|webp))/i, '$1').split('?')[0].toLowerCase();
+  const coverBase = base(cover);
+  const distinct = [];
+  for (const u of images || []) {
+    if (!u || !/^https?:/i.test(u) || INSET_EXCLUDE_RE.test(u)) continue;
+    const b = base(u);
+    if (b === coverBase || distinct.some((d) => base(d) === b)) continue;
+    distinct.push(u);
+  }
+  return distinct.length >= 1 ? distinct[0] : null;
+}
+function rondApercu(photo) {
+  const v = document.getElementById('minset').value.trim();
+  if (v.toLowerCase() === 'none') return '';
+  if (v) return v;
+  return (editing && pickAutoInset(editing.imagesArticle || [], photo)) || '';
+}
 
 // ── Rond incrusté : position et taille (24/09/2026, demande user) ──────────
 // L'état vit dans editing.insetPos = { x, y, size } (x/y en % du visuel pour le
