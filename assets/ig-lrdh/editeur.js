@@ -11,7 +11,8 @@
 // et la marque aussi.
 import * as N from './noyau.js?v=202609171200';
 
-const CLOUD = 'dghhiz8ou';
+// 25/09 : l'ancien compte dghhiz8ou a été désactivé (quota dépassé) · les envois passent sur un compte du pool.
+const CLOUD = 'sppb56v3';
 const PRESET = 'larevue_articles';
 // Preset sans transformation entrante : `larevue_articles` borne tout a 1200x800,
 // ce qui ramenait une video verticale 720x1280 a 450x800 (constate le 09/09/2026).
