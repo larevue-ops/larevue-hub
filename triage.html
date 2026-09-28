@@ -400,13 +400,25 @@ function renderSites() {
 function subscribeSite() {
   const target = site;
   if (abonnements[target.key]) return;   // deja a l'ecoute : rien a relire
-  abonnements[target.key] = onSnapshot(query(collection(db, target.col), where('status','==','ai_draft_auto')), snap => {
+  // ⚠️ 28/09/2026 · borne a 8 jours (la page montre 7 jours au plus) : l'ecoute
+  // relisait les ~1 100 brouillons jamais tries des 4 medias a chaque reprise,
+  // soit 1 144 lectures par heure onglet ouvert, et le quota tombait vers 16 h.
+  // Index composite status + createdAt cree sur les 4 collections ; si l'un
+  // manque (failed-precondition), on retombe sur l'ancienne requete.
+  const depuis = new Date(Date.now() - 8 * 864e5);
+  const qBornee = query(collection(db, target.col), where('status','==','ai_draft_auto'), where('createdAt','>=', depuis));
+  const qLarge = query(collection(db, target.col), where('status','==','ai_draft_auto'));
+  const ecouter = (q, repli) => onSnapshot(q, snap => {
     const rows = []; snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
     rows.sort((a,b) => (toDate(b.createdAt)?.getTime()||0) - (toDate(a.createdAt)?.getTime()||0));
     cacheBySite[target.key] = rows;
     renderSites();
     if (site.key === target.key) { articles = rows; render(); }
-  }, e => { document.getElementById('board').innerHTML = '<div class="empty"><b>Erreur de chargement</b>' + esc(e.message) + '</div>'; });
+  }, e => {
+    if (repli && e.code === 'failed-precondition') { abonnements[target.key] = ecouter(qLarge, false); return; }
+    document.getElementById('board').innerHTML = '<div class="empty"><b>Erreur de chargement</b>' + esc(e.message) + '</div>';
+  });
+  abonnements[target.key] = ecouter(qBornee, true);
 }
 function switchSite(s) {
   site = s;
