@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#f5f4f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14120f" media="(prefers-color-scheme: dark)">
+<title>Tri · La Revue du Luxe</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%237a4ea8'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='31' font-weight='700' fill='%23fff' text-anchor='middle'%3ELR%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  Tri des brouillons de La Revue du Luxe (LRDL), SÉPARÉ du tri LRDH (triage.html).
+  Créée le 28/10/2026. Ne lit QUE la collection `news_drafts_auto` du projet
+  Firestore dédié `la-revue-du-luxe` (bascule du 20/10/2026).
+
+  ⚠️ Quota Spark (50 000 lectures par jour) : aucune écoute onSnapshot, aucun
+  rafraîchissement automatique. Une lecture = un clic sur « Rafraîchir » =
+  une seule requête getDocs bornée (fenêtre de 24 à 72 h, 80 documents au plus).
+  Le dernier résultat est gardé dans le navigateur : rouvrir la page ne coûte rien.
+-->
+<style>
+  :root {
+    --gold:#c6a15b; --gold-deep:#a9843d;
+    --bg:#f5f4f0; --surface:#ffffff; --surface-2:#faf9f6;
+    --ink:#1c1915; --muted:#8a857a; --faint:#b4afa4;
+    --border:#e7e3da; --border-2:#d9d4c8;
+    --prio:#c8321f; --prio-soft:#fdf0ed; --mineur:#b7791f; --mineur-soft:#fdf6e7; --ecart:#6b665b; --ecart-soft:#f1efea;
+    --ok:#2f7d4f; --ok-soft:#e9f5ee; --hotel:#b45309; --hotel-soft:#fdf3e4; --dup:#0e7490; --dup-soft:#e6f4f7;
+    --lrdl:#7a4ea8; --lrdl-deep:#5e3887; --lrdl-soft:#f2ecf8;
+    --serif:'Fraunces',Georgia,serif; --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --radius:14px; --shadow:0 1px 2px rgba(20,18,15,.04), 0 6px 20px rgba(20,18,15,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14120f; --surface:#1d1b16; --surface-2:#242018; --ink:#efeae0; --muted:#9c968a; --faint:#6b665b; --border:#2c2921; --border-2:#37332a;
+      --prio-soft:#33201c; --mineur-soft:#332a18; --ecart-soft:#26241f; --ok-soft:#1c2e23; --hotel-soft:#33261a; --dup-soft:#16292e; --lrdl-soft:#271e33;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35); }
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:var(--sans); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; letter-spacing:-0.01em; font-size:13px; }
+  a { color:inherit; }
+  :focus-visible { outline:2px solid var(--lrdl); outline-offset:2px; border-radius:4px; }
+  button, select, input, textarea { font-family:inherit; }
+
+  header { background:color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter:saturate(1.4) blur(12px); -webkit-backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--border); padding:10px 16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:40; }
+  .logo { width:36px; height:36px; border-radius:11px; background:linear-gradient(150deg, var(--lrdl), var(--lrdl-deep)); color:#fff; font-family:var(--serif); font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 3px 10px color-mix(in srgb, var(--lrdl) 40%, transparent); }
+  header h1 { font-family:var(--serif); font-size:17px; font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
+  header p { font-size:10.5px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-top:2px; }
+  header nav { margin-left:auto; display:flex; gap:6px; align-items:center; }
+  header nav a, header nav button { font-size:11.5px; font-weight:600; color:var(--muted); text-decoration:none; background:var(--surface-2); border:1px solid var(--border); padding:6px 11px; border-radius:99px; white-space:nowrap; cursor:pointer; }
+  header nav a:hover, header nav button:hover { color:var(--ink); border-color:var(--border-2); }
+
+  main { max-width:1080px; margin:0 auto; padding:18px 16px 70px; }
+
+  /* lecture */
+  .pipe { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:12px 16px; display:flex; flex-wrap:wrap; gap:12px 20px; margin-bottom:14px; align-items:center; }
+  .pipe .k { font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+  .pipe .v { font-size:14px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums; }
+  .pipe .v small { font-weight:500; color:var(--muted); font-size:11.5px; }
+  .pipe .act { margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .runbtn { border:0; background:linear-gradient(150deg, var(--lrdl), var(--lrdl-deep)); color:#fff; padding:9px 14px; border-radius:9px; font-size:12px; font-weight:700; cursor:pointer; box-shadow:0 2px 8px color-mix(in srgb, var(--lrdl) 32%, transparent); white-space:nowrap; }
+  .runbtn:disabled { opacity:.5; cursor:default; }
+  select { border:1px solid var(--border); background:var(--surface); color:var(--ink); border-radius:9px; padding:7px 9px; font-size:12px; }
+  .warn { color:var(--mineur); }
+
+  /* tuiles */
+  .tiles { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-bottom:14px; }
+  .tile { border-radius:12px; padding:10px 12px; border:1px solid var(--border); background:var(--surface); display:flex; align-items:center; gap:10px; cursor:pointer; text-align:left; color:var(--ink); }
+  .tile .sw { width:10px; height:32px; border-radius:5px; background:var(--c); flex:0 0 auto; }
+  .tile b { font-family:var(--serif); font-size:20px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
+  .tile span { display:block; font-size:11px; color:var(--muted); margin-top:3px; }
+  .tile.on { border-color:var(--c); box-shadow:inset 0 0 0 1px var(--c); }
+  @media (max-width:860px) { .tiles { grid-template-columns:repeat(2, 1fr); } }
+
+  /* filtres */
+  .tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .piliers { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .pil { border:1px solid var(--border); background:var(--surface); color:var(--muted); padding:6px 10px; border-radius:99px; font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .pil b { color:var(--ink); font-variant-numeric:tabular-nums; margin-left:3px; }
+  .pil.on { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .pil.on b { color:var(--bg); }
+  .pil.vide { opacity:.45; }
+  .search { flex:1 1 220px; display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0 10px; min-width:180px; }
+  .search input { border:0; background:none; color:var(--ink); font-size:12.5px; padding:8px 0; width:100%; outline:none; }
+  .cnt { font-size:11.5px; color:var(--muted); white-space:nowrap; }
+
+  /* sélection */
+  .selbar { position:sticky; top:57px; z-index:30; background:color-mix(in srgb, var(--lrdl-soft) 92%, transparent); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border:1px solid color-mix(in srgb, var(--lrdl) 30%, var(--border)); border-radius:12px; padding:8px 12px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+  .selbar .n { font-weight:700; color:var(--lrdl); font-variant-numeric:tabular-nums; }
+  .selbar .sp { flex:1; }
+  .btn { font-size:11px; font-weight:600; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; text-decoration:none; white-space:nowrap; line-height:1; }
+  .btn:hover { border-color:var(--border-2); }
+  .btn.pri { background:var(--lrdl); color:#fff; border-color:var(--lrdl); }
+  .btn.pri:disabled { opacity:.45; cursor:default; }
+  .btn.ghost { border-color:transparent; background:none; color:var(--muted); }
+  .btn.ghost:hover { color:var(--prio); }
+  #copie { display:none; margin-bottom:12px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+  #copie p { font-size:11.5px; color:var(--muted); margin-bottom:6px; }
+  #copie textarea { width:100%; min-height:140px; border:1px solid var(--border); border-radius:8px; background:var(--surface-2); color:var(--ink); font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; padding:8px; }
+
+  /* cartes */
+  .art { position:relative; background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--c); border-radius:11px; padding:10px 12px; margin-bottom:8px; display:flex; gap:10px; align-items:flex-start; }
+  .art.sel { box-shadow:inset 0 0 0 1px var(--lrdl); background:color-mix(in srgb, var(--lrdl-soft) 55%, var(--surface)); }
+  .art input[type=checkbox] { width:17px; height:17px; margin-top:10px; accent-color:var(--lrdl); flex:0 0 auto; cursor:pointer; }
+  .art .sc { flex:0 0 auto; width:38px; height:38px; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-family:var(--serif); font-size:15px; font-weight:700; color:var(--c); background:color-mix(in srgb, var(--c) 12%, var(--surface)); font-variant-numeric:tabular-nums; line-height:1; }
+  .art .sc small { font-size:8.5px; font-weight:600; color:var(--muted); display:block; line-height:1; margin-top:2px; }
+  .art .ti { font-size:13.5px; font-weight:600; line-height:1.35; letter-spacing:-0.01em; cursor:pointer; }
+  .art .ti a { text-decoration:none; }
+  .art .ti a:hover { text-decoration:underline; text-underline-offset:3px; }
+  .chips { display:flex; flex-wrap:wrap; gap:4px 6px; margin-top:6px; }
+  .chip { font-size:10.5px; font-weight:600; color:var(--muted); background:var(--surface-2); border:1px solid var(--border); border-radius:99px; padding:2px 8px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+  .chip a { text-decoration:none; }
+  .chip.pil-c { color:var(--lrdl); border-color:color-mix(in srgb, var(--lrdl) 35%, var(--border)); background:var(--lrdl-soft); }
+  .chip.st-pub { color:var(--ok); border-color:color-mix(in srgb, var(--ok) 35%, var(--border)); background:var(--ok-soft); }
+  .chip.st-ecart { color:var(--ecart); background:var(--ecart-soft); }
+  .chip.st-wait { color:var(--mineur); background:var(--mineur-soft); }
+  .chip.hotel { color:var(--hotel); border-color:color-mix(in srgb, var(--hotel) 45%, var(--border)); background:var(--hotel-soft); cursor:help; }
+  .chip.dup { color:var(--dup); border-color:color-mix(in srgb, var(--dup) 45%, var(--border)); background:var(--dup-soft); cursor:help; }
+  .art .why { font-size:11.5px; color:var(--muted); margin-top:7px; line-height:1.45; padding-left:10px; border-left:2px solid var(--border-2); }
+  .art .act { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; align-items:center; }
+  .art .id { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px; color:var(--faint); }
+  .art.done { opacity:.4; }
+
+  .empty { border:1px dashed var(--border-2); border-radius:12px; padding:22px 16px; text-align:center; color:var(--muted); font-size:12px; line-height:1.5; }
+  .empty b { display:block; color:var(--ink); font-family:var(--serif); font-size:15px; font-weight:600; margin-bottom:4px; }
+  .legend { font-size:11px; color:var(--muted); text-align:center; margin-top:24px; line-height:1.6; }
+  .legend b { color:var(--ink); font-weight:600; }
+
+  /* porte */
+  #gate { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px; }
+  #gate .box { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:380px; box-shadow:var(--shadow); }
+  #gate .logo { margin:0 auto 12px; }
+  #gate h2 { font-family:var(--serif); font-size:17px; text-align:center; margin-bottom:4px; }
+  #gate p { font-size:11.5px; color:var(--muted); text-align:center; margin-bottom:16px; line-height:1.5; }
+  #gate ol { font-size:11.5px; color:var(--muted); line-height:1.55; padding-left:18px; }
+  #gate input { width:100%; border:1px solid var(--border); border-radius:9px; padding:10px; font-size:13px; margin-bottom:10px; background:var(--surface-2); color:var(--ink); }
+  #gate button { width:100%; border:0; border-radius:9px; padding:10px; font-size:13px; font-weight:600; background:linear-gradient(150deg, var(--lrdl), var(--lrdl-deep)); color:#fff; cursor:pointer; }
+  #gate .err { color:var(--prio); font-size:11px; text-align:center; min-height:16px; margin-top:8px; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:99px; font-size:12px; font-weight:600; box-shadow:var(--shadow); z-index:60; opacity:0; pointer-events:none; transition:opacity .2s; max-width:calc(100% - 32px); }
+  .toast.on { opacity:1; }
+  @media (max-width:600px) { header p { display:none; } header h1 { font-size:15px; } .pipe .act { margin-left:0; } .selbar { position:static; } }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">LR</div>
+  <div><h1>Tri · La Revue du Luxe</h1><p>Brouillons LRDL seuls · lecture à la demande</p></div>
+  <nav id="topnav" style="display:none">
+    <a href="index.html">← Hub</a>
+    <button id="logout" type="button">Se déconnecter</button>
+  </nav>
+</header>
+
+<div id="gate">
+  <div class="box" id="gatebox">
+    <div class="logo">LR</div>
+    <h2>La Revue du Luxe · Tri</h2>
+    <p>Accès réservé · compte du projet Firebase « la-revue-du-luxe »</p>
+    <input type="email" id="gmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="gpass" placeholder="Mot de passe" autocomplete="current-password">
+    <button id="gbtn" type="button">Se connecter</button>
+    <div class="err" id="gerr"></div>
+  </div>
+</div>
+
+<main id="appmain" style="display:none">
+  <div class="pipe">
+    <div><div class="k">Dernière lecture</div><div class="v" id="lu">jamais <small>· clique « Rafraîchir »</small></div></div>
+    <div><div class="k">Lectures Firestore</div><div class="v" id="cout">0 <small>cette session</small></div></div>
+    <div class="act">
+      <select id="fenetre" title="Fenêtre de collecte lue au prochain rafraîchissement">
+        <option value="24">24 dernières heures</option>
+        <option value="48" selected>48 dernières heures</option>
+        <option value="72">72 dernières heures</option>
+      </select>
+      <button class="runbtn" id="rafraichir" type="button">↻ Rafraîchir</button>
+    </div>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+  <div class="piliers" id="piliers"></div>
+  <div class="tools">
+    <select id="fsource" title="Source"><option value="">Toutes les sources</option></select>
+    <label class="search">🔍 <input type="search" id="q" placeholder="Filtrer : maison, ville, mot du titre, ID…"></label>
+    <span class="cnt" id="count"></span>
+  </div>
+
+  <div class="selbar">
+    <span><span class="n" id="nsel">0</span> sélectionné(s)</span>
+    <button class="btn" id="tout" type="button">Cocher les visibles</button>
+    <button class="btn" id="rien" type="button">Tout décocher</button>
+    <span class="sp"></span>
+    <button class="btn pri" id="copier" type="button" disabled>📋 Copier les ID pour Claude</button>
+  </div>
+  <div id="copie">
+    <p>Le presse-papiers a refusé la copie. Sélectionne le texte ci-dessous (déjà surligné) et copie-le à la main, puis colle-le dans Claude avec « analyse les articles LRDL du jour ».</p>
+    <textarea id="copietxt" readonly></textarea>
+  </div>
+
+  <div id="board"></div>
+  <p class="legend">
+    <b>Comment lire cette page.</b> Elle ne montre que les brouillons de La Revue du Luxe (collection <code>news_drafts_auto</code> du projet <code>la-revue-du-luxe</code>), jamais ceux de La Revue des Hôtels.
+    Rien ne se recharge tout seul : chaque clic sur <b>Rafraîchir</b> fait une seule lecture bornée (80 documents au plus) et affiche son coût. Les filtres travaillent sur ce qui est déjà chargé, sans relire Firestore.
+    Le <b>pilier</b> est déduit de la catégorie du scraper et du titre. <b>🏨 Hôtel</b> signale un sujet hôtelier, qui va sur LRDH et pas sur LRDL. <b>⧉ Doublon probable</b> compare les titres de la liste chargée.
+    <b>Écarter</b> passe le brouillon en « archived » (réversible dans Firestore), comme dans le tri historique.
+  </p>
+</main>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+
+// ─── Config Web PUBLIQUE du projet Firebase `la-revue-du-luxe` ───
+// ⚠️ 28/10/2026 : le projet n'a encore AUCUNE appli Web enregistrée et
+// Authentication n'y est pas activée (vérifié par l'API Firebase). La page reste
+// donc sur l'écran « configuration à compléter » tant que LRDL_CFG vaut null.
+// Pour l'activer (compte Google propriétaire du projet) :
+//   1. console Firebase › la-revue-du-luxe › Paramètres › Ajouter une appli Web ;
+//   2. Authentication › Commencer › E-mail/Mot de passe, puis créer le compte du hub ;
+//   3. Authentication › Paramètres › Domaines autorisés : ajouter larevue-ops.github.io ;
+//   4. coller ici la config Web (apiKey, authDomain, projectId, messagingSenderId, appId).
+// Les règles déployées (news_drafts_auto : lecture et écriture si connecté) suffisent.
+// Jamais de clé de compte de service ici : seulement la config Web, publique par nature.
+const LRDL_CFG = null;
+
+const COL = 'news_drafts_auto';
+const PLAFOND = 80;
+const WP_ADMIN = 'https://larevueduluxe.com/wp-admin/post.php?post=';
+const CLE_CACHE = 'triage-luxe:derniere-lecture';
+const CLE_COUT = 'triage-luxe:lectures';
+const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
+const app = LRDL_CFG ? initializeApp(LRDL_CFG, 'triage_luxe') : null;
+const db = app ? getFirestore(app) : null;
+const auth = app ? getAuth(app) : null;
+
+// ─── Piliers éditoriaux de LRDL ───
+const PILIERS = [
+  { key:'montres', label:'Montres et joaillerie' },
+  { key:'automobile', label:'Automobile' },
+  { key:'yachts', label:'Yachts et jets' },
+  { key:'mode', label:'Mode, maisons, beauté' },
+  { key:'immobilier', label:'Immobilier de prestige' },
+  { key:'business', label:'Business du luxe' },
+  { key:'tech', label:'Tech' },
+  { key:'gastronomie', label:'Gastronomie' },
+  { key:'autre', label:'Autres' },
+  { key:'hotel', label:'🏨 Hôtellerie (LRDH)' },
+];
+const PIL = Object.fromEntries(PILIERS.map(p => [p.key, p]));
+// Catégories du scraper qui donnent directement le pilier.
+const PAR_CATEGORIE = { montres:'montres', automobile:'automobile', mode:'mode', beaute:'mode', immobilier:'immobilier', bourse:'business', restaurant:'gastronomie', hotel:'hotel' };
+// Pour les catégories fourre-tout (luxe, lifestyle, culture, people, Multi…), on lit le titre.
+const MOTS = [
+  ['yachts', /\b(yachts?|superyachts?|megayachts?|voiliers?|catamarans?|chantier naval|jets? prives?|private jets?|gulfstream|dassault falcon|bombardier global|aviation d affaires|helicopteres?|riva|feadship|benetti|sunseeker|lurssen|sanlorenzo|monaco yacht show)\b/],
+  ['immobilier', /\b(immobilier|immobiliere|villas?|penthouses?|manoirs?|mansions?|demeures?|proprietes?|appartements?|branded residences?|residences privees?|sotheby s international realty|knight frank|barnes)\b/],
+  ['gastronomie', /\b(chefs?|restaurants?|gastronomi\w*|etoiles? michelin|michelin|cuisine|patissi\w*|chocolat\w*|champagnes?|vins?|cognac|whisky|spiritueux|cocktails?|bars?|sommelier|caviar|truffes?)\b/],
+  ['tech', /\b(tech|technologie|smartphones?|iphone|apple|samsung|vertu|intelligence artificielle|ia|casques?|enceintes?|bang olufsen|gadgets?|drones?|robots?|montres? connectees?|start ?up)\b/],
+  ['business', /\b(chiffre d affaires|resultats|trimestr\w*|semestr\w*|bourse|croissance|ventes|recul|benefices?|rachat|acquisition|acquiert|fusion|investi\w*|levee de fonds|pdg|directeur general|directrice generale|nomination|nomme\w*|ceo|marche du luxe|clients|droits de douane|lvmh|kering|richemont)\b/],
+  ['montres', /\b(montres?|horlog\w*|joaill\w*|bijoux?|rolex|patek|audemars|omega|cartier|van cleef|boucheron|chaumet|tiffany|bulgari|bvlgari|diamants?)\b/],
+  ['automobile', /\b(voitures?|automobiles?|supercars?|hypercars?|ferrari|lamborghini|porsche|bugatti|rolls royce|bentley|aston martin|mclaren|maserati|pagani|koenigsegg)\b/],
+  ['mode', /\b(mode|haute couture|couture|defiles?|createurs?|creatrices?|directeur artistique|directrice artistique|parfums?|beaute|cosmetiques?|maquillage|chanel|dior|hermes|louis vuitton|gucci|prada|saint laurent|balenciaga|valentino|fendi|celine|loewe|bottega|givenchy|maroquinerie|sacs?)\b/],
+];
+// Un hôtel n'a rien à faire sur LRDL : il va sur LRDH.
+const MOTS_HOTEL = /\b(hotels?|hotellerie|hoteliers?|hotelieres?|resorts?|palaces?|boutique hotel|luxury collection|ritz carlton|four seasons|rosewood|mandarin oriental|peninsula|six senses|belmond|raffles|st regis|cheval blanc|airelles|oetker|relais chateaux|shangri la|waldorf astoria|fairmont|sofitel|kempinski|park hyatt|aman|club med|lodges?|chambres d hotes)\b/;
+
+const STATUTS = {
+  ai_draft_auto: { label:'À trier', cls:'st-wait', groupe:'trier' },
+  published: { label:'Publié', cls:'st-pub', groupe:'publie' },
+  archived: { label:'Écarté', cls:'st-ecart', groupe:'ecarte' },
+  rejected: { label:'Rejeté', cls:'st-ecart', groupe:'ecarte' },
+  rejected_auto: { label:'Rejeté auto', cls:'st-ecart', groupe:'ecarte' },
+  rejected_offtopic: { label:'Rejeté auto (hors sujet)', cls:'st-ecart', groupe:'ecarte' },
+};
+const statutDe = s => STATUTS[s] || { label: s || 'inconnu', cls:'', groupe:'autre' };
+
+// ─── Outils ───
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toDate = v => { if (!v) return null; if (v.toDate) return v.toDate(); if (typeof v.seconds === 'number') return new Date(v.seconds * 1000);
+  const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d; };
+const iso = v => toDate(v)?.toISOString() || null;
+const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const srcDomain = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const hm = d => d.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+const jourHeure = d => d.toLocaleDateString('fr-FR', { day:'numeric', month:'short' }) + ' ' + hm(d);
+const age = d => { const m = Math.round((Date.now() - d.getTime()) / 6e4);
+  if (m < 60) return `il y a ${Math.max(1, m)} min`; const h = Math.round(m / 60); if (h < 24) return `il y a ${h} h`;
+  const j = Math.round(h / 24); return j === 1 ? 'hier' : `il y a ${j} j`; };
+const toast = t => { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2600); };
+const lireStock = (cle, def) => { try { const v = localStorage.getItem(cle); return v ? JSON.parse(v) : def; } catch { return def; } };
+const ecrireStock = (cle, v) => { try { localStorage.setItem(cle, JSON.stringify(v)); } catch {} };
+const lireSession = (cle, def) => { try { const v = sessionStorage.getItem(cle); return v ? JSON.parse(v) : def; } catch { return def; } };
+const ecrireSession = (cle, v) => { try { sessionStorage.setItem(cle, JSON.stringify(v)); } catch {} };
+
+// Ne garder que ce que la page affiche (pas le contenu HTML) : cache léger.
+function alleger(id, x) {
+  return {
+    id,
+    title: x.aiTitle || x.title || '',
+    sourceTitle: x.sourceTitle || '',
+    summary: (x.summary || '').slice(0, 280),
+    category: x.category || '', categoryDisplay: x.categoryDisplay || '',
+    scrapingDay: x.scrapingDay || '',
+    tags: Array.isArray(x.tags) ? x.tags.slice(0, 8) : [],
+    sourceUrl: x.sourceUrl || '', sourceName: x.sourceName || '',
+    sourcePublishedDate: iso(x.sourcePublishedDate),
+    createdAt: iso(x.createdAt), publishedAt: iso(x.publishedAt || x.publishedToWpAt),
+    status: x.status || '', rejectReason: typeof x.rejectReason === 'string' ? x.rejectReason : '',
+    wordpressId: x.wordpressId || x.wpPostId || null, wordpressUrl: x.wordpressUrl || x.wpUrl || '',
+    city: x.city && x.city !== 'null' ? x.city : '', country: x.country && x.country !== 'MONDE' ? x.country : '',
+    triage: x.triage ? { verdict: x.triage.verdict || '', score: typeof x.triage.score === 'number' ? x.triage.score : null, reason: x.triage.reason || '' } : null,
+    qualityScore: typeof x.qualityScore === 'number' ? x.qualityScore : null,
+  };
+}
+
+// ─── Analyse côté client : pilier, alerte hôtel, doublons ───
+function analyser(list) {
+  for (const a of list) {
+    const texte = norm([a.title, a.sourceTitle, (a.tags || []).join(' ')].join(' '));
+    const cat = norm(a.category);
+    let p = PAR_CATEGORIE[cat];
+    if (!p) { const m = MOTS.find(([, re]) => re.test(texte)); p = m ? m[0] : null; }
+    const motHotel = (texte.match(MOTS_HOTEL) || [])[0];
+    a._hotel = cat === 'hotel' ? 'catégorie « Hôtels » du scraper'
+      : a.scrapingDay === 'hotels-france' ? 'collecté par la veille « hôtels France »'
+      : motHotel ? `mot-clé « ${motHotel} » dans le titre` : '';
+    a._pilier = p || (a._hotel ? 'hotel' : 'autre');
+    a._mots = new Set(norm(a.title).split(' ').filter(m => m.length >= 4 && !VIDES.has(m)));
+    a._motsSrc = new Set(norm(a.sourceTitle).split(' ').filter(m => m.length >= 4 && !VIDES.has(m)));
+    a._url = (a.sourceUrl || '').split(/[?#]/)[0].replace(/\/$/, '');
+    a._doublons = [];
+  }
+  const proche = (A, B) => { if (!A.size || !B.size) return false; let c = 0; for (const m of A) if (B.has(m)) c++;
+    return c >= 3 && (c / Math.min(A.size, B.size) >= 0.6 || c / (A.size + B.size - c) >= 0.45); };
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i], b = list[j];
+    if ((a._url && a._url === b._url) || proche(a._mots, b._mots) || proche(a._motsSrc, b._motsSrc)) { a._doublons.push(b); b._doublons.push(a); }
+  }
+}
+const VIDES = new Set('avec dans pour plus sans sous vers chez entre leur leurs cette ces sont font fait faire etre avoir nouvelle nouveau nouvelles nouveaux comme apres avant depuis tout tous toute toutes elle elles mais aussi encore bien tres from with that this their about into have will what when your over after more than year years'.split(' '));
+
+// ─── État ───
+let rows = [];             // brouillons chargés (allégés)
+let derniere = null;       // { at, lus, heures, plafond }
+let lectures = lireSession(CLE_COUT, 0);
+const choix = new Set();
+const filtres = { statut: 'trier', pilier: '', source: '', q: '', alerte: '' };
+
+function filtrer() {
+  const n = norm(filtres.q);
+  return rows.filter(a => {
+    if (filtres.statut && statutDe(a.status).groupe !== filtres.statut) return false;
+    if (filtres.pilier && a._pilier !== filtres.pilier) return false;
+    if (filtres.source && srcDomain(a.sourceUrl) !== filtres.source) return false;
+    if (filtres.alerte === 'hotel' && !a._hotel) return false;
+    if (filtres.alerte === 'dup' && !a._doublons.length) return false;
+    if (n && !norm([a.id, a.title, a.sourceTitle, a.summary, a.sourceName, srcDomain(a.sourceUrl), a.categoryDisplay, a.city, a.country, (a.tags || []).join(' '), a.triage?.reason].join(' ')).includes(n)) return false;
+    return true;
+  });
+}
+
+function renderLecture() {
+  const lu = document.getElementById('lu');
+  if (!derniere) lu.innerHTML = 'jamais <small>· clique « Rafraîchir »</small>';
+  else {
+    const d = new Date(derniere.at);
+    const plein = derniere.lus >= derniere.plafond;
+    lu.innerHTML = `${derniere.lus} document${derniere.lus > 1 ? 's' : ''} lu${derniere.lus > 1 ? 's' : ''} <small>· ${esc(age(d))} (${esc(jourHeure(d))}) · fenêtre ${derniere.heures} h${derniere.depuisCache ? ' · état gardé, non relu' : ''}</small>`
+      + (plein ? `<br><small class="warn">⚠️ plafond de ${derniere.plafond} atteint : les brouillons plus anciens de la fenêtre ne sont pas chargés. Réduis la fenêtre.</small>` : '');
+  }
+  document.getElementById('cout').innerHTML = `${lectures} <small>lecture${lectures > 1 ? 's' : ''} cette session · quota 50 000 par jour</small>`;
+}
+
+function renderTiles() {
+  const n = g => rows.filter(a => statutDe(a.status).groupe === g).length;
+  const tuiles = [
+    { k:'statut', v:'trier', label:'À trier', n:n('trier'), c:'var(--mineur)' },
+    { k:'statut', v:'publie', label:'Publiés', n:n('publie'), c:'var(--ok)' },
+    { k:'statut', v:'ecarte', label:'Écartés ou rejetés', n:n('ecarte'), c:'var(--ecart)' },
+    { k:'alerte', v:'hotel', label:'🏨 Sujets hôteliers', n:rows.filter(a => a._hotel).length, c:'var(--hotel)' },
+    { k:'alerte', v:'dup', label:'⧉ Doublons probables', n:rows.filter(a => a._doublons.length).length, c:'var(--dup)' },
+  ];
+  document.getElementById('tiles').innerHTML = tuiles.map(t => `<button type="button" class="tile ${filtres[t.k] === t.v ? 'on' : ''}" data-k="${t.k}" data-v="${t.v}" style="--c:${t.c}" title="Filtrer (cliquer à nouveau pour tout voir)"><span class="sw"></span><div><b>${t.n}</b><span>${esc(t.label)}</span></div></button>`).join('');
+  document.querySelectorAll('#tiles .tile').forEach(b => b.onclick = () => { const { k, v } = b.dataset; filtres[k] = filtres[k] === v ? '' : v; render(); });
+}
+
+function renderPiliers() {
+  const base = rows.filter(a => !filtres.statut || statutDe(a.status).groupe === filtres.statut);
+  document.getElementById('piliers').innerHTML = `<button type="button" class="pil ${!filtres.pilier ? 'on' : ''}" data-p="">Tous les piliers<b>${base.length}</b></button>` +
+    PILIERS.map(p => { const n = base.filter(a => a._pilier === p.key).length;
+      return `<button type="button" class="pil ${filtres.pilier === p.key ? 'on' : ''} ${n ? '' : 'vide'}" data-p="${p.key}">${esc(p.label)}<b>${n}</b></button>`; }).join('');
+  document.querySelectorAll('#piliers .pil').forEach(b => b.onclick = () => { filtres.pilier = b.dataset.p; render(); });
+}
+
+function renderSources() {
+  const sel = document.getElementById('fsource');
+  const compte = {}; rows.forEach(a => { const d = srcDomain(a.sourceUrl); if (d) compte[d] = (compte[d] || 0) + 1; });
+  const doms = Object.keys(compte).sort((a, b) => compte[b] - compte[a] || a.localeCompare(b));
+  if (filtres.source && !compte[filtres.source]) filtres.source = '';
+  sel.innerHTML = `<option value="">Toutes les sources (${doms.length})</option>` + doms.map(d => `<option value="${esc(d)}" ${d === filtres.source ? 'selected' : ''}>${esc(d)} (${compte[d]})</option>`).join('');
+}
+
+function cardHtml(a) {
+  const st = statutDe(a.status);
+  const t = a.triage || {};
+  const couleur = st.groupe === 'publie' ? 'var(--ok)' : st.groupe === 'ecarte' ? 'var(--ecart)' : t.verdict === 'prioritaire' ? 'var(--prio)' : t.verdict === 'supprimer' ? 'var(--ecart)' : 'var(--lrdl)';
+  const collecte = toDate(a.createdAt), fait = toDate(a.sourcePublishedDate), pub = toDate(a.publishedAt);
+  const dom = srcDomain(a.sourceUrl);
+  const wp = a.wordpressId ? WP_ADMIN + encodeURIComponent(a.wordpressId) + '&action=edit' : '';
+  const lieu = [a.city, a.country].filter(Boolean).join(', ');
+  const score = typeof t.score === 'number' ? t.score : null;
+  const chips = [
+    `<span class="chip pil-c" title="Pilier déduit de la catégorie du scraper (${esc(a.categoryDisplay || a.category || 'aucune')}) et du titre">${esc(PIL[a._pilier]?.label || a._pilier)}</span>`,
+    `<span class="chip ${st.cls}">${esc(st.label)}${a.wordpressId ? ` · WP ${esc(a.wordpressId)}` : ''}${pub && st.groupe === 'publie' ? ` · ${esc(jourHeure(pub))}` : ''}</span>`,
+    a._hotel ? `<span class="chip hotel" title="${esc(a._hotel)}. Un hôtel n'a rien à faire sur LRDL : le sujet va sur LRDH.">🏨 Hôtel → LRDH</span>` : '',
+    a._doublons.length ? `<span class="chip dup" title="${esc(a._doublons.map(d => `${statutDe(d.status).label} · ${d.title}`).join('\n'))}">⧉ Doublon probable · ${esc(a._doublons[0].title.slice(0, 60))}${a._doublons.length > 1 ? ` (+${a._doublons.length - 1})` : ''}</span>` : '',
+    fait ? `<span class="chip" title="Date de publication de la source">📰 fait du ${esc(fait.toLocaleDateString('fr-FR', { day:'numeric', month:'short' }))}</span>` : '',
+    collecte ? `<span class="chip" title="Collecté le ${esc(collecte.toLocaleString('fr-FR'))}">🕒 collecté ${esc(age(collecte))} · ${esc(hm(collecte))}</span>` : '',
+    a.categoryDisplay || a.category ? `<span class="chip" title="Catégorie du scraper">${esc(a.categoryDisplay || a.category)}${a.categoryDisplay === 'Multi' && a.category ? ' · ' + esc(a.category) : ''}</span>` : '',
+    lieu ? `<span class="chip">📍 ${esc(lieu)}</span>` : '',
+    dom ? `<span class="chip"><a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener" title="${esc(a.sourceName || 'Ouvrir la source')}">${esc(dom)}</a></span>` : '',
+  ].filter(Boolean).join('');
+  const raison = t.reason || (st.groupe === 'ecarte' && a.rejectReason ? 'Rejet : ' + a.rejectReason : '');
+  return `<article class="art ${choix.has(a.id) ? 'sel' : ''}" style="--c:${couleur}" data-id="${esc(a.id)}">
+    <input type="checkbox" data-pick="${esc(a.id)}" ${choix.has(a.id) ? 'checked' : ''} aria-label="Choisir ce brouillon">
+    <div class="sc" title="${score !== null ? `Score du juge Gemini : ${score}/100${t.verdict ? ' · ' + esc(t.verdict) : ''}` : 'Pas encore jugé'}">${score !== null ? score : '·'}<small>/100</small></div>
+    <div style="min-width:0;flex:1">
+      <div class="ti" data-toggle="${esc(a.id)}">${wp ? `<a href="${esc(wp)}" target="_blank" rel="noopener">${esc(a.title || a.id)}</a>` : esc(a.title || a.id)}</div>
+      <div class="chips">${chips}</div>
+      ${raison ? `<div class="why">${esc(raison)}</div>` : ''}
+      <div class="act">
+        ${wp ? `<a class="btn" href="${esc(wp)}" target="_blank" rel="noopener">✎ WordPress</a>` : ''}
+        ${a.wordpressUrl ? `<a class="btn" href="${esc(a.wordpressUrl)}" target="_blank" rel="noopener">Article publié ↗</a>` : ''}
+        ${a.sourceUrl ? `<a class="btn" href="${esc(a.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>` : ''}
+        ${a.status === 'ai_draft_auto' && db ? `<button type="button" class="btn ghost" data-ecarter="${esc(a.id)}" title="Passe le brouillon en « archived » : il ne sera pas publié">Écarter</button>` : ''}
+        <span class="id">${esc(a.id)}</span>
+      </div>
+    </div>
+  </article>`;
+}
+
+function renderSel() {
+  document.getElementById('nsel').textContent = choix.size;
+  document.getElementById('copier').disabled = !choix.size;
+}
+
+function render() {
+  renderLecture(); renderTiles(); renderPiliers(); renderSources();
+  const list = filtrer();
+  document.getElementById('count').textContent = `${list.length} affiché${list.length > 1 ? 's' : ''} sur ${rows.length} chargé${rows.length > 1 ? 's' : ''}`;
+  const board = document.getElementById('board');
+  board.innerHTML = !rows.length
+    ? `<div class="empty"><b>${derniere ? 'Aucun brouillon dans la fenêtre lue' : 'Rien de chargé pour l’instant'}</b>Clique « Rafraîchir » : une seule lecture de ${PLAFOND} documents au plus.</div>`
+    : list.length ? list.map(cardHtml).join('') : `<div class="empty"><b>Aucun brouillon pour ces filtres</b>Les filtres ne relisent pas Firestore : élargis-les librement.</div>`;
+  board.querySelectorAll('[data-pick]').forEach(c => c.onchange = () => { c.checked ? choix.add(c.dataset.pick) : choix.delete(c.dataset.pick); c.closest('.art').classList.toggle('sel', c.checked); renderSel(); });
+  board.querySelectorAll('[data-ecarter]').forEach(b => b.onclick = () => ecarter(b.dataset.ecarter));
+  renderSel();
+}
+
+// ─── Lecture : UNE requête getDocs bornée, jamais d'écoute ───
+async function rafraichir() {
+  if (!db) return;
+  const btn = document.getElementById('rafraichir');
+  const heures = Number(document.getElementById('fenetre').value) || 48;
+  btn.disabled = true; btn.textContent = 'Lecture…';
+  try {
+    const depuis = new Date(Date.now() - heures * 36e5);
+    // Champ unique (createdAt) en filtre et en tri : aucun index composite requis.
+    const snap = await getDocs(query(collection(db, COL), where('createdAt', '>=', depuis), orderBy('createdAt', 'desc'), limit(PLAFOND)));
+    lectures += Math.max(1, snap.size);   // une requête vide est facturée 1 lecture
+    ecrireSession(CLE_COUT, lectures);
+    const lus = []; snap.forEach(d => lus.push(alleger(d.id, d.data())));
+    charger(lus, { at: new Date().toISOString(), lus: snap.size, heures, plafond: PLAFOND });
+    ecrireStock(CLE_CACHE, { derniere, rows: lus });
+    toast(`${snap.size} document${snap.size > 1 ? 's' : ''} lu${snap.size > 1 ? 's' : ''}`);
+  } catch (e) {
+    document.getElementById('board').innerHTML = `<div class="empty"><b>Lecture impossible</b>${esc(e.code || '')} ${esc(e.message)}</div>`;
+  } finally { btn.disabled = false; btn.textContent = '↻ Rafraîchir'; }
+}
+
+function charger(lus, info) {
+  rows = lus.slice().sort((a, b) => (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0));
+  derniere = info;
+  const ids = new Set(rows.map(a => a.id));
+  for (const id of [...choix]) if (!ids.has(id)) choix.delete(id);
+  analyser(rows);
+  render();
+}
+
+// ─── Écriture unique autorisée : écarter (status archived), comme triage.html ───
+async function ecarter(id) {
+  const a = rows.find(x => x.id === id); if (!a || !db) return;
+  if (!confirm(`Écarter « ${a.title.slice(0, 90)} » ?\nIl passe en « archived » et ne sera pas publié (réversible dans Firestore).`)) return;
+  const el = document.querySelector(`.art[data-id="${CSS.escape(id)}"]`); if (el) el.classList.add('done');
+  try {
+    const archivedAt = new Date().toISOString();
+    await updateDoc(doc(db, COL, id), { status: 'archived', archivedAt });
+    a.status = 'archived';   // mise à jour locale : pas de relecture
+    choix.delete(id);
+    ecrireStock(CLE_CACHE, { derniere, rows: rows.map(({ _pilier, _hotel, _mots, _motsSrc, _url, _doublons, ...r }) => r) });
+    toast('Brouillon écarté'); render();
+  } catch (e) { if (el) el.classList.remove('done'); alert('Erreur : ' + e.message); }
+}
+
+// ─── Copie de la sélection pour l'outil de lots LRDL ───
+function texteLot() {
+  const ordre = rows.filter(a => choix.has(a.id)).map(a => a.id);
+  const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  return `# lot LRDL du ${date}\n` + ordre.join('\n') + '\n';
+}
+async function copier() {
+  const txt = texteLot();
+  const boite = document.getElementById('copie'), zone = document.getElementById('copietxt');
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('presse-papiers indisponible');
+    await navigator.clipboard.writeText(txt);
+    boite.style.display = 'none';
+    toast(`${choix.size} ID copié${choix.size > 1 ? 's' : ''} · colle-les dans Claude`);
+  } catch {
+    zone.value = txt; boite.style.display = 'block'; zone.focus(); zone.select();
+    toast('Copie refusée : texte affiché à copier à la main');
+  }
+}
+
+// ─── Branchements ───
+document.getElementById('rafraichir').onclick = rafraichir;
+document.getElementById('copier').onclick = copier;
+document.getElementById('tout').onclick = () => { filtrer().forEach(a => choix.add(a.id)); render(); };
+document.getElementById('rien').onclick = () => { choix.clear(); render(); };
+document.getElementById('fsource').onchange = e => { filtres.source = e.target.value; render(); };
+document.getElementById('q').addEventListener('input', e => { filtres.q = e.target.value.trim(); render(); });
+
+function ouvrirPage() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('topnav').style.display = 'flex';
+  document.getElementById('appmain').style.display = 'block';
+  const cache = lireStock(CLE_CACHE, null);   // dernier état connu : 0 lecture
+  if (cache?.rows) charger(cache.rows, { ...cache.derniere, depuisCache: true }); else render();
+}
+
+if (!app) {
+  // Pas de config Web : on le dit, au lieu d'afficher une page vide.
+  document.getElementById('gatebox').innerHTML = `<div class="logo">LR</div><h2>Configuration à compléter</h2>
+    <p>Le projet Firebase « la-revue-du-luxe » n’a pas encore d’appli Web ni de connexion par e-mail. Sans elles, le navigateur ne peut pas lire les brouillons LRDL (les règles exigent un compte connecté).</p>
+    <ol><li>Console Firebase › la-revue-du-luxe › Paramètres › ajouter une appli Web.</li>
+    <li>Authentication › E-mail/Mot de passe › créer le compte du hub.</li>
+    <li>Domaines autorisés : ajouter larevue-ops.github.io.</li>
+    <li>Coller la config Web dans <code>LRDL_CFG</code> de triage-luxe.html.</li></ol>`;
+  document.getElementById('rafraichir').disabled = true;
+} else {
+  document.getElementById('gbtn').onclick = async () => {
+    const err = document.getElementById('gerr'); err.textContent = '';
+    try { await signInWithEmailAndPassword(auth, document.getElementById('gmail').value.trim(), document.getElementById('gpass').value); }
+    catch { err.textContent = 'Identifiants invalides.'; }
+  };
+  document.getElementById('gpass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gbtn').click(); });
+  document.getElementById('logout').onclick = () => signOut(auth);
+  let ouvert = false;
+  // onAuthStateChanged ne lit rien dans Firestore : aucune lecture ici.
+  onAuthStateChanged(auth, user => {
+    if (user && !ouvert) { ouvert = true; ouvrirPage(); }
+    if (!user) { ouvert = false; document.getElementById('gate').style.display = 'flex'; document.getElementById('topnav').style.display = 'none'; document.getElementById('appmain').style.display = 'none'; }
+  });
+}
+
+// Aperçu local (localhost seulement) : afficher des brouillons fournis à la main,
+// sans Firestore, pour tester l'affichage avant que la config Web existe.
+if (LOCAL) window.__triageLuxeApercu = (lus) => { ouvrirPage(); charger(lus.map(x => alleger(x.id, x)), { at: new Date().toISOString(), lus: lus.length, heures: 48, plafond: PLAFOND }); };
+</script>
+</body>
+</html>
