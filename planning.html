@@ -190,6 +190,14 @@
   table.gj td.tot.sep, table.gj th.tot.sep { border-left:1px solid var(--border); }
   table.gj tfoot td { background:var(--surface-2); font-weight:700; font-size:12px; padding:8px 3px; border-bottom:0; }
   table.gj tfoot td.nom { background:var(--surface-2); }
+  #art-sec { margin-top:26px; }
+  .art-t { font-family:var(--serif); font-size:18px; font-weight:600; letter-spacing:-0.01em; margin:0 0 2px; }
+  table.gj .an { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-width:42px; height:36px; border-radius:8px; font-weight:700; font-size:13px; line-height:1.05; color:var(--ink); background:color-mix(in srgb, var(--mc) calc(var(--k, .1) * 100%), var(--surface)); }
+  table.gj .an small { font-size:9.5px; font-weight:500; color:var(--muted); }
+  table.gj .an.z { background:transparent; color:var(--faint); font-weight:400; }
+  table.gj td.nom.am { border-left:4px solid var(--mc); }
+  table.gj td.moy { font-size:11px; color:var(--muted); font-weight:600; }
+  @media (max-width:640px) { table.gj .an { min-width:36px; height:32px; font-size:12px; } }
   @media (max-width:640px) { table.gj .nom { min-width:120px; max-width:130px; padding:4px 8px; } .cs { min-width:38px; height:32px; font-size:11.5px; } }
 
   /* replis */
@@ -302,6 +310,12 @@
     </div>
     <p class="gj-aide">Chaque case = un jour pour un compte. Le chiffre = nombre de publications. Touchez une case pour les voir.</p>
     <div class="gj-wrap"><table class="gj" id="gj"></table></div>
+  </section>
+
+  <section id="art-sec" aria-label="Articles publiés par média">
+    <h2 class="art-t">Articles publiés · 14 derniers jours</h2>
+    <p class="gj-aide">Articles mis en ligne sur chaque site, lus en direct. Le gros chiffre = articles originaux (en français) ; le petit « +n » = leurs traductions. Survolez une case pour voir les titres.</p>
+    <div class="gj-wrap"><table class="gj" id="art"><tbody><tr><td class="rien">Chargement des articles…</td></tr></tbody></table></div>
   </section>
 
   <details class="pli" id="pli-comptes">
@@ -516,6 +530,7 @@ function rendre() {
 
   rendreFiltres();
   rendreGrilleJours();
+  rendreArticles();
 
   // Comptes, groupés par média
   const ordreR = Object.keys(RESEAUX);
@@ -576,6 +591,75 @@ function etatCase(p, j, items) {
   if (n) return { cl: 'ok', txt: `✓ ${n}`, aide: `${n} programmée${n > 1 ? 's' : ''}` };
   if (p.habituel && (p.jours || [1,2,3,4,5,6,7]).includes(jourSemaine(j))) return { cl: 'ko', txt: '✗', aide: "Rien de prévu, alors que ce compte publie d'habitude ce jour-là" };
   return { cl: 'gr', txt: '', aide: 'Pas de publication attendue' };
+}
+// ─── Articles publiés par média · lus en direct sur chaque WordPress (API publique) ───
+// Une page de 100 articles par appel (date, lien, titre seulement), cache 10 min dans le navigateur.
+const ART_JOURS = 14, ART_TTL = 10 * 60e3;
+const ART_BASE = { lrdv: 'https://www.larevuedesvoyages.com' };   // le domaine nu redirige
+const ART_TRAD = /^\/(en|es|de|pt|it)\//;                          // préfixe Polylang = traduction
+const ART = {};                                                     // média → { rows } | { err }
+let artLance = false;
+const decode = (t) => { const x = document.createElement('textarea'); x.innerHTML = t; return x.value; };
+async function chargerArticles(m) {
+  const c = lsGet('hub:art:' + m);
+  if (c && Date.now() - c.t < ART_TTL && Array.isArray(c.rows)) return c.rows;
+  const base = ART_BASE[m] || 'https://' + MEDIAS[m].site;
+  const apres = isoJour(-(ART_JOURS - 1)) + 'T00:00:00';
+  const rows = [];
+  for (let page = 1, total = 1; page <= total && page <= 20; page++) {
+    const r = await fetch(`${base}/wp-json/wp/v2/posts?per_page=100&page=${page}&after=${apres}&orderby=date&order=desc&_fields=date,link,title`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    total = Number(r.headers.get('X-WP-TotalPages')) || 1;
+    for (const x of await r.json()) {
+      let chemin = '/';
+      try { chemin = new URL(x.link).pathname; } catch {}
+      rows.push({ d: String(x.date).slice(0, 10), o: !ART_TRAD.test(chemin), t: decode(x.title?.rendered || '') });
+    }
+  }
+  lsSet('hub:art:' + m, { t: Date.now(), rows });
+  return rows;
+}
+function chargerTousArticles() {
+  artLance = true;
+  for (const m of Object.keys(MEDIAS)) {
+    chargerArticles(m).then((rows) => { ART[m] = { rows }; }, (e) => { ART[m] = { err: String(e.message || e) }; })
+      .finally(rendreArticles);
+  }
+}
+function rendreArticles() {
+  if (!artLance) { chargerTousArticles(); return; }
+  const jours = Array.from({ length: ART_JOURS }, (_, i) => isoJour(i - ART_JOURS + 1));
+  const tete = `<thead><tr><th class="nom">Média</th>${jours.map((j, i) => {
+    const d = new Date(j + 'T12:00:00Z'), auj = i === ART_JOURS - 1;
+    return `<th class="${auj ? 'auj' : ''}${jourSemaine(j) >= 6 ? ' we' : ''}" title="${esc(maj1(fmt(d, { weekday:'long', day:'numeric', month:'long' })))}">${esc(fmt(d, { weekday:'short' }))}<b>${esc(fmt(d, { day:'numeric' }))}</b></th>`;
+  }).join('')}<th class="tot sep" title="Articles originaux sur les 7 derniers jours">7 j</th><th class="tot" title="Articles originaux sur 14 jours">14 j</th><th class="tot" title="Moyenne d'articles originaux par jour sur 14 jours">/ jour</th></tr></thead>`;
+  const totJour = jours.map(() => 0);
+  let t7 = 0, t14 = 0, corps = '';
+  for (const m of Object.keys(MEDIAS)) {
+    if (filtre.media !== 'tous' && filtre.media !== m) continue;
+    const M = MEDIAS[m], st = ART[m];
+    const nomC = `<td class="nom am" style="--mc:${M.c}"><span class="n1">${esc(M.nom)}</span><span class="n2">${esc(M.site)}</span></td>`;
+    if (!st) { corps += `<tr>${nomC}<td colspan="${ART_JOURS + 3}" class="gj-aide" style="text-align:left">Chargement…</td></tr>`; continue; }
+    if (st.err) { corps += `<tr>${nomC}<td colspan="${ART_JOURS + 3}" class="gj-aide" style="text-align:left">Site injoignable (${esc(st.err)})</td></tr>`; continue; }
+    const par = {};
+    for (const r of st.rows) (par[r.d] = par[r.d] || []).push(r);
+    const nOrig = jours.map((j) => (par[j] || []).filter((r) => r.o).length);
+    const max = Math.max(1, ...nOrig);
+    let n7 = 0, n14 = 0;
+    const cases = jours.map((j, i) => {
+      const L = par[j] || [], orig = L.filter((r) => r.o), n = orig.length, tr = L.length - n;
+      n14 += n; if (i >= ART_JOURS - 7) n7 += n; totJour[i] += n;
+      const titres = orig.map((r) => '· ' + r.t).join('\n');
+      const aide = `${M.court} · ${fmt(new Date(j + 'T12:00:00Z'), { weekday:'short', day:'numeric', month:'short' })} · ${n} article${n > 1 ? 's' : ''}${tr ? ` (+${tr} traduction${tr > 1 ? 's' : ''})` : ''}${titres ? '\n' + titres : ''}`;
+      const cls = `${i === ART_JOURS - 1 ? 'auj' : ''}${jourSemaine(j) >= 6 ? ' we' : ''}`;
+      return `<td class="${cls}"><span class="an${n || tr ? '' : ' z'}" style="--mc:${M.c};--k:${(0.08 + 0.32 * n / max).toFixed(2)}" title="${esc(aide)}">${n || tr ? n : '·'}${tr ? `<small>+${tr}</small>` : ''}</span></td>`;
+    }).join('');
+    t7 += n7; t14 += n14;
+    corps += `<tr>${nomC}${cases}<td class="tot sep">${n7}</td><td class="tot">${n14}</td><td class="tot moy">${(n14 / ART_JOURS).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</td></tr>`;
+  }
+  const pied = `<tfoot><tr><td class="nom">Total du jour</td>${totJour.map((n, i) => `<td class="${i === ART_JOURS - 1 ? 'auj' : ''}${jourSemaine(jours[i]) >= 6 ? ' we' : ''}">${n}</td>`).join('')}<td class="tot sep">${t7}</td><td class="tot">${t14}</td><td class="tot moy">${(t14 / ART_JOURS).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</td></tr></tfoot>`;
+  $('art').innerHTML = corps ? tete + `<tbody>${corps}</tbody>` + pied : '<tbody><tr><td class="rien">Aucun média pour ce filtre.</td></tr></tbody>';
+  const w = $('art').parentElement; w.scrollLeft = w.scrollWidth;   // aujourd'hui (à droite) visible d'emblée
 }
 function rendreGrilleJours() {
   const jours = Array.from({ length: NB_JOURS }, (_, i) => isoJour(i));
