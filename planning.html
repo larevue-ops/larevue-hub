@@ -258,6 +258,8 @@
   #gate input { width:100%; border:1px solid var(--border-2); border-radius:10px; padding:11px 12px; font-size:16px; margin-bottom:10px; background:var(--surface-2); color:var(--ink); }
   #gate button { width:100%; padding:11px; font-size:13px; justify-content:center; }
   #gate .err { color:var(--danger); font-size:11px; min-height:16px; margin-top:8px; }
+  .rl { display:inline-flex; width:1.15em; height:1.15em; vertical-align:-0.22em; flex:none; }
+  .rl svg { width:100%; height:100%; display:block; border-radius:22%; }
 </style>
 </head>
 <body>
@@ -348,14 +350,16 @@ const MEDIAS = {
   lra:  { nom:'La Revue', court:'larevue.app', site:'larevue.app', c:'var(--lra)' },
 };
 const RESEAUX = {
-  linkedin: { nom:'LinkedIn', ico:'💼' },
-  'linkedin-newsletter': { nom:'Newsletter LinkedIn', ico:'📰' },
-  instagram: { nom:'Instagram', ico:'📸' },
-  tiktok: { nom:'TikTok', ico:'🎵' },
-  youtube: { nom:'YouTube', ico:'▶️' },
-  x: { nom:'X', ico:'𝕏' },
-  brevo: { nom:'Newsletter e-mail', ico:'✉️' },
+  linkedin: { nom:'LinkedIn', ico:'💼', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#0A66C2"/><path fill="#fff" d="M5.2 9.4h2.9V19H5.2zM6.65 4.8a1.68 1.68 0 1 1 0 3.36 1.68 1.68 0 0 1 0-3.36zM9.9 9.4h2.78v1.31h.04c.39-.73 1.33-1.5 2.74-1.5 2.93 0 3.47 1.93 3.47 4.43V19h-2.9v-4.85c0-1.16-.02-2.64-1.61-2.64-1.61 0-1.86 1.26-1.86 2.56V19H9.9z"/></svg>' },
+  'linkedin-newsletter': { nom:'Newsletter LinkedIn', ico:'📰', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#0A66C2"/><rect x="5" y="6" width="14" height="12" rx="1.5" fill="#fff"/><path d="M7.5 9h4v3.5h-4zM13 9h3.5M13 11h3.5M7.5 14.5h9" stroke="#0A66C2" stroke-width="1.3" fill="none"/></svg>' },
+  instagram: { nom:'Instagram', ico:'📸', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="rlig" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".35" stop-color="#FA7E1E"/><stop offset=".6" stop-color="#D62976"/><stop offset=".85" stop-color="#962FBF"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#rlig)"/><rect x="5" y="5" width="14" height="14" rx="4.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.3" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.4" cy="7.6" r="1.05" fill="#fff"/></svg>' },
+  tiktok: { nom:'TikTok', ico:'🎵', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#000"/><path d="M13.6 5v9.4a2.6 2.6 0 1 1-2.6-2.6M13.6 5c.3 1.9 1.6 3.2 3.6 3.4" fill="none" stroke="#25F4EE" stroke-width="2" stroke-linecap="round" transform="translate(-.7 -.5)"/><path d="M13.6 5v9.4a2.6 2.6 0 1 1-2.6-2.6M13.6 5c.3 1.9 1.6 3.2 3.6 3.4" fill="none" stroke="#FE2C55" stroke-width="2" stroke-linecap="round" transform="translate(.7 .5)"/><path d="M13.6 5v9.4a2.6 2.6 0 1 1-2.6-2.6M13.6 5c.3 1.9 1.6 3.2 3.6 3.4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>' },
+  youtube: { nom:'YouTube', ico:'▶️', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect y="3.5" width="24" height="17" rx="5" fill="#FF0000"/><path d="M9.8 8.3v7.4l6.2-3.7z" fill="#fff"/></svg>' },
+  x: { nom:'X', ico:'𝕏', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#000"/><path d="M6 6h3.6l8.4 12h-3.6zM17.6 6 6.4 18" stroke="#fff" stroke-width="1.6" fill="none" stroke-linejoin="round"/></svg>' },
+  brevo: { nom:'Newsletter e-mail', ico:'✉️', svg:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="5" fill="#0B996E"/><path d="M8 6.5h4.6a2.6 2.6 0 0 1 0 5.2H8zm0 5.2h5.3a2.9 2.9 0 0 1 0 5.8H8z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>' },
 };
+/** Logo du réseau en SVG (emoji si absent), pour le HTML ; textContent garde l'emoji. */
+const icoR = (r) => r.svg ? `<span class="rl" title="${esc(r.nom)}">${r.svg}</span>` : r.ico;
 // Files robots que l'accueil du hub garde en cache (même origine).
 const CACHES_HUB = [
   { cle:'q-lrdh-v',   col:'lrdh_linkedin_queue',    compte:'lrdh-li-fr', src:'larevue-auto-dashboard-2/lrdh_linkedin_queue' },
@@ -607,7 +611,7 @@ function rendreGrilleJours() {
         return `<td class="${cls}"><button type="button" class="cs ${ec.cl}" data-c="${esc(p.id)}" data-j="${j}" title="${esc(nomCourt(p))} · ${esc(fmt(new Date(j + 'T12:00:00Z'), { weekday:'short', day:'numeric', month:'short' }))} · ${esc(ec.aide)}" ${ec.cl === 'gr' ? 'tabindex="-1"' : ''}>${ec.txt}</button></td>`;
       }).join('');
       t7 += n7; t14 += n14;
-      corps += `<tr><td class="nom" title="${esc(p.nom)} · ${esc(p.qui || '')}"><span class="n1">${r.ico} ${esc(nomCourt(p))}</span><span class="n2">${esc(r.nom)}</span></td>${cases}<td class="tot sep">${n7}</td><td class="tot">${n14}</td></tr>`;
+      corps += `<tr><td class="nom" title="${esc(p.nom)} · ${esc(p.qui || '')}"><span class="n1">${icoR(r)} ${esc(nomCourt(p))}</span><span class="n2">${esc(r.nom)}</span></td>${cases}<td class="tot sep">${n7}</td><td class="tot">${n14}</td></tr>`;
     }
   }
   const pied = `<tfoot><tr><td class="nom">Total du jour</td>${totJour.map((n, i) => `<td class="${i === 0 ? 'auj' : ''}${jourSemaine(jours[i]) >= 6 ? ' we' : ''}">${n}</td>`).join('')}<td class="tot sep">${t7}</td><td class="tot">${t14}</td></tr></tfoot>`;
@@ -653,7 +657,7 @@ function nomCourt(p) {
 function carteCompte(p, estTrou) {
   const r = RESEAUX[p.reseau] || { ico:'•', nom:p.reseau };
   const f = fraicheur(p);
-  const tete = `<span class="tete"><span>${r.ico}</span><span class="nm">${esc(nomCourt(p))}</span><span class="rs">${esc(r.nom)}</span></span>`;
+  const tete = `<span class="tete"><span>${icoR(r)}</span><span class="nm">${esc(nomCourt(p))}</span><span class="rs">${esc(r.nom)}</span></span>`;
   const pr = p.suivantes[0];
   if (!pr) {
     return `<button type="button" class="cpt calme${estTrou ? ' trou' : ''}" data-cpt="${esc(p.id)}" title="${esc(p.nom)} · ${esc(p.qui || '')}">${tete}
@@ -685,7 +689,7 @@ function carteCal(e, i) {
   const qui = PLAN.comptes?.[e.compte]?.nom || e.compte;
   return `<button type="button" class="it${passe && e.statut !== 'à vérifier' ? ' fini' : ''}${e.statut === 'annulé' ? ' annule' : ''}" style="--mc:${m?.c || 'var(--gold)'}" data-i="${i}" title="${esc(qui)}">
     ${vignetteHtml(e, r.ico)}
-    <span style="min-width:0"><span class="hd"><span class="h">${esc(heure(d))}</span> ${r.ico} ${esc(m?.court || e.media)}${langue(e.compte)}</span>
+    <span style="min-width:0"><span class="hd"><span class="h">${esc(heure(d))}</span> ${icoR(r)} ${esc(m?.court || e.media)}${langue(e.compte)}</span>
     <span class="tt">${esc(e.titre)}</span>${pastille(e)}</span></button>`;
 }
 
@@ -698,7 +702,7 @@ function rendreFiltres() {
       `<button class="chip${filtre.media === k ? ' on' : ''}" data-m="${k}" style="--pc:${m.c}" title="${n7('media', k)} publications sur 7 jours"><span class="pt"></span>${esc(m.court)} · ${n7('media', k)}</button>`).join('');
   $('freseau').innerHTML = `<button class="chip${filtre.reseau === 'tous' ? ' on' : ''}" data-r="tous">Tous les réseaux</button>` +
     Object.entries(RESEAUX).filter(([k]) => presentR.has(k)).map(([k, r]) =>
-      `<button class="chip${filtre.reseau === k ? ' on' : ''}" data-r="${k}" title="${n7('reseau', k)} publications sur 7 jours">${r.ico}&nbsp;${esc(r.nom)} · ${n7('reseau', k)}</button>`).join('');
+      `<button class="chip${filtre.reseau === k ? ' on' : ''}" data-r="${k}" title="${n7('reseau', k)} publications sur 7 jours">${icoR(r)}&nbsp;${esc(r.nom)} · ${n7('reseau', k)}</button>`).join('');
   $('fmedia').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => choisir('media', b.dataset.m));
   $('freseau').querySelectorAll('[data-r]').forEach((b) => b.onclick = () => choisir('reseau', b.dataset.r));
 }
