@@ -16,6 +16,16 @@
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23c6a15b'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='31' font-weight='700' fill='%23fff' text-anchor='middle'%3ELR%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Le module principal est en bas d'une page de 240 Ko : sans ces indices, le
+     navigateur ne découvre le SDK Firebase et nos deux modules qu'après avoir
+     lu tout le HTML. Les précharger ici fait gagner ce délai à chaque ouverture. -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="./assets/ig-lra/noyau.js?v=20260911c">
+<link rel="modulepreload" href="./assets/lrdh-titre.mjs?v=20260912c">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -215,8 +225,19 @@
   nav a { display:flex; gap:5px; align-items:center; padding:6px 10px; border-radius:9px; font-size:12px; font-weight:500; color:var(--muted); text-decoration:none; transition:background .15s, color .15s; }
   nav a:hover { background:var(--surface-2); color:var(--ink); }
   nav a.active { background:var(--gold-soft); color:var(--gold-deep); font-weight:600; }
+  nav a.navplan { background:var(--gold-soft); color:var(--gold-deep); font-weight:700; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent); }
   nav .divider { width:1px; height:22px; background:var(--border); margin:0 5px; }
   @media (max-width:720px) { nav a span { display:none; } nav a { padding:7px 9px; font-size:14px; } header p { display:none; } }
+  /* bandeau Planning */
+  #planbar { display:flex; align-items:center; gap:12px; text-decoration:none; color:inherit; background:linear-gradient(120deg, var(--gold-soft), var(--surface) 70%); border:1px solid color-mix(in srgb, var(--gold) 45%, var(--border)); border-radius:var(--radius); padding:12px 16px; margin-bottom:16px; box-shadow:var(--shadow); transition:transform .15s, box-shadow .15s; }
+  #planbar:hover { transform:translateY(-1px); box-shadow:var(--shadow-lg); }
+  #planbar .pb-i { font-size:22px; }
+  #planbar .pb-t { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+  #planbar .pb-t b { font-family:var(--serif); font-size:15.5px; font-weight:600; }
+  #planbar #planbar-txt { font-size:12px; color:var(--muted); }
+  #planbar #planbar-txt .rouge { color:var(--danger); font-weight:700; }
+  #planbar .pb-go { font-size:12px; font-weight:700; color:#fff; background:linear-gradient(150deg, var(--gold), var(--gold-deep)); padding:8px 14px; border-radius:9px; white-space:nowrap; }
+  @media (max-width:640px) { #planbar .pb-go { display:none; } }
   /* stats */
   .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:22px; }
   @media(min-width:640px){ .stats { grid-template-columns:repeat(3,1fr); } }
@@ -387,6 +408,7 @@
     <!-- ⚠️ Les onze ancres par média ont disparu : le sélecteur de média, en
          haut de page, fait ce travail mieux qu'une barre de liens. Il ne reste
          ici que ce qui mène AILLEURS, c'est-à-dire sur une autre page. -->
+    <a href="planning.html" class="navplan" title="Tout ce qui est programmé, par média et par réseau">📅 <span>Planning</span></a>
     <a href="triage.html">✨ <span>Tri du jour</span></a>
     <a href="triage-lrdl.html">🗞️ <span>Journal · Luxe</span></a>
     <a href="linkedin-lrdh.html">🏨 <span>Générer · Hôtels</span></a>
@@ -410,6 +432,11 @@
 </div>
 <main id="appmain" style="display:none">
   <div id="dbwarn" style="display:none">⚠️ Base de données momentanément indisponible (quota du jour atteint) · affichage du dernier état connu, les modifications reprendront après le reset (9h Paris).</div>
+  <a id="planbar" href="planning.html" title="Ouvrir le planning : toutes les publications programmées, par média et par réseau">
+    <span class="pb-i">📅</span>
+    <span class="pb-t"><b>Planning des publications</b><span id="planbar-txt">par média et par réseau · LinkedIn, Instagram, YouTube, newsletters</span></span>
+    <span class="pb-go">Ouvrir →</span>
+  </a>
   <div class="msel" id="msel" role="tablist" aria-label="Choisir un média"></div>
   <div class="jauge" id="jauge"></div>
   <div class="stats" id="stats"></div>
@@ -481,7 +508,9 @@
       var ALIAS={hermes:'instalrdlagent',argos:'lrappagent',lraagent:'lrappagent',
                  athena:'lrdhagent',apollon:'lrdlagent',hestia:'lrdragent',ulysse:'lrdvagent'};
 
-      fetch(API).then(function(r){return r.json();}).then(function(j){
+      // 29/10/2026 · le journal (une requête vers Vercel) n'est demandé que
+      // lorsque son bandeau approche de l'écran : il est tout en bas de page.
+      function charger(){ fetch(API).then(function(r){return r.json();}).then(function(j){
         if(j&&j.erreur) throw new Error(j.erreur);
         var fiches=(j&&j.fiches)||{}, noms=(j&&j.agents)||Object.keys(fiches);
         var parAgent={};
@@ -515,7 +544,12 @@
         if(maj&&recent) maj.textContent='dernier passage '+recent.replace('T',' ').slice(0,16)+' UTC';
       }).catch(function(err){
         hote.innerHTML='<div class="agc"><div class="agc__vide">Journal indisponible ('+esc(err.message)+').</div></div>';
-      });
+      }); }
+      var bandeau=document.getElementById('strip-agents');
+      if(bandeau&&'IntersectionObserver' in window){
+        var io=new IntersectionObserver(function(v){ if(v.some(function(x){return x.isIntersecting;})){ io.disconnect(); charger(); } },{rootMargin:'400px 0px'});
+        io.observe(bandeau);
+      } else charger();
     })();
     </script>
   </div>
@@ -1240,12 +1274,52 @@ function ecouteVisible(demarrer) {
 
 function cachedListen(qref, key, trim, apply, media) {
   try { const c = JSON.parse(localStorage.getItem('hub:'+key) || 'null'); if (c) apply(c); } catch {}
-  ecouteVisible(() => onSnapshot(qref, snap => {
+  quandVisible(media, () => ecouteVisible(() => onSnapshot(qref, snap => {
     compterLectures(snap.docChanges().length, media);
     const rows = []; snap.forEach(d => rows.push(trim({ id: d.id, ...d.data() })));
-    try { localStorage.setItem('hub:'+key, JSON.stringify(rows)); } catch {}
+    try {
+      localStorage.setItem('hub:'+key, JSON.stringify(rows));
+      // L'heure du cache : la page Planning s'en sert pour dire de quand date
+      // ce qu'elle reprend des files robots, sans relire Firestore.
+      localStorage.setItem('hub:t:'+key, String(Date.now()));
+    } catch {}
     apply(rows);
-  }, e => { console.error('[hub]', key, e.message); showDbWarn(e); }));
+  }, e => { console.error('[hub]', key, e.message); showDbWarn(e); })));
+}
+
+// ─── 29/10/2026 · on n'écoute un média que s'il est À L'ÉCRAN ────────────────
+//
+// Toutes les écoutes partaient à l'ouverture, médias masqués compris : sur
+// l'onglet « Hôtels », la page payait quand même les brouillons LRDL (jusqu'à
+// 150 documents), les files LinkedIn LRDL, LRDV et La Revue, et les deux
+// Instagram des autres médias. Firestore facture l'instantané initial de
+// chaque écoute : c'était l'essentiel du coût d'une ouverture.
+//
+// Désormais : le cache local s'affiche tout de suite pour TOUS les médias
+// (pastilles et compteurs restent justes), mais l'écoute d'un média ne
+// s'attache que lorsque sa section entre dans l'écran (ou s'en approche à
+// 600 px). Un onglet masqué ne coûte rien ; « Tous les médias » branche les
+// sections au fil du défilement. Une fois attachée, une écoute reste attachée
+// jusqu'à la fermeture (voir `ecouteVisible` : se détacher coûte plus cher).
+const enAttenteMedia = {};          // média → démarrages en attente
+const mediaBranche = {};            // média → écoutes attachées
+let observateurMedias = null;
+function quandVisible(media, demarrer) {
+  if (!media || !MEDIAS[media] || mediaBranche[media] || !('IntersectionObserver' in window)) { demarrer(); return; }
+  (enAttenteMedia[media] = enAttenteMedia[media] || []).push(demarrer);
+}
+function brancherMedia(media) {
+  if (mediaBranche[media]) return;
+  mediaBranche[media] = true;
+  for (const f of enAttenteMedia[media] || []) { try { f(); } catch (e) { console.error('[hub]', media, e); } }
+  enAttenteMedia[media] = [];
+}
+function observerSection(sec) {
+  if (!('IntersectionObserver' in window)) return;
+  if (!observateurMedias) observateurMedias = new IntersectionObserver((vus) => {
+    for (const v of vus) if (v.isIntersecting) { brancherMedia(v.target.dataset.m); observateurMedias.unobserve(v.target); }
+  }, { rootMargin: '600px 0px' });
+  observateurMedias.observe(sec);
 }
 
 // Deux vues d'une meme file, fusionnees cote client :
@@ -1274,7 +1348,52 @@ function cachedListenFile(col, key, trim, apply, media) {
                key + '-p', trim, rows => { parts.publies = rows; fusion(); }, media);
 }
 
+// ─── Bandeau Planning · résumé du document app_config/planning ──────────────
+// Une lecture au plus par demi-heure (cache partagé avec planning.html), et
+// jamais d'écoute. Le détail vit sur la page Planning.
+async function resumePlanning() {
+  const el = document.getElementById('planbar-txt'); if (!el) return;
+  const afficher = (d) => {
+    if (!d || !Array.isArray(d.entrees)) return;
+    const jour = (x) => new Date(x).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+    const auj = jour(Date.now()), dem = jour(Date.now() + 864e5);
+    const vivant = (e) => e.statut === 'programmé' || e.statut === 'à vérifier';
+    const nAuj = d.entrees.filter((e) => vivant(e) && jour(e.quand) === auj).length;
+    const futurs = d.entrees.filter((e) => vivant(e) && new Date(e.quand) > Date.now())
+      .sort((a, b) => new Date(a.quand) - new Date(b.quand));
+    const jsDem = ((new Date(dem + 'T12:00:00Z').getUTCDay() + 6) % 7) + 1;
+    const trous = Object.entries(d.comptes || {}).filter(([id, c]) => c.habituel
+      && (c.jours || [1,2,3,4,5,6,7]).includes(jsDem)
+      && !d.entrees.some((e) => e.compte === id && vivant(e) && jour(e.quand) === dem)).length;
+    const p = futurs[0];
+    el.innerHTML = `${nAuj} aujourd'hui`
+      + (p ? ` · prochaine ${esc(new Date(p.quand).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }))} ${esc(String(p.titre || '').slice(0, 48))}` : '')
+      + (trous ? ` · <span class="rouge">${trous} trou${trous > 1 ? 's' : ''} demain</span>` : ' · aucun trou demain');
+  };
+  let c = null;
+  try { c = JSON.parse(localStorage.getItem('hub:planning') || 'null'); } catch {}
+  if (c?.doc) afficher(c.doc);
+  if (c?.t && Date.now() - c.t < 30 * 60 * 1000) return;
+  try {
+    const snap = await getDoc(doc(db, 'app_config', 'planning'));
+    compterLectures(1, 'autre');
+    if (!snap.exists()) return;
+    const d = snap.data();
+    try { localStorage.setItem('hub:planning', JSON.stringify({ t: Date.now(), doc: d })); } catch {}
+    afficher(d);
+  } catch (e) { console.warn('[hub] planning', e.code || e.message); }
+}
+
 function startListeners() {
+setTimeout(resumePlanning, 0);
+// Les sections doivent exister pour être observées : sans cache local (premier
+// passage sur cet appareil), aucun rendu n'aurait lieu avant la première
+// écoute, et aucune écoute ne partirait faute de section visible.
+try { render(); } catch (e) { console.error('[hub] rendu initial', e); }
+if (pendingHashEdit) {
+  const q0 = QUEUES.find((q) => q.key === pendingHashEdit[0]);
+  if (q0) brancherMedia(q0.media);
+}
 for (const q of QUEUES) {
   cachedListenFile(q.col, 'q-'+q.key, trimQueue, rows => {
     const scheduled = [], ready = [], published = [];
@@ -1535,7 +1654,7 @@ try {
       publieLe: x.publieLe, erreur: x.erreur, cree: x.cree, lien: x.lien, rubrique: x.rubrique,
       photo: x.photo, theme: x.theme, taille: x.taille, ancrageX: x.ancrageX, ancrageY: x.ancrageY,
       visuel: x.visuel }),
-    rows => rendreIgLra(rows));
+    rows => rendreIgLra(rows), 'lra');
 } catch (e) { console.warn('Instagram La Revue : file illisible', e); }
 
 // Brouillons en attente · requête filtrée (ne lit plus publiés/archivés · quota Firestore)
@@ -1778,6 +1897,7 @@ function organiser() {
         <a class="msite" href="https://${m.site}" target="_blank" rel="noopener">${m.site} ↗</a></h2>
         <div class="mbody"></div>`;
       hote.appendChild(sec);
+      observerSection(sec);
     }
     const corps = sec.querySelector('.mbody');
     for (const sel of BLOCS_MEDIA[cle] || []) {

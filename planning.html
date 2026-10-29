@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Planning interne des publications du réseau La Revue, par média et par réseau.">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151310" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="La Revue · Planning">
+<title>La Revue · Planning</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23c6a15b'/%3E%3Ctext x='32' y='44' font-family='Georgia,serif' font-size='31' font-weight='700' fill='%23fff' text-anchor='middle'%3ELR%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+<link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-lite.js">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:#c6a15b; --gold-deep:#a9843d; --gold-soft:#f3ead6;
+    --bg:#f5f4f0; --surface:#ffffff; --surface-2:#faf9f6;
+    --ink:#1c1915; --muted:#8a857a; --faint:#b4afa4;
+    --border:#eae7df; --border-2:#e0dcd2;
+    --shadow:0 1px 2px rgba(28,25,15,.05), 0 1px 3px rgba(28,25,15,.05);
+    --shadow-lg:0 14px 34px rgba(28,25,15,.12);
+    --radius:16px; --radius-sm:10px;
+    --serif:'Fraunces', Georgia, 'Times New Roman', serif;
+    --sans:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --lrdh:#b45309; --lrdl:#2563eb; --lrdv:#0f766e; --lrdr:#9f1239; --lra:#d8232a;
+    --ok:#0f9d63; --danger:#dc2626; --warn:#b45309; --warn-bg:#fdf3e1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#14120f; --surface:#1d1b16; --surface-2:#242018;
+      --ink:#efeae0; --muted:#9c968a; --faint:#6b665b;
+      --border:#2c2921; --border-2:#37332a; --gold-soft:#2e2718;
+      --shadow:0 1px 3px rgba(0,0,0,.4); --shadow-lg:0 18px 44px rgba(0,0,0,.55);
+      --lrdh:#e6a23c; --lrdl:#6ba5f5; --lrdv:#4fd6bd; --lrdr:#f0739a; --lra:#f2686d;
+      --ok:#34c78b; --danger:#f87171; --warn:#e6a23c; --warn-bg:#2e2412;
+    }
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:var(--sans); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; letter-spacing:-0.01em; }
+  a { color:inherit; }
+  button { font-family:inherit; }
+  :focus-visible { outline:2px solid var(--gold); outline-offset:2px; border-radius:4px; }
+  header { background:color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter:saturate(1.4) blur(12px); -webkit-backdrop-filter:saturate(1.4) blur(12px); border-bottom:1px solid var(--border); padding:11px 16px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:40; }
+  .logo { width:36px; height:36px; border-radius:11px; background:linear-gradient(150deg, var(--gold), var(--gold-deep)); color:#fff; font-family:var(--serif); font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; text-decoration:none; box-shadow:0 3px 10px color-mix(in srgb, var(--gold) 40%, transparent); }
+  header h1 { font-family:var(--serif); font-size:17px; font-weight:600; letter-spacing:-0.02em; line-height:1.1; }
+  header p { font-size:10.5px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-top:1px; }
+  nav { margin-left:auto; display:flex; gap:2px; align-items:center; }
+  nav a, nav button { display:flex; gap:5px; align-items:center; padding:7px 10px; border-radius:9px; font-size:12px; font-weight:500; color:var(--muted); text-decoration:none; background:none; border:0; cursor:pointer; }
+  nav a:hover, nav button:hover { background:var(--surface-2); color:var(--ink); }
+  #actualiser { color:var(--gold-deep); font-weight:600; }
+  @media (prefers-color-scheme: dark) { #actualiser { color:var(--gold); } }
+  @media (max-width:640px) { nav .lbl { display:none; } header p { display:none; } nav a, nav button { font-size:15px; } }
+  main { max-width:1280px; margin:0 auto; padding:18px 16px 72px; }
+  h2.sec { font-family:var(--serif); font-size:18px; font-weight:600; letter-spacing:-0.02em; margin:26px 0 10px; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  h2.sec small { font-family:var(--sans); font-size:11.5px; font-weight:500; color:var(--muted); letter-spacing:0; }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+
+  /* bandeau d'état */
+  #etat { display:flex; gap:10px 16px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+  #etat b { color:var(--ink); font-weight:600; }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:99px; border:1px solid var(--border); background:var(--surface); font-size:11.5px; font-weight:600; color:var(--ink); }
+  .pill.rouge { color:#fff; background:var(--danger); border-color:var(--danger); }
+  .pill.ambre { color:var(--warn); background:var(--warn-bg); border-color:color-mix(in srgb, var(--warn) 35%, var(--border)); }
+  #avert { display:none; margin-top:10px; padding:10px 12px; border-radius:var(--radius-sm); font-size:12px; line-height:1.5; background:var(--warn-bg); color:var(--warn); border:1px solid color-mix(in srgb, var(--warn) 30%, var(--border)); }
+
+  /* filtres */
+  .filtres { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .chips { display:flex; gap:6px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:0 0 auto; border:1px solid var(--border-2); background:var(--surface); color:var(--muted); border-radius:99px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s, border-color .15s; }
+  .chip:hover { color:var(--ink); }
+  .chip.on { background:var(--ink); color:var(--surface); border-color:var(--ink); }
+  .chip .pt { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--pc, var(--gold)); margin-right:6px; vertical-align:middle; }
+
+  /* grille média × réseau */
+  .grille { overflow-x:auto; }
+  table.mx { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; min-width:760px; }
+  table.mx th { font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; text-align:left; padding:10px 10px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  table.mx th:first-child { position:sticky; left:0; background:var(--surface); z-index:1; }
+  table.mx td { vertical-align:top; padding:8px; border-bottom:1px solid var(--border); }
+  table.mx tr:last-child td { border-bottom:0; }
+  table.mx td.med { position:sticky; left:0; background:var(--surface); z-index:1; min-width:150px; border-left:4px solid var(--mc); padding-left:12px; }
+  .med .n { font-family:var(--serif); font-size:14.5px; font-weight:600; line-height:1.2; }
+  .med .s { font-size:10.5px; color:var(--muted); margin-top:2px; }
+  .cel { display:flex; flex-direction:column; gap:6px; }
+  .cpt { display:block; text-align:left; width:100%; border:1px solid var(--border); background:var(--surface-2); border-radius:10px; padding:7px 9px; cursor:pointer; color:inherit; transition:border-color .15s, transform .12s; }
+  .cpt:hover { border-color:var(--gold); transform:translateY(-1px); }
+  .cpt.trou { border-color:var(--danger); background:color-mix(in srgb, var(--danger) 9%, var(--surface)); }
+  .cpt.calme { opacity:.72; }
+  .cpt .l1 { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+  .cpt .nm { font-size:11.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cpt .nb { font-size:15px; font-weight:700; font-family:var(--serif); }
+  .cpt .nb small { font-family:var(--sans); font-size:9.5px; font-weight:600; color:var(--muted); margin-left:2px; }
+  .cpt .px { font-size:11px; margin-top:2px; color:var(--ink); }
+  .cpt .fr { font-size:10px; color:var(--muted); margin-top:3px; }
+  .cpt .fr.vieux { color:var(--warn); }
+  .cpt .tr { display:inline-block; margin-top:4px; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#fff; background:var(--danger); border-radius:5px; padding:2px 6px; }
+  .vide { color:var(--faint); font-size:12px; padding:6px 2px; }
+
+  /* calendrier */
+  .cal { display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:10px; }
+  .jour { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow); min-width:0; display:flex; flex-direction:column; }
+  .jour.auj { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), var(--shadow); }
+  .jour h3 { font-family:var(--serif); font-size:14px; font-weight:600; padding:10px 11px 8px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:baseline; gap:6px; position:sticky; top:59px; background:var(--surface); border-radius:var(--radius-sm) var(--radius-sm) 0 0; z-index:2; }
+  .jour h3 small { font-family:var(--sans); font-size:10.5px; color:var(--muted); font-weight:600; }
+  .jour .its { padding:6px; display:flex; flex-direction:column; gap:5px; }
+  .it { display:grid; grid-template-columns:44px 1fr; gap:8px; align-items:start; padding:6px; border-radius:9px; text-decoration:none; color:inherit; border-left:3px solid var(--mc); background:var(--surface-2); cursor:pointer; transition:background .15s; }
+  .it:hover { background:var(--gold-soft); }
+  .it img, .it .ph { width:44px; height:44px; border-radius:7px; object-fit:cover; background:var(--border); display:block; }
+  .it .ph { display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .it .hd { display:flex; gap:5px; align-items:center; font-size:10.5px; font-weight:700; color:var(--muted); white-space:nowrap; overflow:hidden; }
+  .it .hd .h { color:var(--ink); }
+  .it .tt { font-size:11.5px; line-height:1.3; font-weight:500; margin-top:2px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; }
+  .it .st { display:inline-block; margin-top:3px; font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:4px; }
+  .st.verif { color:var(--warn); background:var(--warn-bg); }
+  .st.pub { color:var(--ok); background:color-mix(in srgb, var(--ok) 12%, transparent); }
+  .st.ann { color:var(--muted); background:var(--surface); text-decoration:line-through; }
+  .st.passe { color:var(--muted); background:var(--surface); }
+  .st.robot { color:var(--muted); background:var(--surface); border:1px solid var(--border); }
+  .it.fini { opacity:.55; }
+  .it.annule .tt { text-decoration:line-through; }
+  .jour .rien { font-size:11.5px; color:var(--faint); padding:10px 6px; }
+  @media (max-width:1180px) {
+    .cal { grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(230px, 1fr); overflow-x:auto; scroll-snap-type:x mandatory; padding-bottom:6px; }
+    .jour { scroll-snap-align:start; }
+    .jour h3 { position:static; }
+  }
+  @media (max-width:640px) {
+    .cal { grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr; overflow:visible; }
+    .jour h3 { position:sticky; top:59px; }
+    table.mx { min-width:0; }
+    table.mx thead { display:none; }
+    table.mx, table.mx tbody, table.mx tr, table.mx td { display:block; width:100%; }
+    table.mx tr { border:1px solid var(--border); border-left:4px solid var(--mc); border-radius:var(--radius-sm); margin-bottom:10px; padding:4px 0; }
+    table.mx td { border:0; padding:4px 10px; }
+    table.mx td.med { position:static; border-left:0; padding:8px 10px 4px; }
+    table.mx td.vc { display:none; }
+    table.mx td[data-r]::before { content:attr(data-r); display:block; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+    .grille.panel { background:none; border:0; box-shadow:none; }
+    table.mx tr { background:var(--surface); }
+  }
+
+  /* fraîcheur */
+  .sources { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:8px; padding:12px; }
+  .src { font-size:11.5px; padding:9px 10px; border-radius:9px; background:var(--surface-2); border:1px solid var(--border); line-height:1.45; }
+  .src b { font-weight:700; }
+  .src .q { color:var(--muted); }
+  .src .q.vieux { color:var(--warn); }
+  .src a { color:var(--gold-deep); font-weight:600; text-decoration:none; }
+  @media (prefers-color-scheme: dark) { .src a { color:var(--gold); } }
+  .note { font-size:11.5px; color:var(--muted); line-height:1.55; margin-top:12px; }
+  .note code { font-size:11px; background:var(--surface-2); border:1px solid var(--border); padding:1px 5px; border-radius:5px; }
+
+  /* fiche */
+  #fiche { position:fixed; inset:0; background:rgba(12,10,6,.55); display:none; align-items:flex-end; justify-content:center; z-index:60; padding:0; }
+  #fiche.on { display:flex; }
+  #fiche .box { background:var(--surface); width:100%; max-width:520px; border-radius:var(--radius) var(--radius) 0 0; padding:18px 18px calc(18px + env(safe-area-inset-bottom)); box-shadow:var(--shadow-lg); max-height:85vh; overflow:auto; }
+  @media (min-width:641px) { #fiche { align-items:center; padding:16px; } #fiche .box { border-radius:var(--radius); } }
+  #fiche img { width:100%; max-height:260px; object-fit:cover; border-radius:12px; display:block; margin-bottom:12px; background:var(--border); }
+  #fiche h4 { font-family:var(--serif); font-size:17px; font-weight:600; line-height:1.3; margin-bottom:8px; }
+  #fiche .meta { font-size:12px; color:var(--muted); line-height:1.6; }
+  #fiche .acts { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .btn { border:0; border-radius:9px; padding:10px 16px; font-size:12.5px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+  .btn.or { background:linear-gradient(150deg, var(--gold), var(--gold-deep)); color:#fff; }
+  .btn.gris { background:var(--surface-2); color:var(--ink); border:1px solid var(--border); }
+
+  /* portail */
+  #gate { position:fixed; inset:0; background:radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--gold) 8%, var(--bg)), var(--bg)); display:none; align-items:center; justify-content:center; z-index:100; padding:16px; }
+  #gate .box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:32px 28px; width:100%; max-width:370px; box-shadow:var(--shadow-lg); text-align:center; }
+  #gate .logo { margin:0 auto 14px; width:48px; height:48px; font-size:20px; border-radius:14px; }
+  #gate h2 { font-family:var(--serif); font-size:19px; font-weight:600; margin-bottom:5px; }
+  #gate p { font-size:11px; color:var(--muted); margin-bottom:20px; }
+  #gate input { width:100%; border:1px solid var(--border-2); border-radius:10px; padding:11px 12px; font-size:16px; margin-bottom:10px; background:var(--surface-2); color:var(--ink); }
+  #gate button { width:100%; padding:11px; font-size:13px; justify-content:center; }
+  #gate .err { color:var(--danger); font-size:11px; min-height:16px; margin-top:8px; }
+  #chargement { padding:40px 0; text-align:center; color:var(--muted); font-size:12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="index.html" title="Retour au hub">LR</a>
+  <div><h1>Planning</h1><p>Toutes les publications programmées</p></div>
+  <nav>
+    <button id="actualiser" type="button" title="Relire le planning (une lecture)">↻ <span class="lbl">Actualiser</span></button>
+    <a href="index.html" title="Accueil du hub">🏠 <span class="lbl">Hub</span></a>
+  </nav>
+</header>
+
+<div id="gate">
+  <div class="box">
+    <div class="logo">LR</div>
+    <h2>La Revue · Planning</h2>
+    <p>Accès réservé · même compte que le hub</p>
+    <input type="email" id="gmail" placeholder="E-mail" autocomplete="username">
+    <input type="password" id="gpass" placeholder="Mot de passe" autocomplete="current-password">
+    <button class="btn or" id="gbtn" type="button">Se connecter</button>
+    <div class="err" id="gerr"></div>
+  </div>
+</div>
+
+<main id="app">
+  <div id="etat"><span>Chargement du planning…</span></div>
+  <div id="avert"></div>
+  <div class="filtres">
+    <div class="chips" id="fmedia" role="group" aria-label="Filtrer par média"></div>
+    <div class="chips" id="freseau" role="group" aria-label="Filtrer par réseau"></div>
+  </div>
+
+  <h2 class="sec">Par média et par réseau <small>prochaine publication · nombre sur 7 jours · trou en rouge si rien n'est prévu demain sur un compte habituellement actif</small></h2>
+  <div class="grille panel" id="grille"><div id="chargement">…</div></div>
+
+  <h2 class="sec">Les 7 prochains jours <small>heure de Paris · un clic ouvre l'article</small></h2>
+  <div class="cal" id="cal"></div>
+
+  <h2 class="sec">Fraîcheur des sources <small>quand chaque compte a été confronté au réseau ou à sa file robot</small></h2>
+  <div class="panel"><div class="sources" id="sources"></div></div>
+  <p class="note">Ce planning vit dans un document Firestore privé (<code>app_config/planning</code>), lu en <b>une seule lecture</b> à l'ouverture puis gardé en cache dix minutes sur cet appareil.
+    Il est tenu à jour par <code>tools/planning/planning.py</code> après chaque programmation, par la relecture des files robots (<code>fusionner-robots</code>)
+    et par les relevés décrits dans <code>tools/planning/SYNC.md</code>. Les files robots que ce Mac ne peut pas lire sont complétées par le cache que laisse l'accueil du hub, sans lecture de plus.</p>
+</main>
+
+<div id="fiche" role="dialog" aria-modal="true" aria-label="Détail de la publication"><div class="box" id="fichebox"></div></div>
+
+<script type="module">
+const DEMO = new URLSearchParams(location.search).has('demo');
+const CLE_CACHE = 'hub:planning';
+const DUREE_CACHE = 10 * 60 * 1000;      // 10 min : au-delà, une lecture à l'ouverture
+const TZ = 'Europe/Paris';
+
+const MEDIAS = {
+  lrdh: { nom:'La Revue des Hôtels', court:'Hôtels', site:'larevuedeshotels.com', c:'var(--lrdh)' },
+  lrdl: { nom:'La Revue du Luxe', court:'Luxe', site:'larevueduluxe.com', c:'var(--lrdl)' },
+  lrdv: { nom:'La Revue des Voyages', court:'Voyages', site:'larevuedesvoyages.com', c:'var(--lrdv)' },
+  lrdr: { nom:'La Revue des Restaurants', court:'Restaurants', site:'larevuedesrestaurants.com', c:'var(--lrdr)' },
+  lra:  { nom:'La Revue', court:'larevue.app', site:'larevue.app', c:'var(--lra)' },
+};
+const RESEAUX = {
+  linkedin: { nom:'LinkedIn', ico:'💼' },
+  'linkedin-newsletter': { nom:'Newsletter LinkedIn', ico:'📰' },
+  instagram: { nom:'Instagram', ico:'📸' },
+  tiktok: { nom:'TikTok', ico:'🎵' },
+  youtube: { nom:'YouTube', ico:'▶️' },
+  x: { nom:'X', ico:'𝕏' },
+  brevo: { nom:'Newsletter e-mail', ico:'✉️' },
+};
+// Les files robots que l'accueil du hub garde en cache (localStorage, même
+// origine) : clé du cache → collection, compte. La file LRDL n'y figure pas :
+// l'accueil lit encore l'ancien projet pour elle, sa copie serait périmée.
+const CACHES_HUB = [
+  { cle:'q-lrdh-v',   col:'lrdh_linkedin_queue',    compte:'lrdh-li-fr', src:'larevue-auto-dashboard-2/lrdh_linkedin_queue' },
+  { cle:'q-lrdhen-v', col:'lrdh_en_linkedin_queue', compte:'lrdh-li-en', src:'larevue-auto-dashboard-2/lrdh_en_linkedin_queue' },
+  { cle:'q-lrdhes-v', col:'lrdh_es_linkedin_queue', compte:'lrdh-li-es', src:'larevue-auto-dashboard-2/lrdh_es_linkedin_queue' },
+  { cle:'iglh3',      col:'lrdh_instagram_queue',   compte:'lrdh-ig',    src:'larevue-auto-dashboard-2/lrdh_instagram_queue' },
+  { cle:'q-lra-v',    col:'larevue_linkedin_queue', compte:'lra-li',     src:'larevue-firestore-lra/larevue_linkedin_queue' },
+];
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const lsGet = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+// ─── Dates, toujours en heure de Paris ─────────────────────────────────────
+const versDate = (v) => {
+  if (!v) return null;
+  if (typeof v === 'string' || typeof v === 'number') {
+    // Une heure sans fuseau dans une file robot est une heure UTC (le publieur tourne en UTC).
+    const s = typeof v === 'string' && /T\d\d:\d\d(:\d\d(\.\d+)?)?$/.test(v) ? v + 'Z' : v;
+    const d = new Date(s); return isNaN(d) ? null : d;
+  }
+  if (typeof v.toDate === 'function') return v.toDate();
+  const sec = v.seconds ?? v._seconds; return typeof sec === 'number' ? new Date(sec * 1000) : null;
+};
+const fmt = (d, o) => d.toLocaleString('fr-FR', { timeZone: TZ, ...o });
+const jourParis = (d) => fmt(d, { year:'numeric', month:'2-digit', day:'2-digit' }).split('/').reverse().join('-');
+const heure = (d) => fmt(d, { hour:'2-digit', minute:'2-digit' }).replace(':', ' h ');
+const isoJour = (n) => jourParis(new Date(Date.now() + n * 864e5));
+const nomJour = (d) => fmt(d, { weekday:'short', day:'numeric', month:'short' });
+const jourSemaine = (iso) => { const d = new Date(iso + 'T12:00:00Z'); return ((d.getUTCDay() + 6) % 7) + 1; };   // 1 = lundi
+function ilya(v) {
+  const d = versDate(v); if (!d) return 'jamais';
+  const m = Math.round((Date.now() - d) / 60000);
+  if (m < 1) return "à l'instant";
+  if (m < 60) return `il y a ${m} min`;
+  const h = Math.round(m / 60); if (h < 48) return `il y a ${h} h`;
+  return `il y a ${Math.round(h / 24)} j`;
+}
+const ageH = (v) => { const d = versDate(v); return d ? (Date.now() - d) / 36e5 : Infinity; };
+
+// ─── État ──────────────────────────────────────────────────────────────────
+let PLAN = null, LU_LE = 0;
+const filtre = Object.assign({ media:'tous', reseau:'tous' }, lsGet('hub:planning:filtre') || {});
+const hf = new URLSearchParams(location.hash.slice(1));
+if (hf.get('m')) filtre.media = hf.get('m');
+if (hf.get('r')) filtre.reseau = hf.get('r');
+
+/** Entrées du document + files robots du cache de l'accueil, pour les sources que planning.py n'a pas pu lire. */
+function entrees() {
+  const out = [...(PLAN?.entrees || [])];
+  const ids = new Set(out.map((e) => e.id));
+  const robots = PLAN?.robots || {};
+  const comptes = PLAN?.comptes || {};
+  for (const c of CACHES_HUB) {
+    if (robots[c.src]?.etat === 'lu') continue;          // planning.py l'a déjà lue, plus fraîche
+    const rows = lsGet('hub:' + c.cle); if (!Array.isArray(rows)) continue;
+    const t = Number(localStorage.getItem('hub:t:' + c.cle)) || 0;
+    const cpt = comptes[c.compte] || {};
+    for (const x of rows) {
+      if (x.status !== 'scheduled' || x.publishedToLinkedin || x.publishedToInstagram) continue;
+      const d = versDate(x.scheduledAt); if (!d) continue;
+      const id = `robot:${c.col}:${x.id}`; if (ids.has(id)) continue;
+      const sl = Array.isArray(x.slides) ? x.slides[0] : null;
+      out.push({ id, media: cpt.media || c.compte.split('-')[0], reseau: cpt.reseau || (c.compte.endsWith('ig') ? 'instagram' : 'linkedin'),
+        compte: c.compte, quand: d.toISOString(), titre: x.title || x.igTitle || x.titre || x.id,
+        url: x.wpUrl || x.articleUrl || '', vignette: x.linkedinImageUrl || (typeof sl === 'string' ? sl : sl?.url) || '',
+        source: 'file robot', statut: 'programmé', viaCacheHub: t || true });
+    }
+  }
+  return out;
+}
+const actif = (e) => e.statut === 'programmé' || e.statut === 'à vérifier';
+const passeFiltre = (e) => (filtre.media === 'tous' || e.media === filtre.media) && (filtre.reseau === 'tous' || e.reseau === filtre.reseau);
+const vignette = (u) => {
+  if (u && u.includes('res.cloudinary.com') && u.includes('/upload/') && !/\/upload\/w_/.test(u))
+    return u.replace('/upload/', '/upload/w_160,c_fill,h_160,q_auto,f_auto/');
+  return u || '';
+};
+
+// ─── Rendu ─────────────────────────────────────────────────────────────────
+function rendre() {
+  if (!PLAN) return;
+  const toutes = entrees();
+  const comptes = PLAN.comptes || {};
+  const now = Date.now(), fin7 = now + 7 * 864e5;
+  const demain = isoJour(1), jsDemain = jourSemaine(demain);
+
+  // Statistiques par compte
+  const parCompte = {};
+  for (const [id, c] of Object.entries(comptes)) parCompte[id] = { ...c, id, n7: 0, prochaine: null, demain: 0, verif: 0 };
+  for (const e of toutes) {
+    const pc = parCompte[e.compte] || (parCompte[e.compte] = { id: e.compte, media: e.media, reseau: e.reseau, nom: e.compte, n7: 0, prochaine: null, demain: 0, verif: 0 });
+    const d = versDate(e.quand); if (!d || !actif(e)) continue;
+    if (d >= now && d < fin7) { pc.n7++; if (e.statut === 'à vérifier') pc.verif++; }
+    if (d >= now && (!pc.prochaine || d < versDate(pc.prochaine.quand))) pc.prochaine = e;
+    if (jourParis(d) === demain) pc.demain++;
+  }
+  const trou = (pc) => pc.habituel && (pc.jours || [1,2,3,4,5,6,7]).includes(jsDemain) && pc.demain === 0;
+
+  // Bandeau d'état
+  const trous = Object.values(parCompte).filter(trou);
+  const nVerif = toutes.filter((e) => e.statut === 'à vérifier' && versDate(e.quand) >= now - 864e5).length;
+  const auj = toutes.filter((e) => actif(e) && jourParis(versDate(e.quand)) === isoJour(0)).length;
+  $('etat').innerHTML = `
+    <span class="pill">📅 <b>${auj}</b> aujourd'hui</span>
+    ${trous.length ? `<span class="pill rouge" title="${esc(trous.map((p) => p.nom).join(' · '))}">⚠ ${trous.length} trou${trous.length > 1 ? 's' : ''} demain</span>` : '<span class="pill">✓ aucun trou demain</span>'}
+    ${nVerif ? `<span class="pill ambre">${nVerif} à vérifier</span>` : ''}
+    <span>Planning mis à jour <b>${esc(ilya(PLAN.maj))}</b>${LU_LE ? ` · lu ${esc(ilya(LU_LE))}` : ''}${DEMO ? ' · <b>données de démonstration</b>' : ''}</span>`;
+
+  rendreFiltres(toutes);
+
+  // Grille média × réseau : seuls les réseaux et médias qui ont au moins un compte.
+  const reseaux = Object.keys(RESEAUX).filter((r) => Object.values(parCompte).some((p) => p.reseau === r)
+    && (filtre.reseau === 'tous' || filtre.reseau === r));
+  const medias = Object.keys(MEDIAS).filter((m) => Object.values(parCompte).some((p) => p.media === m)
+    && (filtre.media === 'tous' || filtre.media === m));
+  const cellule = (m, r) => {
+    const cs = Object.values(parCompte).filter((p) => p.media === m && p.reseau === r)
+      .sort((a, b) => (b.habituel - a.habituel) || (b.n7 - a.n7));
+    if (!cs.length) return '<span class="vide">·</span>';
+    return '<div class="cel">' + cs.map((p) => {
+      const t = trou(p);
+      const sync = p.derniereSync || p.sync?.robot || '';
+      const vieux = p.habituel && ageH(sync) > 30;
+      const pr = p.prochaine ? versDate(p.prochaine.quand) : null;
+      return `<button type="button" class="cpt${t ? ' trou' : ''}${!p.habituel && !p.n7 ? ' calme' : ''}" data-cpt="${esc(p.id)}" title="${esc(p.nom)} · ${esc(p.qui || '')}">
+        <span class="l1"><span class="nm">${esc(nomCourt(p))}</span><span class="nb">${p.n7}<small>/7 j</small></span></span>
+        <span class="px" style="display:block">${pr ? `▶ ${esc(nomJour(pr))} · ${esc(heure(pr))}` : '<span style="color:var(--muted)">rien de prévu</span>'}${p.verif ? ` · <span style="color:var(--warn)">${p.verif} à vérifier</span>` : ''}</span>
+        <span class="fr${vieux ? ' vieux' : ''}" style="display:block">${sync ? `synchronisé ${esc(ilya(sync))}` : 'jamais synchronisé'}</span>
+        ${t ? '<span class="tr">Trou demain</span>' : ''}
+      </button>`;
+    }).join('') + '</div>';
+  };
+  $('grille').innerHTML = medias.length ? `<table class="mx"><thead><tr><th>Média</th>${reseaux.map((r) => `<th>${RESEAUX[r].ico} ${RESEAUX[r].nom}</th>`).join('')}</tr></thead><tbody>
+    ${medias.map((m) => `<tr style="--mc:${MEDIAS[m].c}"><td class="med"><div class="n">${esc(MEDIAS[m].nom)}</div><div class="s">${esc(MEDIAS[m].site)}</div></td>
+      ${reseaux.map((r) => { const h = cellule(m, r); return `<td class="${h.includes('class="vide"') ? 'vc' : ''}" data-r="${RESEAUX[r].ico} ${RESEAUX[r].nom}">${h}</td>`; }).join('')}</tr>`).join('')}
+    </tbody></table>` : '<div id="chargement">Aucun compte pour ce filtre.</div>';
+  $('grille').querySelectorAll('[data-cpt]').forEach((b) => b.onclick = () => ficheCompte(parCompte[b.dataset.cpt]));
+
+  // Calendrier
+  const vues = toutes.filter(passeFiltre).filter((e) => e.statut !== 'annulé' || versDate(e.quand) >= now - 864e5);
+  let html = '';
+  for (let i = 0; i < 7; i++) {
+    const j = isoJour(i);
+    const items = vues.filter((e) => jourParis(versDate(e.quand)) === j)
+      .sort((a, b) => versDate(a.quand) - versDate(b.quand));
+    const d = new Date(j + 'T12:00:00Z');
+    const nAct = items.filter(actif).length;
+    html += `<section class="jour${i === 0 ? ' auj' : ''}" aria-label="${esc(nomJour(d))}">
+      <h3><span>${i === 0 ? "Aujourd'hui" : i === 1 ? 'Demain' : esc(fmt(d, { weekday:'long' }))}<small> · ${esc(fmt(d, { day:'numeric', month:'short' }))}</small></span><small>${nAct}</small></h3>
+      <div class="its">${items.map(carte).join('') || '<div class="rien">Rien de prévu.</div>'}</div></section>`;
+  }
+  $('cal').innerHTML = html;
+  $('cal').querySelectorAll('[data-e]').forEach((a) => a.onclick = (ev) => {
+    const e = toutes.find((x) => x.id === a.dataset.e); if (!e) return;
+    if (ev.metaKey || ev.ctrlKey) return;            // ouverture directe dans un onglet
+    ev.preventDefault(); fiche(e);
+  });
+
+  // Sources
+  const rob = PLAN.robots || {};
+  $('sources').innerHTML = Object.values(parCompte)
+    .filter((p) => filtre.media === 'tous' || p.media === filtre.media)
+    .sort((a, b) => Object.keys(MEDIAS).indexOf(a.media) - Object.keys(MEDIAS).indexOf(b.media) || (b.habituel - a.habituel))
+    .map((p) => {
+      const rs = Object.entries(rob).filter(([, r]) => r.compte === p.id);
+      const reseau = p.sync?.reseau || p.derniereSync;
+      return `<div class="src"><b>${esc(MEDIAS[p.media]?.court || p.media)} · ${esc(p.nom || p.id)}</b><br>
+        <span class="q${p.habituel && ageH(reseau) > 30 ? ' vieux' : ''}">Réseau : ${reseau ? 'synchronisé ' + esc(ilya(reseau)) : 'jamais relevé'}</span>
+        ${rs.map(([k, r]) => `<br><span class="q">File robot : ${r.etat === 'lu' ? 'lue ' + esc(ilya(r.lu)) : r.etat === 'illisible' ? 'non lue d\'ici · cache de l\'accueil ' + esc(ilyaCache(k)) : 'erreur'}</span>`).join('')}
+        ${p.qui ? `<br><span class="q">Publie : ${esc(p.qui)}</span>` : ''}
+        ${p.admin ? `<br><a href="${esc(p.admin)}" target="_blank" rel="noopener">Voir les programmations ↗</a>` : ''}</div>`;
+    }).join('');
+}
+function ilyaCache(src) {
+  const c = CACHES_HUB.find((x) => x.src === src); if (!c) return '';
+  const t = Number(localStorage.getItem('hub:t:' + c.cle)) || 0;
+  return t ? ilya(t) : 'absent (ouvrir l\'accueil)';
+}
+function nomCourt(p) {
+  const n = String(p.nom || p.id);
+  return n.replace(/^Profil /, '').replace(/^Instagram /, '').replace(/^Newsletter LinkedIn /, '').replace(/ \(\d+\)$/, '').slice(0, 34);
+}
+function carte(e) {
+  const d = versDate(e.quand), m = MEDIAS[e.media], r = RESEAUX[e.reseau] || { ico:'•', nom:e.reseau };
+  const passe = d < Date.now();
+  const st = e.statut === 'à vérifier' ? '<span class="st verif">à vérifier</span>'
+    : e.statut === 'publié' ? '<span class="st pub">publié</span>'
+    : e.statut === 'annulé' ? '<span class="st ann">annulé</span>'
+    : passe ? '<span class="st passe">parti · non revérifié</span>'
+    : e.source === 'file robot' ? '<span class="st robot">robot</span>' : '';
+  const v = vignette(e.vignette);
+  const lien = e.url || e.vignette || '#';
+  const cpt = PLAN.comptes?.[e.compte];
+  const qui = cpt ? cpt.nom || e.compte : e.compte;
+  // Trois comptes LinkedIn pour les Hôtels (FR, EN, ES) : la langue suffit à les distinguer.
+  const langue = /-en$/.test(e.compte) ? ' EN' : /-es$/.test(e.compte) ? ' ES' : '';
+  return `<a class="it${passe && e.statut !== 'à vérifier' ? ' fini' : ''}${e.statut === 'annulé' ? ' annule' : ''}" style="--mc:${m?.c || 'var(--gold)'}" href="${esc(lien)}" target="_blank" rel="noopener" data-e="${esc(e.id)}">
+    ${v ? `<img src="${esc(v)}" alt="" loading="lazy" decoding="async" width="44" height="44">` : `<span class="ph">${r.ico}</span>`}
+    <span><span class="hd" title="${esc(qui)}"><span class="h">${esc(heure(d))}</span> ${r.ico} ${esc(m?.court || e.media)}${langue}</span>
+    <span class="tt">${esc(e.titre)}</span>${st}</span></a>`;
+}
+
+function rendreFiltres(toutes) {
+  const presentM = new Set(Object.values(PLAN.comptes || {}).map((c) => c.media));
+  const presentR = new Set(Object.values(PLAN.comptes || {}).map((c) => c.reseau));
+  const n7 = (k, v) => toutes.filter((e) => actif(e) && e[k] === v && versDate(e.quand) >= Date.now() && versDate(e.quand) < Date.now() + 7 * 864e5).length;
+  $('fmedia').innerHTML = `<button class="chip${filtre.media === 'tous' ? ' on' : ''}" data-m="tous">Tous les médias</button>` +
+    Object.entries(MEDIAS).filter(([k]) => presentM.has(k)).map(([k, m]) =>
+      `<button class="chip${filtre.media === k ? ' on' : ''}" data-m="${k}" style="--pc:${m.c}"><span class="pt"></span>${esc(m.court)} · ${n7('media', k)}</button>`).join('');
+  $('freseau').innerHTML = `<button class="chip${filtre.reseau === 'tous' ? ' on' : ''}" data-r="tous">Tous les réseaux</button>` +
+    Object.entries(RESEAUX).filter(([k]) => presentR.has(k)).map(([k, r]) =>
+      `<button class="chip${filtre.reseau === k ? ' on' : ''}" data-r="${k}">${r.ico} ${esc(r.nom)} · ${n7('reseau', k)}</button>`).join('');
+  $('fmedia').querySelectorAll('[data-m]').forEach((b) => b.onclick = () => choisir('media', b.dataset.m));
+  $('freseau').querySelectorAll('[data-r]').forEach((b) => b.onclick = () => choisir('reseau', b.dataset.r));
+}
+function choisir(k, v) {
+  filtre[k] = v; lsSet('hub:planning:filtre', filtre);
+  const p = new URLSearchParams(); if (filtre.media !== 'tous') p.set('m', filtre.media); if (filtre.reseau !== 'tous') p.set('r', filtre.reseau);
+  history.replaceState(null, '', location.pathname + location.search + (p.toString() ? '#' + p : ''));
+  rendre();
+}
+
+// ─── Fiches ────────────────────────────────────────────────────────────────
+function ouvrirFiche(html) {
+  $('fichebox').innerHTML = html; $('fiche').classList.add('on');
+  $('fichebox').querySelector('[data-fermer]')?.addEventListener('click', fermerFiche);
+}
+function fermerFiche() { $('fiche').classList.remove('on'); }
+$('fiche').addEventListener('click', (ev) => { if (ev.target.id === 'fiche') fermerFiche(); });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fermerFiche(); });
+function fiche(e) {
+  const d = versDate(e.quand), cpt = PLAN.comptes?.[e.compte] || {}, r = RESEAUX[e.reseau] || { nom:e.reseau, ico:'' };
+  ouvrirFiche(`${e.vignette ? `<img src="${esc(e.vignette)}" alt="">` : ''}
+    <h4>${esc(e.titre)}</h4>
+    <div class="meta">${r.ico} ${esc(r.nom)} · ${esc(cpt.nom || e.compte)}<br>
+      ${esc(fmt(d, { weekday:'long', day:'numeric', month:'long' }))} à ${esc(heure(d))} (Paris)<br>
+      Statut : <b>${esc(e.statut)}</b> · ${esc(e.source)}${e.viaCacheHub ? ' (vu dans le cache de l\'accueil)' : ''}
+      ${e.note ? `<br>Note : ${esc(e.note)}` : ''}<br><span style="font-size:10.5px">${esc(e.id)}</span></div>
+    <div class="acts">
+      ${e.url ? `<a class="btn or" href="${esc(e.url)}" target="_blank" rel="noopener">Ouvrir l'article ↗</a>` : ''}
+      ${e.vignette ? `<a class="btn gris" href="${esc(e.vignette)}" target="_blank" rel="noopener">Voir l'image</a>` : ''}
+      ${cpt.admin ? `<a class="btn gris" href="${esc(cpt.admin)}" target="_blank" rel="noopener">Programmations du compte ↗</a>` : ''}
+      <button class="btn gris" type="button" data-fermer>Fermer</button></div>`);
+}
+function ficheCompte(p) {
+  if (!p) return;
+  const prochaines = entrees().filter((e) => e.compte === p.id && actif(e) && versDate(e.quand) >= Date.now())
+    .sort((a, b) => versDate(a.quand) - versDate(b.quand)).slice(0, 12);
+  ouvrirFiche(`<h4>${esc(p.nom || p.id)}</h4>
+    <div class="meta">${esc(MEDIAS[p.media]?.nom || p.media)} · ${esc(RESEAUX[p.reseau]?.nom || p.reseau)}<br>
+      Publie : ${esc(p.qui || '?')} · ${p.habituel ? 'compte habituellement actif' : 'compte occasionnel'}<br>
+      Réseau ${p.derniereSync ? 'synchronisé ' + esc(ilya(p.derniereSync)) : 'jamais relevé'}</div>
+    <div class="its" style="display:flex;flex-direction:column;gap:5px;margin-top:12px">${prochaines.map(carte).join('') || '<div class="rien">Rien de prévu.</div>'}</div>
+    <div class="acts">${p.admin ? `<a class="btn or" href="${esc(p.admin)}" target="_blank" rel="noopener">Voir les programmations ↗</a>` : ''}
+      <button class="btn gris" type="button" data-fermer>Fermer</button></div>`);
+  $('fichebox').querySelectorAll('[data-e]').forEach((a) => a.onclick = (ev) => {
+    const e = prochaines.find((x) => x.id === a.dataset.e); if (e && !(ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); fiche(e); }
+  });
+}
+
+// ─── Chargement : UNE lecture, jamais d'écoute ─────────────────────────────
+function appliquer(doc, lu) {
+  PLAN = doc; LU_LE = lu || 0;
+  $('avert').style.display = 'none';
+  rendre();
+}
+function avert(t) { const a = $('avert'); a.textContent = t; a.style.display = 'block'; }
+
+const cache = lsGet(CLE_CACHE);
+if (cache?.doc && !DEMO) appliquer(cache.doc, cache.t);
+
+if (DEMO) {
+  appliquer(demo(), Date.now());
+  $('actualiser').onclick = () => appliquer(demo(), Date.now());
+} else {
+  const [{ initializeApp }, { getAuth, onAuthStateChanged, signInWithEmailAndPassword }, { getFirestore, doc, getDoc }] = await Promise.all([
+    import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-lite.js'),
+  ]);
+  const app = initializeApp({
+    apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
+    authDomain: 'larevue-auto-dashboard.firebaseapp.com',
+    projectId: 'larevue-auto-dashboard',
+    appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
+  });
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  let enCours = false;
+  async function lire(force) {
+    if (enCours) return;
+    const c = lsGet(CLE_CACHE);
+    if (!force && c?.doc && Date.now() - c.t < DUREE_CACHE) return;
+    enCours = true; $('actualiser').disabled = true;
+    try {
+      const s = await getDoc(doc(db, 'app_config', 'planning'));
+      if (!s.exists()) { avert('Le planning n\'existe pas encore : lancer tools/planning/planning.py.'); return; }
+      const d = s.data(); const t = Date.now();
+      lsSet(CLE_CACHE, { t, doc: d });
+      appliquer(d, t);
+    } catch (e) {
+      console.error('[planning]', e.code, e.message);
+      avert(/resource-exhausted|quota/i.test(String(e.code || e.message))
+        ? 'Quota Firestore du jour atteint : affichage du dernier planning connu. Nouvelle lecture possible après 9 h.'
+        : 'Lecture impossible (' + (e.code || e.message) + ') : affichage du dernier planning connu.');
+    } finally { enCours = false; $('actualiser').disabled = false; }
+  }
+  $('actualiser').onclick = () => lire(true);
+  onAuthStateChanged(auth, (u) => {
+    $('gate').style.display = u ? 'none' : 'flex';
+    if (u) lire(false);
+  });
+  $('gbtn').onclick = async () => {
+    $('gerr').textContent = '';
+    try { await signInWithEmailAndPassword(auth, $('gmail').value.trim(), $('gpass').value); }
+    catch { $('gerr').textContent = 'Identifiants invalides.'; }
+  };
+  $('gpass').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('gbtn').click(); });
+  // Un onglet laissé ouvert ne relit rien tout seul : au retour, une lecture au plus si le cache a vieilli.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && auth.currentUser) lire(false); });
+}
+
+// ─── Données de démonstration (?demo) · fictives, relatives à maintenant ────
+function demo() {
+  const h = (j, hh, mm = 0) => { const d = new Date(Date.now() + j * 864e5); d.setHours(hh, mm, 0, 0); return d.toISOString(); };
+  const comptes = {
+    'lrdh-li-fr': { media:'lrdh', reseau:'linkedin', nom:'Profil La Revue des Hôtels (FR)', habituel:true, jours:[1,2,3,4,5,6,7], qui:'à la main', derniereSync:h(0, 7), admin:'https://www.linkedin.com/' },
+    'lrdh-li-en': { media:'lrdh', reseau:'linkedin', nom:'Page LRDH EN (105732391)', habituel:true, jours:[1,2,3,4,5,6,7], qui:'à la main', derniereSync:h(-2, 14) },
+    'lrdh-ig': { media:'lrdh', reseau:'instagram', nom:'Instagram @larevuedeshotels', habituel:true, jours:[1,2,3,4,5,6,7], qui:'à la main', derniereSync:h(-1, 19) },
+    'lrdh-brevo': { media:'lrdh', reseau:'brevo', nom:'Newsletter e-mail Brevo (lundi 7 h)', habituel:true, jours:[1], qui:'cron', derniereSync:h(-3, 9) },
+    'lrdh-youtube': { media:'lrdh', reseau:'youtube', nom:'YouTube @LaRevueDesHotels', habituel:false, qui:'à la main' },
+    'lrdl-li': { media:'lrdl', reseau:'linkedin', nom:'Profil La Revue du Luxe', habituel:true, jours:[1,2,3,4,5,6,7], qui:'à la main', derniereSync:h(-2, 12), sync:{ robot:h(0, 8) } },
+    'lrdl-ig': { media:'lrdl', reseau:'instagram', nom:'Instagram @larevueduluxe', habituel:false, qui:'le user' },
+    'lrdv-li': { media:'lrdv', reseau:'linkedin', nom:'Profil La Revue des Voyages', habituel:false, qui:'robot', sync:{ robot:h(0, 8) } },
+    'lra-li': { media:'lra', reseau:'linkedin', nom:'Profil La Revue · Actualités', habituel:true, jours:[1,2,3,4,5,6,7], qui:'robot' },
+  };
+  const titres = ['Exemple · un hôtel ouvre face à la mer', 'Exemple · classement des palaces', 'Exemple · une adresse de montagne',
+    'Exemple · les chiffres de la semaine', 'Exemple · un spa rénové', 'Exemple · une table étoilée'];
+  const entrees = []; let k = 0;
+  for (let j = 0; j < 6; j++) for (const [c, hh] of [['lrdh-li-fr', 8], ['lrdh-li-fr', 12], ['lrdh-li-en', 9], ['lrdl-li', 13], ['lrdh-ig', 9], ['lrdv-li', 17]]) {
+    if (c === 'lrdh-li-en' && j > 3) continue;
+    const cpt = comptes[c];
+    entrees.push({ id:`demo:${k++}`, media:cpt.media, reseau:cpt.reseau, compte:c, quand:h(j, hh, j % 2 ? 30 : 0),
+      titre: titres[k % titres.length], url:'', vignette:'', source: c === 'lrdv-li' ? 'file robot' : 'programmé à la main',
+      statut: k % 11 === 0 ? 'à vérifier' : 'programmé' });
+  }
+  entrees.push({ id:'demo:brevo', media:'lrdh', reseau:'brevo', compte:'lrdh-brevo', quand:h(4, 7), titre:'Exemple · newsletter du lundi', url:'', vignette:'', source:'file robot', statut:'à vérifier', note:'démonstration' });
+  return { version:1, maj:h(0, 9), comptes, entrees,
+    robots:{ 'larevue-firestore-lra/larevue_linkedin_queue':{ etat:'illisible', compte:'lra-li' }, 'larevue-auto-dashboard/lrdv_linkedin_queue':{ etat:'lu', lu:h(0, 8), compte:'lrdv-li' } } };
+}
+</script>
+</body>
+</html>
