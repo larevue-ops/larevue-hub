@@ -69,7 +69,7 @@
   #resume { font-family:var(--serif); font-size:clamp(18px, 4.6vw, 24px); font-weight:600; letter-spacing:-0.02em; line-height:1.3; }
   #resume .rouge { color:var(--danger); }
   #resume .ok { color:var(--ok); }
-  #etat { margin-top:6px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; }
+  #etat { margin-top:4px; font-size:11.5px; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; }
   #avert { display:none; margin-top:10px; padding:10px 12px; border-radius:var(--radius-sm); font-size:12px; line-height:1.5; background:var(--warn-bg); color:var(--warn); border:1px solid color-mix(in srgb, var(--warn) 30%, var(--border)); }
 
   /* pastilles */
@@ -79,13 +79,14 @@
   .pas.pub { color:var(--ok); background:color-mix(in srgb, var(--ok) 13%, transparent); }
   .pas.ann { color:var(--muted); background:var(--surface-2); text-decoration:line-through; }
   .pas.passe { color:var(--muted); background:var(--surface-2); }
+  .pas.pret { color:var(--warn); background:var(--warn-bg); border:1px dashed color-mix(in srgb, var(--warn) 50%, transparent); }
   .pas.robot { color:var(--muted); background:var(--surface-2); border:1px solid var(--border); font-weight:600; }
 
   /* filtres */
-  .filtres { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .filtres { display:flex; flex-direction:column; gap:6px; margin-top:12px; }
   .chips { display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
   .chips::-webkit-scrollbar { display:none; }
-  .chip { flex:0 0 auto; border:1px solid var(--border-2); background:var(--surface); color:var(--muted); border-radius:99px; padding:7px 13px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .chip { flex:0 0 auto; border:1px solid var(--border-2); background:var(--surface); color:var(--muted); border-radius:99px; padding:6px 12px; font-size:11.5px; font-weight:600; cursor:pointer; white-space:nowrap; }
   .chip:hover { color:var(--ink); }
   .chip.on { background:var(--ink); color:var(--surface); border-color:var(--ink); }
   .chip .pt { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--pc, var(--gold)); margin-right:6px; vertical-align:middle; }
@@ -154,8 +155,68 @@
   .note { font-size:11.5px; color:var(--muted); line-height:1.55; margin-top:12px; overflow-wrap:anywhere; }
   .note code { font-size:11px; background:var(--surface-2); border:1px solid var(--border); padding:1px 5px; border-radius:5px; }
 
+  /* grille des jours */
+  #gj-sec { margin-top:18px; }
+  .gj-leg { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:var(--ink); }
+  .gj-leg span { display:inline-flex; align-items:center; gap:6px; }
+  .gj-leg .c { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:6px; font-size:12px; }
+  .gj-aide { font-size:11.5px; color:var(--muted); margin:6px 0 10px; }
+  .c.ok, .cs.ok { background:color-mix(in srgb, var(--ok) 15%, var(--surface)); color:var(--ok); }
+  .c.av, .cs.av { background:var(--warn-bg); color:var(--warn); }
+  .c.ko, .cs.ko { background:color-mix(in srgb, var(--danger) 13%, var(--surface)); color:var(--danger); }
+  .c.gr, .cs.gr { background:var(--surface-2); color:var(--faint); }
+  .gj-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:var(--shadow); overscroll-behavior-x:contain; }
+  table.gj { border-collapse:separate; border-spacing:0; font-size:12px; width:100%; }
+  table.gj th, table.gj td { padding:3px; text-align:center; border-bottom:1px solid var(--border); }
+  table.gj thead th { font-size:10.5px; font-weight:700; color:var(--muted); padding:8px 3px 6px; line-height:1.15; white-space:nowrap; background:var(--surface); }
+  table.gj thead th b { display:block; font-size:13px; color:var(--ink); font-family:var(--serif); }
+  table.gj .nom { position:sticky; left:0; z-index:2; background:var(--surface); text-align:left; padding:4px 10px; min-width:150px; max-width:200px; border-right:1px solid var(--border); }
+  table.gj thead .nom { z-index:3; }
+  table.gj td.nom .n1 { display:block; font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  table.gj td.nom .n2 { display:block; font-size:10px; color:var(--muted); white-space:nowrap; }
+  table.gj tr.gm td { background:var(--surface-2); text-align:left; padding:7px 10px; font-family:var(--serif); font-size:13.5px; font-weight:600; }
+  table.gj tr.gm td.nom { border-left:4px solid var(--mc); background:var(--surface-2); }
+  .cs { display:flex; align-items:center; justify-content:center; width:100%; min-width:40px; height:34px; border:0; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; font-family:var(--sans); }
+  .cs:hover { outline:2px solid var(--gold); outline-offset:-2px; }
+  .cs.gr { cursor:default; }
+  table.gj .we { background:color-mix(in srgb, var(--surface-2) 70%, var(--bg)); }
+  table.gj thead th.we { color:var(--faint); }
+  table.gj .we .cs.gr { background:transparent; }
+  table.gj .auj { background:var(--gold-soft); }
+  table.gj thead th.auj { box-shadow:inset 0 3px 0 var(--gold); }
+  table.gj thead th.auj b { color:var(--gold-deep); }
+  table.gj .tot { font-size:12px; font-weight:700; color:var(--ink); min-width:42px; }
+  table.gj th.tot { color:var(--muted); }
+  table.gj td.tot.sep, table.gj th.tot.sep { border-left:1px solid var(--border); }
+  table.gj tfoot td { background:var(--surface-2); font-weight:700; font-size:12px; padding:8px 3px; border-bottom:0; }
+  table.gj tfoot td.nom { background:var(--surface-2); }
+  @media (max-width:640px) { table.gj .nom { min-width:120px; max-width:130px; padding:4px 8px; } .cs { min-width:38px; height:32px; font-size:11.5px; } }
+
+  /* replis */
+  details.pli { margin-top:14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); }
+  details.pli > summary { cursor:pointer; list-style:none; padding:12px 14px; font-family:var(--serif); font-size:16px; font-weight:600; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  details.pli > summary::-webkit-details-marker { display:none; }
+  details.pli > summary::before { content:'▸'; color:var(--gold-deep); font-size:13px; transition:transform .15s; }
+  details.pli[open] > summary::before { transform:rotate(90deg); }
+  details.pli > summary small { font-family:var(--sans); font-size:11px; color:var(--muted); font-weight:500; }
+  details.pli > :not(summary) { margin:0 12px 12px; }
+
+  /* liste d'une case */
+  #liste { position:fixed; inset:0; z-index:65; background:rgba(12,10,6,.55); display:none; align-items:flex-end; justify-content:center; }
+  #liste.on { display:flex; }
+  #liste .box { background:var(--surface); width:100%; max-width:560px; max-height:82vh; overflow:auto; border-radius:var(--radius) var(--radius) 0 0; padding:14px 14px calc(14px + env(safe-area-inset-bottom)); box-shadow:var(--shadow-lg); }
+  @media (min-width:641px) { #liste { align-items:center; padding:16px; } #liste .box { border-radius:var(--radius); } }
+  #liste .lt { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
+  #liste .lt > div { flex:1; min-width:0; }
+  #liste .l1 { font-family:var(--serif); font-size:17px; font-weight:600; }
+  #liste .l2 { font-size:12px; color:var(--muted); margin-top:2px; }
+  #liste .x { background:var(--surface-2); border:1px solid var(--border); width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:15px; flex:0 0 auto; }
+  #liste .its { padding:0; }
+  #liste .it { grid-template-columns:64px minmax(0,1fr); }
+  #liste .it .vg { width:64px; height:64px; }
+
   /* visionneuse */
-  #vis { position:fixed; inset:0; z-index:70; background:rgba(10,8,5,.96); display:none; color:#f4efe6; }
+  #vis { position:fixed; inset:0; z-index:75; background:rgba(10,8,5,.96); display:none; color:#f4efe6; }
   #vis.on { display:flex; flex-direction:column; }
   #vis .barre { display:flex; align-items:center; gap:10px; padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top)); font-size:12.5px; }
   #vis .barre .cpt-n { font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -230,25 +291,40 @@
     <div class="chips" id="freseau" role="group" aria-label="Filtrer par réseau"></div>
   </div>
 
-  <h2 class="sec">Par média et par réseau</h2>
-  <p class="sous">Pour chaque compte : la prochaine publication, combien sont prévues sur 7 jours, et quand la liste a été vérifiée sur le réseau. Touchez une carte pour voir les visuels.</p>
-  <div id="grille"></div>
-  <p class="legendeaide">
-    <b>Vérifié il y a…</b> : dernière fois qu'on a comparé ce planning avec la liste des publications programmées sur le réseau (LinkedIn, Instagram…). Orange après 24 heures, rouge après 72 heures : un changement fait à la main a pu échapper au planning.
-    · <b>À vérifier</b> : publication dont on n'est pas sûr qu'elle partira (programmation non confirmée, jeton expiré, article pas encore en ligne).
-    · <b>Rien de prévu demain</b> : compte qui publie d'habitude, mais rien n'est programmé pour demain.</p>
+  <section id="gj-sec" aria-label="Grille des publications par jour et par compte">
+    <div class="gj-leg">
+      <span><b class="c ok">✓</b> programmé</span>
+      <span><b class="c av">⚠</b> à vérifier ou non programmé</span>
+      <span><b class="c ko">✗</b> rien de prévu</span>
+      <span><b class="c gr"></b> pas de publication attendue</span>
+    </div>
+    <p class="gj-aide">Chaque case = un jour pour un compte. Le chiffre = nombre de publications. Touchez une case pour les voir.</p>
+    <div class="gj-wrap"><table class="gj" id="gj"></table></div>
+  </section>
 
-  <h2 class="sec">Les 7 prochains jours</h2>
-  <p class="sous">Heure de Paris. Touchez une publication pour voir son visuel en grand et sa légende.</p>
-  <div class="cal" id="cal"></div>
+  <details class="pli" id="pli-comptes">
+    <summary>Par compte <small>prochaine publication, volume, dernière vérification</small></summary>
+    <div id="grille"></div>
+    <p class="legendeaide"><b>Vérifié il y a…</b> : dernière comparaison avec la liste programmée sur le réseau (orange après 24 h, rouge après 72 h).
+      · <b>À vérifier</b> : pas sûr que la publication parte. · <b>Prêt</b> : préparé, pas encore programmé.</p>
+  </details>
 
-  <h2 class="sec">D'où viennent ces informations</h2>
-  <p class="sous">Pour chaque compte : qui publie, quand le réseau a été vérifié, quand la file du robot a été lue.</p>
-  <div class="sources" id="sources"></div>
-  <p class="note">Ce planning vit dans un document Firestore privé (<code>app_config/planning</code>), lu en <b>une seule lecture</b> à l'ouverture puis gardé dix minutes sur cet appareil.
-    Il est tenu à jour par <code>tools/planning/planning.py</code> après chaque programmation, par la relecture des files robots et par les relevés décrits dans <code>tools/planning/SYNC.md</code>.
-    Les files robots que ce Mac ne peut pas lire sont complétées par ce que l'accueil du hub a déjà chargé, sans lecture de plus.</p>
+  <details class="pli" id="pli-cal">
+    <summary>Calendrier des 7 prochains jours <small>visuels et légendes</small></summary>
+    <div class="cal" id="cal"></div>
+  </details>
+
+  <details class="pli" id="pli-src">
+    <summary>D'où viennent ces informations <small>qui publie, vérifications, files robots</small></summary>
+    <div class="sources" id="sources"></div>
+    <p class="note">Document Firestore privé <code>app_config/planning</code>, lu en <b>une seule lecture</b> puis gardé dix minutes sur cet appareil.
+      Tenu à jour par <code>tools/planning/planning.py</code> et les relevés de <code>tools/planning/SYNC.md</code>.</p>
+  </details>
 </main>
+
+<div id="liste" role="dialog" aria-modal="true" aria-label="Publications du jour"><div class="box">
+  <div class="lt"><div><div class="l1" id="liste-t"></div><div class="l2" id="liste-s"></div></div><button class="x" id="liste-x" type="button" aria-label="Fermer">✕</button></div>
+  <div class="its" id="liste-its"></div></div></div>
 
 <div id="vis" role="dialog" aria-modal="true" aria-label="Visuel de la publication">
   <div class="barre"><span class="cpt-n" id="vis-cpt"></span><span class="rang" id="vis-rang"></span><button class="x" id="vis-x" type="button" aria-label="Fermer">✕</button></div>
@@ -294,6 +370,7 @@ const AIDE = {
   averifier: "À vérifier : on n'est pas sûr que cette publication partira (programmation non confirmée, jeton expiré, article pas encore en ligne…). La note de la publication dit pourquoi.",
   trou: "Ce compte publie d'habitude ce jour-là, mais rien n'est programmé pour demain.",
   passe: "L'heure est passée. Le réseau a dû publier, mais personne ne l'a revérifié depuis.",
+  pret: "Prêt : visuel et légende préparés, mais la publication n'est pas encore programmée sur le réseau.",
   pastrobot: "Publication enfilée par un robot (file Firestore), pas programmée à la main.",
 };
 
@@ -382,7 +459,9 @@ function entrees() {
   }
   return out;
 }
-const actif = (e) => e.statut === 'programmé' || e.statut === 'à vérifier';
+const actif = (e) => e.statut === 'programmé' || e.statut === 'à vérifier' || e.statut === 'prêt';
+/** Ce qui demande un geste : pas sûr de partir, ou préparé sans être programmé. */
+const douteux = (e) => e.statut === 'à vérifier' || e.statut === 'prêt';
 const passeFiltre = (e) => (filtre.media === 'tous' || e.media === filtre.media) && (filtre.reseau === 'tous' || e.reseau === filtre.reseau);
 /** Petite image : nos WebP de 480 px tels quels ; une image robot Cloudinary réduite. */
 const petite = (u) => {
@@ -409,7 +488,7 @@ function rendre() {
   for (const e of TOUTES) {
     const pc = PAR_COMPTE[e.compte] || (PAR_COMPTE[e.compte] = { id: e.compte, media: e.media, reseau: e.reseau, nom: e.compte, n7: 0, suivantes: [], demain: 0, verif: 0 });
     const d = versDate(e.quand); if (!d || !actif(e)) continue;
-    if (d >= now && d < fin7) { pc.n7++; if (e.statut === 'à vérifier') pc.verif++; }
+    if (d >= now && d < fin7) { pc.n7++; if (douteux(e)) pc.verif++; }
     if (d >= now) pc.suivantes.push(e);
     if (jourParis(d) === demain) pc.demain++;
   }
@@ -420,7 +499,7 @@ function rendre() {
   const trous = Object.values(PAR_COMPTE).filter(trou);
   const auj = TOUTES.filter((e) => actif(e) && jourParis(versDate(e.quand)) === isoJour(0));
   const prochaine = TOUTES.filter((e) => actif(e) && versDate(e.quand) >= now).sort((a, b) => versDate(a.quand) - versDate(b.quand))[0];
-  const nVerif = TOUTES.filter((e) => e.statut === 'à vérifier' && versDate(e.quand) >= now).length;
+  const nVerif = TOUTES.filter((e) => douteux(e) && versDate(e.quand) >= now).length;
   let pr = '';
   if (prochaine) {
     const d = versDate(prochaine.quand);
@@ -428,10 +507,11 @@ function rendre() {
   }
   $('resume').innerHTML = `Aujourd'hui : ${auj.length} publication${auj.length > 1 ? 's' : ''}${esc(pr)}`
     + (trous.length ? ` · <span class="rouge" title="${esc(trous.map((p) => p.nom).join(' · '))}">${trous.length} trou${trous.length > 1 ? 's' : ''} demain</span>` : ' · <span class="ok">aucun trou demain</span>');
-  $('etat').innerHTML = `${nVerif ? `<span class="pas verif" title="${esc(AIDE.averifier)}">${nVerif} à vérifier</span>` : ''}
+  $('etat').innerHTML = `${nVerif ? `<span class="pas verif" title="${esc(AIDE.averifier)}">${nVerif} à vérifier ou non programmée${nVerif > 1 ? 's' : ''}</span>` : ''}
     <span>Planning mis à jour ${esc(depuis(PLAN.maj) || '?')}${DEMO ? ' · <b>données de démonstration</b>' : ''}</span>`;
 
   rendreFiltres();
+  rendreGrilleJours();
 
   // Comptes, groupés par média
   const ordreR = Object.keys(RESEAUX);
@@ -483,6 +563,85 @@ function rendre() {
         ${p.admin ? `<br><a href="${esc(p.admin)}" target="_blank" rel="noopener">Voir les programmations sur le réseau ↗</a>` : ''}</div>`;
     }).join('');
 }
+// ─── La grille : une ligne par compte, une colonne par jour sur 14 jours ────
+const NB_JOURS = 14;
+function etatCase(p, j, items) {
+  const vivants = items.filter((e) => e.statut !== 'annulé');
+  const n = vivants.length, nd = vivants.filter(douteux).length;
+  if (nd) return { cl: 'av', txt: `⚠ ${n}`, aide: `${n - nd} programmée${n - nd > 1 ? 's' : ''}, ${nd} à vérifier ou non programmée${nd > 1 ? 's' : ''}` };
+  if (n) return { cl: 'ok', txt: `✓ ${n}`, aide: `${n} programmée${n > 1 ? 's' : ''}` };
+  if (p.habituel && (p.jours || [1,2,3,4,5,6,7]).includes(jourSemaine(j))) return { cl: 'ko', txt: '✗', aide: "Rien de prévu, alors que ce compte publie d'habitude ce jour-là" };
+  return { cl: 'gr', txt: '', aide: 'Pas de publication attendue' };
+}
+function rendreGrilleJours() {
+  const jours = Array.from({ length: NB_JOURS }, (_, i) => isoJour(i));
+  const ordreR = Object.keys(RESEAUX);
+  const parCase = {};                       // compte|jour → entrées
+  for (const e of TOUTES) {
+    if (e.statut === 'annulé') continue;
+    const k = e.compte + '|' + jourParis(versDate(e.quand));
+    (parCase[k] = parCase[k] || []).push(e);
+  }
+  for (const v of Object.values(parCase)) v.sort((a, b) => versDate(a.quand) - versDate(b.quand));
+  const totJour = jours.map(() => 0);
+  let t7 = 0, t14 = 0;
+  const tete = `<thead><tr><th class="nom">Compte</th>${jours.map((j, i) => {
+    const d = new Date(j + 'T12:00:00Z'), js = jourSemaine(j);
+    return `<th class="${i === 0 ? 'auj' : ''}${js >= 6 ? ' we' : ''}" title="${esc(maj1(fmt(d, { weekday:'long', day:'numeric', month:'long' })))}">${esc(fmt(d, { weekday:'short' }))}<b>${esc(fmt(d, { day:'numeric' }))}</b></th>`;
+  }).join('')}<th class="tot sep" title="Publications sur 7 jours">7 j</th><th class="tot" title="Publications sur 14 jours">14 j</th></tr></thead>`;
+  let corps = '';
+  for (const m of Object.keys(MEDIAS)) {
+    if (filtre.media !== 'tous' && filtre.media !== m) continue;
+    const cs = Object.values(PAR_COMPTE).filter((p) => p.media === m && (filtre.reseau === 'tous' || p.reseau === filtre.reseau))
+      .sort((a, b) => (b.habituel - a.habituel) || ordreR.indexOf(a.reseau) - ordreR.indexOf(b.reseau) || String(a.nom).localeCompare(String(b.nom)));
+    if (!cs.length) continue;
+    corps += `<tr class="gm" style="--mc:${MEDIAS[m].c}"><td class="nom">${esc(MEDIAS[m].nom)}</td><td colspan="${NB_JOURS + 2}"></td></tr>`;
+    for (const p of cs) {
+      const r = RESEAUX[p.reseau] || { ico:'•', nom:p.reseau };
+      let n7 = 0, n14 = 0;
+      const cases = jours.map((j, i) => {
+        const items = parCase[p.id + '|' + j] || [];
+        const n = items.length; n14 += n; if (i < 7) n7 += n; totJour[i] += n;
+        const ec = etatCase(p, j, items);
+        const cls = `${i === 0 ? 'auj' : ''}${jourSemaine(j) >= 6 ? ' we' : ''}`;
+        return `<td class="${cls}"><button type="button" class="cs ${ec.cl}" data-c="${esc(p.id)}" data-j="${j}" title="${esc(nomCourt(p))} · ${esc(fmt(new Date(j + 'T12:00:00Z'), { weekday:'short', day:'numeric', month:'short' }))} · ${esc(ec.aide)}" ${ec.cl === 'gr' ? 'tabindex="-1"' : ''}>${ec.txt}</button></td>`;
+      }).join('');
+      t7 += n7; t14 += n14;
+      corps += `<tr><td class="nom" title="${esc(p.nom)} · ${esc(p.qui || '')}"><span class="n1">${r.ico} ${esc(nomCourt(p))}</span><span class="n2">${esc(r.nom)}</span></td>${cases}<td class="tot sep">${n7}</td><td class="tot">${n14}</td></tr>`;
+    }
+  }
+  const pied = `<tfoot><tr><td class="nom">Total du jour</td>${totJour.map((n, i) => `<td class="${i === 0 ? 'auj' : ''}${jourSemaine(jours[i]) >= 6 ? ' we' : ''}">${n}</td>`).join('')}<td class="tot sep">${t7}</td><td class="tot">${t14}</td></tr></tfoot>`;
+  $('gj').innerHTML = corps ? tete + `<tbody>${corps}</tbody>` + pied : '<tbody><tr><td class="rien">Aucun compte pour ce filtre.</td></tr></tbody>';
+  $('gj').querySelectorAll('.cs[data-c]').forEach((b) => b.onclick = () => {
+    if (b.classList.contains('gr')) return;
+    ouvrirListe(b.dataset.c, b.dataset.j, parCase[b.dataset.c + '|' + b.dataset.j] || []);
+  });
+}
+function ouvrirListe(cid, j, items) {
+  const p = PAR_COMPTE[cid] || {}, r = RESEAUX[p.reseau] || { ico:'•', nom:p.reseau };
+  const d = new Date(j + 'T12:00:00Z');
+  $('liste-t').textContent = `${r.ico} ${nomCourt(p)}`;
+  const nd = items.filter(douteux).length;
+  $('liste-s').textContent = `${maj1(fmt(d, { weekday:'long', day:'numeric', month:'long' }))} · ${items.length} publication${items.length > 1 ? 's' : ''}${nd ? ` dont ${nd} à vérifier ou non programmée${nd > 1 ? 's' : ''}` : ''}`;
+  $('liste-its').innerHTML = items.map((e, i) => carteCal(e, i)).join('')
+    || `<div class="rien">Rien de prévu ce jour-là.${p.admin ? ` <a href="${esc(p.admin)}" target="_blank" rel="noopener">Voir les programmations du compte ↗</a>` : ''}</div>`;
+  $('liste-its').querySelectorAll('[data-i]').forEach((b) => b.onclick = () => ouvrirVis(items, Number(b.dataset.i)));
+  $('liste').classList.add('on');
+  $('liste-x').focus();
+}
+function fermerListe() { $('liste').classList.remove('on'); }
+$('liste-x').onclick = fermerListe;
+$('liste').addEventListener('click', (ev) => { if (ev.target.id === 'liste') fermerListe(); });
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && $('liste').classList.contains('on') && !$('vis').classList.contains('on')) fermerListe();
+});
+// Les replis gardent leur état d'une visite à l'autre.
+for (const det of document.querySelectorAll('details.pli')) {
+  const k = 'hub:planning:pli:' + det.id;
+  try { if (localStorage.getItem(k) === '1') det.open = true; } catch {}
+  det.addEventListener('toggle', () => { try { localStorage.setItem(k, det.open ? '1' : '0'); } catch {} });
+}
+
 function depuisCache(src) {
   const c = CACHES_HUB.find((x) => x.src === src); if (!c) return '';
   const t = Number(localStorage.getItem('hub:t:' + c.cle)) || 0;
@@ -513,6 +672,7 @@ function carteCompte(p, estTrou) {
 function pastille(e) {
   const passe = versDate(e.quand) < Date.now();
   if (e.statut === 'à vérifier') return `<span class="pas verif" title="${esc(AIDE.averifier)}">à vérifier</span>`;
+  if (e.statut === 'prêt') return `<span class="pas pret" title="${esc(AIDE.pret)}">prêt, pas encore programmé</span>`;
   if (e.statut === 'publié') return '<span class="pas pub">publié</span>';
   if (e.statut === 'annulé') return '<span class="pas ann">annulé</span>';
   if (passe) return `<span class="pas passe" title="${esc(AIDE.passe)}">parti, non revérifié</span>`;
@@ -696,7 +856,7 @@ function demo() {
     entrees.push({ id:`demo:${k++}`, media:cpt.media, reseau:cpt.reseau, compte:c, quand:h(j, hh, j % 2 ? 30 : 0),
       titre: t, url:'', vignette: v, visuel: v, source: c === 'lrdv-li' ? 'file robot' : 'programmé à la main',
       legende: `📲 L'article ici : https://exemple.invalid/article-${k}\n${t} : légende de démonstration.\n\n✨ Un premier point\n🛏️ Un deuxième point\n\n#LaRevueDesHotels #Exemple`,
-      statut: doute ? 'à vérifier' : 'programmé', ...(doute ? { note: 'Exemple de note : programmation non confirmée.' } : {}) });
+      statut: doute ? 'à vérifier' : (c === 'lrdh-li-en' && j === 3 ? 'prêt' : 'programmé'), ...(doute ? { note: 'Exemple de note : programmation non confirmée.' } : {}) });
   }
   entrees.push({ id:'demo:brevo', media:'lrdh', reseau:'brevo', compte:'lrdh-brevo', quand:h(4, 7), titre:'Exemple · newsletter du lundi', url:'', vignette:'', source:'file robot', statut:'à vérifier', note:'démonstration' });
   return { version:1, maj:h(0, 9), comptes, entrees,
