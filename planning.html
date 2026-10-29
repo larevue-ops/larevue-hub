@@ -396,7 +396,7 @@ const maj1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 /** « 9 h », « 12 h 30 » */
 function heure(d) {
   const [h, m] = fmt(d, { hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).split(':');
-  return `${Number(h)} h${m === '00' ? '' : ' ' + m}`;
+  return `${Number(h)}\u00a0h${m === '00' ? '' : '\u00a0' + m}`;   // espaces insécables : « 17 h » ne se coupe pas
 }
 /** « Aujourd'hui », « Demain », « Hier », « Sam. 31 oct. » */
 function jourDit(d) {
