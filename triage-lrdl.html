@@ -87,7 +87,14 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https:/
 //      compte que sur le hub ; Authentication › Paramètres › Domaines autorisés : larevue-ops.github.io ;
 //   3. déployer les règles (news_drafts_auto lisible une fois connecté) ;
 //   4. coller ci-dessous la config Web donnée à l'étape 1 (elle est publique par nature).
-const LRDL_CFG = null;
+const LRDL_CFG = {
+  apiKey: 'AIzaSyBIQ95BJVQefcOpDqHpmE78qpR0i7PLbmg',
+  authDomain: 'la-revue-du-luxe.firebaseapp.com',
+  projectId: 'la-revue-du-luxe',
+  storageBucket: 'la-revue-du-luxe.firebasestorage.app',
+  messagingSenderId: '678236163136',
+  appId: '1:678236163136:web:2d8814ae790c39cfd1e3a5',
+};
 if (!LRDL_CFG) {
   document.querySelector('#gate .box').innerHTML = `<div class="logo">RL</div><h2>Tri LRDL · branchement en attente</h2>
     <p style="color:#6b7280;line-height:1.5">Les brouillons LRDL sont sur le projet Firebase <code>la-revue-du-luxe</code> depuis le 20/10.
