@@ -71,7 +71,7 @@
     <div class="tots" id="tots"></div>
   </div>
   <div id="days"></div>
-  <p class="foot">Données en direct depuis Firestore (collection <code>news_drafts_auto</code>) · scraper La Revue du Luxe.</p>
+  <p class="foot">Données en direct depuis Firestore (projet <code>la-revue-du-luxe</code>, collection <code>news_drafts_auto</code>) · scraper La Revue du Luxe.</p>
 </main>
 
 <script type="module">
@@ -79,14 +79,22 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getFirestore, collection, query, orderBy, limit, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-const app = initializeApp({
-  apiKey: 'AIzaSyABF1kdT3IKZQfnLwzlCDWiJb5lezZ0_sA',
-  authDomain: 'larevue-auto-dashboard.firebaseapp.com',
-  projectId: 'larevue-auto-dashboard',
-  storageBucket: 'larevue-auto-dashboard.firebasestorage.app',
-  messagingSenderId: '1064950692754',
-  appId: '1:1064950692754:web:4127b04a4e7162d36d1f4b',
-});
+// ─── La Revue du Luxe vit sur son projet Firebase dédié `la-revue-du-luxe` depuis le 20/10/2026 ───
+// L'ancien projet `larevue-auto-dashboard` ne reçoit plus aucun brouillon LRDL : le lire
+// affichait « 0 articles ». Pour brancher la page (console Firebase du projet la-revue-du-luxe) :
+//   1. Paramètres du projet › Vos applications › ajouter une appli Web (sans Hosting) ;
+//   2. Authentication › Sign-in method › activer E-mail/Mot de passe, puis créer le MÊME
+//      compte que sur le hub ; Authentication › Paramètres › Domaines autorisés : larevue-ops.github.io ;
+//   3. déployer les règles (news_drafts_auto lisible une fois connecté) ;
+//   4. coller ci-dessous la config Web donnée à l'étape 1 (elle est publique par nature).
+const LRDL_CFG = null;
+if (!LRDL_CFG) {
+  document.querySelector('#gate .box').innerHTML = `<div class="logo">RL</div><h2>Tri LRDL · branchement en attente</h2>
+    <p style="color:#6b7280;line-height:1.5">Les brouillons LRDL sont sur le projet Firebase <code>la-revue-du-luxe</code> depuis le 20/10.
+    La page n'y est pas encore reliée : coller sa config Web (<code>LRDL_CFG</code> dans triage-lrdl.html).</p>`;
+  throw new Error('triage-lrdl : config Web du projet la-revue-du-luxe à coller dans LRDL_CFG');
+}
+const app = initializeApp(LRDL_CFG);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
